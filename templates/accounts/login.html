@@ -1,0 +1,158 @@
+{% extends "accounts/auth_base.html" %}
+{% block title %}Entrar | ITAM System{% endblock %}
+{% block content %}
+<div class="auth-grid">
+  <section class="auth-hero panel-surface">
+    <div class="eyebrow">Centro de operações ITAM</div>
+    <h1 class="auth-title">Gestão inteligente de ativos de TI</h1>
+    <p class="auth-text">
+      Controle completo sobre equipamentos, chamados técnicos, estoque e permissões em uma única plataforma enterprise.
+    </p>
+
+    <div class="auth-chip-row">
+      <span class="status-pill"><i class="fa-solid fa-laptop"></i> Equipamentos</span>
+      <span class="status-pill"><i class="fa-solid fa-ticket"></i> Chamados</span>
+      <span class="status-pill"><i class="fa-solid fa-box"></i> Estoque</span>
+      <span class="status-pill"><i class="fa-solid fa-sparkles"></i> IA</span>
+    </div>
+
+    <div class="auth-metrics">
+      <article class="mini-card">
+        <span class="mini-label"><i class="fa-solid fa-laptop me-1"></i> Equipamentos</span>
+        <strong>Catálogo completo</strong>
+        <p>Rastreie todos os ativos, localizações, estados e responsáveis em tempo real.</p>
+      </article>
+      <article class="mini-card">
+        <span class="mini-label"><i class="fa-solid fa-headset me-1"></i> Chamados</span>
+        <strong>Suporte integrado</strong>
+        <p>Crie, acompanhe e resolva tickets com histórico completo e rastreabilidade.</p>
+      </article>
+      <article class="mini-card">
+        <span class="mini-label"><i class="fa-solid fa-chart-line me-1"></i> Relatórios</span>
+        <strong>Análise de dados</strong>
+        <p>Dashboards intuitivos com métricas de equipamentos, chamados e operações.</p>
+      </article>
+      <article class="mini-card">
+        <span class="mini-label"><i class="fa-solid fa-user-shield me-1"></i> Governança</span>
+        <strong>Controle de acesso</strong>
+        <p>Permissões por perfil com rastreamento de todas as ações no sistema.</p>
+      </article>
+    </div>
+
+    <div class="auth-callout">
+      <div class="auth-callout-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div>
+        <strong>Enterprise Security</strong>
+        <p class="mb-0">Autenticação por matrícula, auditoria completa de operações e permissões granulares por perfil.</p>
+      </div>
+    </div>
+
+    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; text-align: center;">
+      <div>
+        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">∞</div>
+        <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Equipamentos rastreados</div>
+      </div>
+      <div>
+        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">24/7</div>
+        <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Disponibilidade do sistema</div>
+      </div>
+      <div>
+        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">100%</div>
+        <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Rastreabilidade</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="auth-stack">
+    <article class="auth-card">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <div class="section-kicker">Acesso operacional</div>
+          <h2 class="auth-card-title mb-1">Entrar no sistema</h2>
+          <p class="auth-card-subtitle mb-0">Use sua matrícula e a senha definida pelo administrador.</p>
+        </div>
+        <span class="auth-badge">Seguro</span>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="login">
+        {% include "includes/form.html" with form=form %}
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+          <i class="fa-solid fa-right-to-bracket me-2"></i>Entrar
+        </button>
+      </form>
+
+      <div class="auth-card-note">
+        <i class="fa-solid fa-info-circle"></i>
+        Credenciais seguras: matrícula + senha com autenticação em dois fatores em breve.
+      </div>
+
+      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
+        <div>
+          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <span>Controle centralizado</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <span>Auditoria completa</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <span>Sem burocracia</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <span>Rápido e seguro</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="auth-card auth-card-soft">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <div class="section-kicker">Novo usuário</div>
+          <h2 class="auth-card-title mb-1">Solicitar acesso</h2>
+          <p class="auth-card-subtitle mb-0">Preencha seus dados e enviaremos uma senha temporária após aprovação.</p>
+        </div>
+        <span class="auth-badge auth-badge-soft">Leve</span>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="solicitante">
+        {% include "includes/form.html" with form=request_form %}
+        <button type="submit" class="btn btn-outline-primary btn-lg w-100">
+          <i class="fa-solid fa-user-plus me-2"></i>Solicitar acesso
+        </button>
+      </form>
+
+      <div class="auth-card-note">
+        <i class="fa-solid fa-circle-info"></i>
+        Sua solicitação será analisada pelo administrador. Você receberá a senha por email.
+      </div>
+
+      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
+        <div>
+          <i class="fa-solid fa-envelope me-2" style="color: var(--color-info);"></i>
+          <span>Notificação por email</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-clock me-2" style="color: var(--color-info);"></i>
+          <span>Aprovação rápida</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-shield-halved me-2" style="color: var(--color-info);"></i>
+          <span>Senha segura</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-headset me-2" style="color: var(--color-info);"></i>
+          <span>Suporte disponível</span>
+        </div>
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}

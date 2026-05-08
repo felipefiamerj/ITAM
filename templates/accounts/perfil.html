@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Perfil | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div class="d-flex align-items-center gap-3">
+      <div class="profile-avatar">{{ usuario.matricula|slice:":2"|upper }}</div>
+      <div>
+        <div class="hero-kicker"><i class="fa-regular fa-id-badge"></i> Perfil do usuário</div>
+        <h1 class="hero-title mb-1">{{ usuario.nome_completo }}</h1>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="status-pill status-pill-dark">{{ usuario.get_nivel_acesso_display }}</span>
+          <span class="status-pill status-pill-dark">{{ usuario.matricula }}</span>
+          {% if usuario.ativo %}
+            <span class="status-pill status-pill-dark">Ativo</span>
+          {% else %}
+            <span class="status-pill status-pill-dark">Inativo</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if request.user.is_admin %}
+        <a class="btn btn-light" href="{% url 'editar_usuario' usuario.pk %}">
+          <i class="fa-solid fa-pen-to-square me-1"></i>Editar
+        </a>
+      {% endif %}
+      <a class="btn btn-outline-light" href="{% url 'lista_usuarios' %}">
+        <i class="fa-solid fa-arrow-left me-1"></i>Voltar
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Dados principais</div>
+        <ul class="list-unstyled mb-0">
+          <li class="mb-3"><strong>E-mail:</strong> {{ usuario.email|default:"-" }}</li>
+          <li class="mb-3"><strong>Site:</strong> {{ usuario.site|default:"-" }}</li>
+          <li class="mb-3"><strong>Setor:</strong> {{ usuario.setor|default:"-" }}</li>
+          <li class="mb-3"><strong>Andar/Sala:</strong> {{ usuario.andar_sala|default:"-" }}</li>
+          <li class="mb-3"><strong>Contato:</strong> {{ usuario.contato|default:"-" }}</li>
+          <li class="mb-0"><strong>Gestor:</strong> {{ usuario.gestor.nome_completo|default:"-" }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card app-card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Patrimônio vinculado</div>
+            <h2 class="h5 mb-0">Equipamentos em uso</h2>
+          </div>
+          <span class="badge badge-soft">{{ equipamentos|length }} itens</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Patrimônio</th>
+                <th>Tipo</th>
+                <th>Marca</th>
+                <th>Modelo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for equipamento in equipamentos %}
+                <tr>
+                  <td><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></td>
+                  <td>{{ equipamento.tipo_display }}</td>
+                  <td>{{ equipamento.marca|default:"-" }}</td>
+                  <td>{{ equipamento.modelo|default:"-" }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="text-muted">Nenhum equipamento em uso.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Atividade</div>
+            <h2 class="h5 mb-0">Chamados recentes</h2>
+          </div>
+          <span class="badge badge-soft">{{ historico|length }} registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Status</th>
+                <th>Prioridade</th>
+                <th>Atualizado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for chamado in historico %}
+                <tr>
+                  <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
+                  <td>{{ chamado.get_status_display }}</td>
+                  <td>{{ chamado.get_prioridade_display }}</td>
+                  <td>{{ chamado.updated_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="text-muted">Nenhum chamado encontrado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

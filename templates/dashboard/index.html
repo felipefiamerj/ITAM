@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap position-relative">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-chart-line"></i> Visão executiva</div>
+      <h1 class="hero-title mb-2">Operação centralizada para ativos, chamados e governança.</h1>
+      <p class="hero-text mb-0">
+        Aqui você acompanha o parque, as solicitações pendentes, os chamados críticos e os pontos que pedem ação imediata do time.
+      </p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-box"></i> Inventário</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-headset"></i> Suporte</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-user-shield"></i> Aprovações</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'equipamentos' %}" class="btn btn-light">
+        <i class="fa-solid fa-boxes-stacked me-1"></i>Equipamentos
+      </a>
+      <a href="{% url 'chamados' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-ticket-simple me-1"></i>Chamados
+      </a>
+      {% if request.user.is_admin %}
+        <a href="{% url 'usuarios_pendentes' %}" class="btn btn-outline-light">
+          <i class="fa-solid fa-user-clock me-1"></i>Aprovações
+          {% if usuarios_pendentes %}
+            <span class="badge rounded-pill text-bg-light text-dark ms-1">{{ usuarios_pendentes }}</span>
+          {% endif %}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Total de equipamentos</div>
+      <div class="value">{{ total_equipamentos }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Em uso</div>
+      <div class="value">{{ equipamentos_em_uso }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Em estoque</div>
+      <div class="value">{{ equipamentos_em_estoque }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Em manutenção</div>
+      <div class="value">{{ equipamentos_em_manutencao }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Chamados abertos</div>
+      <div class="value">{{ chamados_abertos }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Chamados críticos</div>
+      <div class="value">{{ chamados_criticos }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Aprovações pendentes</div>
+      <div class="value">{{ usuarios_pendentes }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Alertas IA</div>
+      <div class="value">{{ equipamentos_alerta }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Fila de trabalho</div>
+            <h2 class="h5 mb-0">Chamados recentes</h2>
+          </div>
+          <a href="{% url 'chamados' %}" class="small">Ver todos</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Status</th>
+                <th>Responsável</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for chamado in chamados_recentes %}
+                <tr>
+                  <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
+                  <td>{{ chamado.get_status_display }}</td>
+                  <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3" class="text-muted py-3">Nenhum chamado recente.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Inventário</div>
+            <h2 class="h5 mb-0">Equipamentos recentes</h2>
+          </div>
+          <a href="{% url 'equipamentos' %}" class="small">Ver todos</a>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for equipamento in equipamentos_recentes %}
+            <a class="list-group-item list-group-item-action" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">
+              <div class="d-flex justify-content-between align-items-center gap-2">
+                <strong>{{ equipamento.id_patrimonio }}</strong>
+                <span class="badge badge-soft">{{ equipamento.get_status_display }}</span>
+              </div>
+              <div class="small text-muted">{{ equipamento.tipo_display }} · {{ equipamento.marca|default:"-" }} {{ equipamento.modelo|default:"" }}</div>
+            </a>
+          {% empty %}
+            <div class="text-muted">Nenhum equipamento cadastrado.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Governança</div>
+            <h2 class="h5 mb-0">Usuários pendentes</h2>
+          </div>
+          <a href="{% url 'usuarios_pendentes' %}" class="small">Abrir fila</a>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for usuario in usuarios_pendentes_recentes %}
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <strong>{{ usuario.nome_completo }}</strong>
+                  <div class="small text-muted">{{ usuario.matricula }} · {{ usuario.setor|default:"Sem setor" }}</div>
+                  <div class="small text-muted">Solicitado em {{ usuario.created_at|date:"d/m/Y H:i" }}</div>
+                </div>
+                <span class="badge text-bg-warning">Pendente</span>
+              </div>
+              <div class="d-flex gap-2 flex-wrap mt-3">
+                <a class="btn btn-sm btn-primary" href="{% url 'aprovar_usuario' usuario.pk %}">Aprovar</a>
+                <a class="btn btn-sm btn-outline-danger" href="{% url 'reprovar_usuario' usuario.pk %}">Reprovar</a>
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted">Nenhuma solicitação pendente agora.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Auditoria</div>
+            <h2 class="h5 mb-0">Atividade recente</h2>
+          </div>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for entry in atividade_recente %}
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ entry.object_repr }}</strong>
+                  <div class="small text-muted">
+                    {% if entry.actor %}
+                      {{ entry.actor.nome_completo }}
+                    {% else %}
+                      Sistema
+                    {% endif %}
+                    · {{ entry.content_type.model|title }}
+                  </div>
+                </div>
+                <span class="badge badge-soft">{{ entry.get_action_display }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ entry.timestamp|date:"d/m/Y H:i" }}</div>
+            </div>
+          {% empty %}
+            <div class="text-muted">Sem atividade registrada ainda.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Monitoramento IA | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-brain"></i> Monitoramento preditivo</div>
+      <h1 class="hero-title mb-2">Indicadores automáticos de saúde dos equipamentos.</h1>
+      <p class="hero-text mb-0">Use os scores para antecipar manutenção, priorizar inspeções e reduzir indisponibilidade.</p>
+    </div>
+    <a class="btn btn-light btn-lg" href="?recalcular=1">
+      <i class="fa-solid fa-rotate me-1"></i>Recalcular scores
+    </a>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Total</div><div class="value">{{ total }}</div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Saudáveis</div><div class="value">{{ saudaveis }}</div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Alerta</div><div class="value">{{ alerta }}</div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Críticos</div><div class="value">{{ criticos }}</div></div>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="card-body">
+    <div class="section-kicker mb-2">Menores scores</div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Patrimônio</th>
+            <th>Tipo</th>
+            <th>Score</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for equipamento in equipamentos_alerta %}
+            <tr>
+              <td><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></td>
+              <td>{{ equipamento.tipo_display }}</td>
+              <td>{{ equipamento.score_saude|floatformat:0 }}</td>
+              <td>{{ equipamento.get_status_display }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-muted">Nenhum equipamento encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

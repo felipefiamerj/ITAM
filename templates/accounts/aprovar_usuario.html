@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Aprovar usuário | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-user-check"></i> Aprovação de acesso</div>
+      <h1 class="hero-title mb-2">{{ usuario.nome_completo }}</h1>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="status-pill status-pill-dark">{{ usuario.matricula }}</span>
+        <span class="status-pill status-pill-dark">{{ usuario.site|default:"Sem site" }}</span>
+        <span class="status-pill status-pill-dark">{{ usuario.setor|default:"Sem setor" }}</span>
+      </div>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'usuarios_pendentes' %}">
+      <i class="fa-solid fa-arrow-left me-1"></i>Voltar
+    </a>
+  </div>
+</section>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card app-card">
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include "includes/form.html" with form=form %}
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-primary btn-lg" type="submit">Liberar conta</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'usuarios_pendentes' %}">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card app-card mb-4">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Resumo</div>
+        <ul class="list-unstyled mb-0">
+          <li class="mb-3"><strong>Solicitado em:</strong> {{ usuario.created_at|date:"d/m/Y H:i" }}</li>
+          <li class="mb-3"><strong>Gestor:</strong> {{ usuario.gestor.nome_completo|default:"-" }}</li>
+          <li class="mb-3"><strong>Contato:</strong> {{ usuario.contato|default:"-" }}</li>
+          <li class="mb-3"><strong>E-mail:</strong> {{ usuario.email|default:"-" }}</li>
+          <li class="mb-0"><strong>Status:</strong> {{ usuario.status_acesso }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Boas práticas</div>
+        <ul class="mb-0 ps-3 text-muted">
+          <li>Escolha o nível de acesso correto antes de liberar.</li>
+          <li>Use a senha temporária gerada pelo sistema ou defina uma manualmente.</li>
+          <li>Deixe a troca de senha no primeiro acesso ativada para manter segurança.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

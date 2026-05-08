@@ -1,0 +1,55 @@
+{% extends "accounts/auth_base.html" %}
+{% block title %}Trocar senha | ITAM System{% endblock %}
+{% block content %}
+<div class="auth-grid">
+  <section class="auth-hero panel-surface">
+    <div class="eyebrow">Primeiro acesso</div>
+    <h1 class="auth-title">Troque sua senha temporária</h1>
+    <p class="auth-text">
+      Para sua segurança, você precisa alterar a senha temporária fornecida pelo administrador antes de continuar.
+    </p>
+    <div class="auth-callout">
+      <div class="auth-callout-icon">
+        <i class="fa-solid fa-key"></i>
+      </div>
+      <div>
+        <strong>Segurança em primeiro lugar.</strong>
+        <p class="mb-0">Use uma senha exclusiva e de preferência com letras, números e símbolos.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="auth-stack">
+    <article class="auth-card">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <div class="section-kicker">Atualização de acesso</div>
+          <h2 class="auth-card-title mb-1">
+            Olá,
+            {% if usuario.first_name %}
+              {{ usuario.first_name }}
+            {% else %}
+              {{ usuario.matricula }}
+            {% endif %}
+          </h2>
+          <p class="auth-card-subtitle mb-0">Digite sua nova senha para liberar o acesso ao painel.</p>
+        </div>
+        <span class="auth-badge">Obrigatório</span>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "includes/form.html" with form=form %}
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+          <i class="fa-solid fa-lock me-2"></i>Alterar senha
+        </button>
+      </form>
+
+      <div class="auth-card-note">
+        <i class="fa-solid fa-info-circle"></i>
+        Após a troca, você será redirecionado ao painel com o acesso liberado.
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}

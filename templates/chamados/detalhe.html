@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ chamado.titulo }} | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-ticket"></i> Chamado #{{ chamado.pk }}</div>
+      <h1 class="hero-title mb-2">{{ chamado.titulo }}</h1>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="status-pill status-pill-dark">{{ chamado.get_status_display }}</span>
+        <span class="status-pill status-pill-dark">{{ chamado.get_prioridade_display }}</span>
+        {% if chamado.equipamento %}
+          <span class="status-pill status-pill-dark">{{ chamado.equipamento.id_patrimonio }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% if request.user.is_admin or request.user.is_analista or request.user.is_tecnico or chamado.solicitante_id == request.user.id %}
+      <a class="btn btn-light btn-lg" href="{% url 'editar_chamado' chamado.pk %}">
+        <i class="fa-solid fa-pen-to-square me-1"></i>Editar
+      </a>
+    {% endif %}
+  </div>
+</section>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Descrição</div>
+        <p class="mb-0">{{ chamado.descricao|linebreaksbr }}</p>
+        {% if chamado.solucao %}
+          <hr>
+          <div class="section-kicker mb-2">Solução</div>
+          <p class="mb-0">{{ chamado.solucao|linebreaksbr }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Detalhes</div>
+        <ul class="list-unstyled mb-0">
+          <li class="mb-2"><strong>Solicitante:</strong> {{ chamado.solicitante.nome_completo }}</li>
+          <li class="mb-2"><strong>Responsável:</strong> {{ chamado.responsavel.nome_completo|default:"-" }}</li>
+          <li class="mb-2"><strong>Prioridade:</strong> {{ chamado.get_prioridade_display }}</li>
+          <li class="mb-2"><strong>Status:</strong> {{ chamado.get_status_display }}</li>
+          <li class="mb-2">
+            <strong>Equipamento:</strong>
+            {% if chamado.equipamento %}
+              <a href="{% url 'detalhe_equipamento' chamado.equipamento.id_patrimonio %}">{{ chamado.equipamento.id_patrimonio }}</a>
+            {% else %}
+              -
+            {% endif %}
+          </li>
+          <li class="mb-2"><strong>Criado em:</strong> {{ chamado.created_at|date:"d/m/Y H:i" }}</li>
+          <li class="mb-0"><strong>Atualizado em:</strong> {{ chamado.updated_at|date:"d/m/Y H:i" }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

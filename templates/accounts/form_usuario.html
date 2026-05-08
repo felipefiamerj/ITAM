@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-user-gear"></i> Cadastro operacional</div>
+      <h1 class="hero-title mb-2">{{ title }}</h1>
+      <p class="hero-text mb-0">
+        Ajuste os dados do usuário, defina o nível de acesso e mantenha a trilha de quem realmente mexe no sistema.
+      </p>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'lista_usuarios' %}">
+      <i class="fa-solid fa-arrow-left me-1"></i>Voltar
+    </a>
+  </div>
+</section>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card app-card">
+      <div class="card-body p-4">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% include "includes/form.html" with form=form %}
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-primary btn-lg" type="submit">Salvar</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'lista_usuarios' %}">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card app-card mb-4">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Guia rápido</div>
+        <h2 class="h5 mb-3">Como o acesso funciona</h2>
+        <div class="timeline">
+          <div class="timeline-item">
+            <span class="timeline-dot"></span>
+            <div>
+              <strong>Solicitante</strong>
+              <p class="mb-0 text-muted">Cadastro mínimo, sem senha, para identificação básica.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <span class="timeline-dot"></span>
+            <div>
+              <strong>Técnico</strong>
+              <p class="mb-0 text-muted">Pode movimentar patrimônio, atuar em chamados e atualizar status.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <span class="timeline-dot"></span>
+            <div>
+              <strong>Analista</strong>
+              <p class="mb-0 text-muted">Governa o fluxo e acompanha a operação com visão ampliada.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <span class="timeline-dot"></span>
+            <div>
+              <strong>Administrador</strong>
+              <p class="mb-0 text-muted">Controla perfis, contas e regras centrais do sistema.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Boas práticas</div>
+        <ul class="mb-0 ps-3 text-muted">
+          <li>Use a matrícula como identificador único.</li>
+          <li>Desative o usuário para bloquear o acesso imediatamente.</li>
+          <li>Preencha gestor, setor e site para facilitar o suporte.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

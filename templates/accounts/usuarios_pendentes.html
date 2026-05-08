@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Aprovações | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-user-clock"></i> Fila de aprovação</div>
+      <h1 class="hero-title mb-2">Solicitações aguardando liberação.</h1>
+      <p class="hero-text mb-0">
+        Aqui você controla quem entrou com nome e matrícula e decide o nível de acesso antes de liberar a conta operacional.
+      </p>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'lista_usuarios' %}">
+      <i class="fa-solid fa-users-gear me-1"></i>Ver usuários
+    </a>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="app-stat h-100">
+      <div class="label">Pendências</div>
+      <div class="value">{{ stats.pendentes }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="app-stat h-100">
+      <div class="label">Com gestor</div>
+      <div class="value">{{ stats.com_gestor }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="app-stat h-100">
+      <div class="label">Sem gestor</div>
+      <div class="value">{{ stats.sem_gestor }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-3 align-items-end" method="get">
+      <div class="col-md-8">
+        <label class="form-label" for="q">Buscar</label>
+        <input class="form-control" type="text" name="q" id="q" value="{{ q }}" placeholder="Matrícula, nome, setor ou gestor">
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Matrícula</th>
+          <th>Nome</th>
+          <th>Lotação</th>
+          <th>Solicitado em</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for usuario in page_obj %}
+          <tr>
+            <td class="fw-semibold">{{ usuario.matricula }}</td>
+            <td>
+              <div class="fw-semibold">{{ usuario.nome_completo }}</div>
+              <div class="small text-muted">Solicitante mínimo</div>
+            </td>
+            <td>
+              <div>{{ usuario.site|default:"-" }}</div>
+              <div class="small text-muted">{{ usuario.setor|default:"Sem setor" }}</div>
+            </td>
+            <td>{{ usuario.created_at|date:"d/m/Y H:i" }}</td>
+            <td class="text-end">
+              <div class="d-flex gap-2 justify-content-end flex-wrap">
+                <a class="btn btn-sm btn-primary" href="{% url 'aprovar_usuario' usuario.pk %}">Aprovar</a>
+                <form method="post" action="{% url 'reprovar_usuario' usuario.pk %}" class="d-inline" onsubmit="return confirm('Reprovar esta solicitação?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="motivo_recusa" value="Reprovado pelo administrador.">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4 text-muted">Nenhuma solicitação pendente.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "includes/pagination.html" with page_obj=page_obj %}
+{% endblock %}

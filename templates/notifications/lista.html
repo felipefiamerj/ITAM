@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Notificações | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-regular fa-bell"></i> Central de avisos</div>
+      <h1 class="hero-title mb-2">Notificações do sistema.</h1>
+      <p class="hero-text mb-0">{{ unread_notifications_count }} não lidas no momento.</p>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'notification_read_all' %}">
+      <i class="fa-solid fa-check-double me-1"></i>Marcar todas como lidas
+    </a>
+  </div>
+</section>
+
+<div class="card app-card">
+  <div class="list-group list-group-flush">
+    {% for notification in notifications %}
+      <div class="list-group-item d-flex justify-content-between align-items-start gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <strong>{{ notification.title }}</strong>
+            {% if not notification.is_read %}
+              <span class="badge text-bg-warning">Nova</span>
+            {% endif %}
+          </div>
+          <div class="small text-muted">{{ notification.message|default:"-" }}</div>
+          <div class="small text-muted">{{ notification.created_at|date:"d/m/Y H:i" }}</div>
+        </div>
+        <div class="text-end">
+          {% if notification.link %}
+            <a class="btn btn-sm btn-outline-secondary mb-2" href="{{ notification.link }}">Abrir</a>
+          {% endif %}
+          {% if not notification.is_read %}
+            <a class="btn btn-sm btn-primary" href="{% url 'notification_read' notification.pk %}">Marcar lida</a>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="p-4 text-muted">Nenhuma notificação.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

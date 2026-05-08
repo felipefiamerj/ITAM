@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Chamados | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-ticket-simple"></i> Atendimento</div>
+      <h1 class="hero-title mb-2">Abertura e acompanhamento de chamados.</h1>
+      <p class="hero-text mb-0">Centralize as solicitações, acompanhe o status e mantenha o histórico do atendimento visível para a equipe.</p>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'criar_chamado' %}">
+      <i class="fa-solid fa-plus me-1"></i>Novo chamado
+    </a>
+  </div>
+</section>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-3" method="get">
+      <div class="col-md-8">
+        <label class="form-label">Buscar</label>
+        <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="Título, descrição, patrimônio ou matrícula">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        <input class="form-control" type="text" name="status" value="{{ status }}" placeholder="aberto">
+      </div>
+      <div class="col-md-2 align-self-end">
+        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Título</th>
+          <th>Status</th>
+          <th>Prioridade</th>
+          <th>Solicitante</th>
+          <th>Responsável</th>
+          <th>Atualizado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for chamado in page_obj %}
+          <tr>
+            <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
+            <td>{{ chamado.get_status_display }}</td>
+            <td>{{ chamado.get_prioridade_display }}</td>
+            <td>{{ chamado.solicitante.nome_completo }}</td>
+            <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+            <td>{{ chamado.updated_at|date:"d/m/Y H:i" }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'detalhe_chamado' chamado.pk %}">Abrir</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center py-4 text-muted">Nenhum chamado encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "includes/pagination.html" with page_obj=page_obj query_string=query_string %}
+{% endblock %}

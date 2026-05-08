@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Estoque | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-warehouse"></i> Estoque e lotes</div>
+      <h1 class="hero-title mb-2">Visão rápida do material disponível e dos lotes importados.</h1>
+      <p class="hero-text mb-0">Monitore o que está em estoque, o que está em manutenção e o que precisa de atenção por volume baixo.</p>
+    </div>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="app-stat h-100">
+      <div class="label">Em estoque</div>
+      <div class="value">{{ total_em_estoque }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="app-stat h-100">
+      <div class="label">Em manutenção</div>
+      <div class="value">{{ equipamentos_em_manutencao }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="app-stat h-100">
+      <div class="label">Limite de alerta</div>
+      <div class="value">{{ limite_alerta }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Resumo por tipo</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in resumo_por_tipo %}
+                <tr>
+                  <td>{{ item.tipo }}</td>
+                  <td>{{ item.total }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="text-muted">Sem itens em estoque.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Últimos lotes</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th>Status</th>
+                <th>Importados</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lote in lotes %}
+                <tr>
+                  <td>{{ lote.descricao|default:"-" }}</td>
+                  <td>{{ lote.get_status_display }}</td>
+                  <td>{{ lote.itens_importados }}/{{ lote.total_itens }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3" class="text-muted">Nenhum lote cadastrado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
