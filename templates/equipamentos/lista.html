@@ -11,9 +11,14 @@
       </p>
     </div>
     {% if request.user.is_admin or request.user.is_analista or request.user.is_tecnico %}
-      <a class="btn btn-light btn-lg" href="{% url 'criar_equipamento' %}">
-        <i class="fa-solid fa-plus me-1"></i>Novo equipamento
-      </a>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-light btn-lg" href="{% url 'criar_equipamento' %}">
+          <i class="fa-solid fa-plus me-1"></i>Novo equipamento
+        </a>
+        <a class="btn btn-outline-light btn-lg" href="{% url 'importar_equipamentos_csv' %}">
+          <i class="fa-solid fa-file-arrow-up me-1"></i>Importar CSV
+        </a>
+      </div>
     {% endif %}
   </div>
 </section>

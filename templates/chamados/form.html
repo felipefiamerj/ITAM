@@ -1,21 +1,55 @@
 {% extends "base.html" %}
 {% block title %}{{ title }} | ITAM System{% endblock %}
 {% block content %}
-<section class="hero-surface mb-4">
-  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
-    <div>
-      <div class="hero-kicker"><i class="fa-solid fa-headset"></i> Fluxo de atendimento</div>
-      <h1 class="hero-title mb-2">{{ title }}</h1>
-      <p class="hero-text mb-0">Abra ou atualize o chamado sem perder contexto de patrimônio, prioridade e responsável.</p>
+{% if template_info %}
+  <section class="hero-surface mb-4 request-template-banner request-template-banner-{{ template_info.tone }}">
+    <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+      <div>
+        <div class="hero-kicker"><i class="fa-solid {{ template_info.icon }}"></i> {{ template_info.eyebrow }}</div>
+        <h1 class="hero-title mb-2">{{ title }}</h1>
+        <p class="hero-text mb-3">{{ template_info.description }}</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for tipo in template_info.tipos_labels %}
+            <span class="badge badge-soft">{{ tipo }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
+        <a class="btn btn-light btn-lg" href="{% url 'criar_chamado' %}">
+          <i class="fa-solid fa-layer-group me-1"></i>Voltar aos modelos
+        </a>
+        <span class="request-template-step">Passo 2 de 2</span>
+      </div>
     </div>
-    <a class="btn btn-light btn-lg" href="{% url 'chamados' %}">
-      <i class="fa-solid fa-arrow-left me-1"></i>Voltar
-    </a>
-  </div>
-</section>
+  </section>
+{% else %}
+  <section class="hero-surface mb-4">
+    <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+      <div>
+        <div class="hero-kicker"><i class="fa-solid fa-headset"></i> Fluxo de atendimento</div>
+        <h1 class="hero-title mb-2">{{ title }}</h1>
+        <p class="hero-text mb-0">Abra ou atualize o chamado em formato de termo formal, marcando os equipamentos necessarios e registrando apenas os itens extras quando realmente precisar.</p>
+      </div>
+      <a class="btn btn-light btn-lg" href="{% url 'chamados' %}">
+        <i class="fa-solid fa-arrow-left me-1"></i>Voltar
+      </a>
+    </div>
+  </section>
+{% endif %}
 
 <div class="card app-card">
   <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+      <div>
+        <div class="section-kicker">Detalhes da solicitacao</div>
+        <h2 class="h5 mb-1">Preencha os dados do chamado</h2>
+        <p class="text-muted mb-0">O formulario ja vem direcionado para o modelo escolhido e organiza os itens que vao para o termo.</p>
+      </div>
+      {% if template_info %}
+        <span class="badge badge-soft">Modelo: {{ template_info.highlight }}</span>
+      {% endif %}
+    </div>
+
     <form method="post">
       {% csrf_token %}
       {% include "includes/form.html" with form=form %}

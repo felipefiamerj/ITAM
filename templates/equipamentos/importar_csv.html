@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Importar CSV | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-file-csv"></i> Importação em lote</div>
+      <h1 class="hero-title mb-2">{{ titulo }}</h1>
+      <p class="hero-text mb-0">
+        Faça upload do CSV com 50 mil equipamentos. O sistema identifica status, condição e localização automaticamente.
+      </p>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'equipamentos' %}">
+      <i class="fa-solid fa-arrow-left me-1"></i>Voltar para equipamentos
+    </a>
+  </div>
+</section>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Enviar arquivo</div>
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          {% include "includes/form.html" with form=form %}
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="fa-solid fa-cloud-arrow-up me-2"></i>Importar CSV
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Como o arquivo é lido</div>
+        <ul class="list-unstyled mb-0 import-checklist">
+          <li><i class="fa-solid fa-check"></i> `id_patrimonio` vira a chave única do equipamento.</li>
+          <li><i class="fa-solid fa-check"></i> `tipo`, `status` e `condicao` são normalizados automaticamente.</li>
+          <li><i class="fa-solid fa-check"></i> `site`, `setor` e `andar_sala` alimentam o mapa de localização.</li>
+          <li><i class="fa-solid fa-check"></i> Se um patrimônio já existir, o sistema atualiza o registro.</li>
+          <li><i class="fa-solid fa-check"></i> Linhas com erro são registradas no lote para auditoria posterior.</li>
+        </ul>
+
+        <div class="import-note mt-4">
+          <strong>Importante:</strong>
+          <p class="mb-0">
+            Para grandes lotes, o processamento é feito em blocos para reduzir uso de memória e acelerar a gravação.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

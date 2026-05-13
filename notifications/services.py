@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.utils import timezone
 
 from accounts.models import NivelAcesso, Usuario
 
@@ -19,6 +20,7 @@ def notificar_usuario(usuario, titulo, mensagem='', link=''):
 def notificar_usuarios(usuarios, titulo, mensagem='', link=''):
     enviados = []
     vistos = set()
+    agora = timezone.now()
 
     for usuario in usuarios:
         if not usuario or not getattr(usuario, 'pk', None):
@@ -32,6 +34,7 @@ def notificar_usuarios(usuarios, titulo, mensagem='', link=''):
                 title=titulo,
                 message=mensagem,
                 link=link or '',
+                created_at=agora,
             )
         )
 

@@ -142,6 +142,16 @@ class Usuario(AbstractUser):
     def is_operacional(self):
         return self.is_admin or self.is_analista or self.is_tecnico
 
+    @property
+    def papel_fluxo(self):
+        if self.is_admin:
+            return 'Administrador'
+        if self.is_analista:
+            return 'Estoquista'
+        if self.is_tecnico:
+            return 'Técnico'
+        return 'Solicitante'
+
     def save(self, *args, **kwargs):
         matricula = (self.matricula or self.username or '').strip()
         self.matricula = matricula

@@ -3,6 +3,7 @@ __pycache__/
 *.pyo
 .env
 venv/
+.venv310/
 staticfiles/
 media/
 *.sqlite3

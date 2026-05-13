@@ -1,7 +1,10 @@
 import io
+import secrets
+from datetime import timedelta
 
 import qrcode
 from auditlog.registry import auditlog
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
@@ -42,6 +45,46 @@ class CondicaoEquipamento(models.TextChoices):
     REGULAR = 'regular', 'Regular'
     RUIM = 'ruim', 'Ruim'
     INUTIL = 'inutil', 'Inútil'
+
+
+class StatusMonitoramento(models.TextChoices):
+    DESCONHECIDO = 'desconhecido', 'Desconhecido'
+    ONLINE = 'online', 'Online'
+    ALERTA = 'alerta', 'Alerta'
+    OFFLINE = 'offline', 'Offline'
+
+
+class AgenteMonitoramento(models.Model):
+    nome = models.CharField('Nome do agente', max_length=120)
+    token = models.CharField('Token', max_length=64, unique=True, db_index=True, editable=False)
+    host_name = models.CharField('Host principal', max_length=120, blank=True)
+    ativo = models.BooleanField('Ativo', default=True)
+    last_seen_at = models.DateTimeField('Último heartbeat', null=True, blank=True)
+    last_ip = models.GenericIPAddressField('Último IP', null=True, blank=True)
+    metadata = models.JSONField('Metadata', default=dict, blank=True)
+    criado_por = models.ForeignKey(
+        'accounts.Usuario',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='agentes_monitoramento',
+        verbose_name='Criado por',
+    )
+    created_at = models.DateTimeField('Criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('Atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Agente de monitoramento'
+        verbose_name_plural = 'Agentes de monitoramento'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome or f'Agente {self.pk}'
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
 
 
 class Equipamento(models.Model):
@@ -98,6 +141,25 @@ class Equipamento(models.Model):
     qr_code = models.ImageField('QR Code', upload_to='qrcodes/', blank=True, null=True)
     score_saude = models.FloatField('Score de saúde (IA)', default=100.0)
 
+    monitoramento_ativo = models.BooleanField('Monitoramento ativo', default=False)
+    monitoramento_status = models.CharField(
+        'Status de monitoramento',
+        max_length=20,
+        choices=StatusMonitoramento.choices,
+        default=StatusMonitoramento.DESCONHECIDO,
+        db_index=True,
+    )
+    last_seen_at = models.DateTimeField('Último heartbeat', null=True, blank=True, db_index=True)
+    last_telemetria_agente = models.ForeignKey(
+        AgenteMonitoramento,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='equipamentos_vistos',
+        verbose_name='Último agente',
+    )
+    last_telemetria_payload = models.JSONField('Último payload de telemetria', default=dict, blank=True)
+
     criado_por = models.ForeignKey(
         'accounts.Usuario',
         null=True,
@@ -113,6 +175,9 @@ class Equipamento(models.Model):
         verbose_name = 'Equipamento'
         verbose_name_plural = 'Equipamentos'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['monitoramento_status', 'last_seen_at']),
+        ]
 
     def __str__(self):
         return f'{self.get_tipo_display()} - {self.id_patrimonio}'
@@ -130,6 +195,18 @@ class Equipamento(models.Model):
     @property
     def total_manutencoes(self):
         return self.movimentacoes.filter(tipo='manutencao').count()
+
+    @property
+    def localizacao_resumida(self):
+        partes = [parte.strip() for parte in [self.site, self.setor, self.andar_sala] if parte and str(parte).strip()]
+        return ' · '.join(partes) if partes else 'Sem localização'
+
+    @property
+    def monitoramento_em_atraso(self):
+        if not self.monitoramento_ativo or not self.last_seen_at:
+            return False
+        limite_minutos = getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10)
+        return self.last_seen_at < timezone.now() - timedelta(minutes=limite_minutos)
 
     def save(self, *args, **kwargs):
         if self.id_patrimonio and not self.qr_code:
@@ -231,6 +308,49 @@ class MovimentacaoEquipamento(models.Model):
             'troca': 'fa-sync text-warning',
         }
         return icons.get(self.tipo, 'fa-circle')
+
+
+class TelemetriaEvento(models.Model):
+    TIPOS = [
+        ('heartbeat', 'Heartbeat'),
+        ('conectado', 'Conectado'),
+        ('desconectado', 'Desconectado'),
+        ('bateria_baixa', 'Bateria baixa'),
+        ('erro_driver', 'Erro de driver'),
+        ('health_warning', 'Alerta de saude'),
+    ]
+
+    SEVERIDADES = [
+        ('info', 'Info'),
+        ('warning', 'Warning'),
+        ('critical', 'Critical'),
+    ]
+
+    equipamento = models.ForeignKey(Equipamento, on_delete=models.CASCADE, related_name='telemetria_eventos')
+    agente = models.ForeignKey(
+        AgenteMonitoramento,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='eventos',
+    )
+    tipo = models.CharField('Tipo', max_length=30, choices=TIPOS)
+    severidade = models.CharField('Severidade', max_length=20, choices=SEVERIDADES, default='info')
+    mensagem = models.TextField('Mensagem', blank=True)
+    payload = models.JSONField('Payload', default=dict, blank=True)
+    created_at = models.DateTimeField('Criado em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Evento de telemetria'
+        verbose_name_plural = 'Eventos de telemetria'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['equipamento', '-created_at']),
+            models.Index(fields=['agente', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} - {self.equipamento.id_patrimonio}'
 
 
 class EntradaLote(models.Model):

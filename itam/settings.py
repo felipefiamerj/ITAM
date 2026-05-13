@@ -22,8 +22,11 @@ def _read_dotenv(path):
 DOTENV_VALUES = _read_dotenv(Path(__file__).resolve().parent.parent / '.env')
 
 
-def config(name, default=None, cast=None):
-    value = os.environ.get(name, DOTENV_VALUES.get(name, default))
+def config(name, default=None, cast=None, prefer_env=True):
+    if prefer_env:
+        value = os.environ.get(name, DOTENV_VALUES.get(name, default))
+    else:
+        value = DOTENV_VALUES.get(name, os.environ.get(name, default))
     if cast is bool:
         if isinstance(value, bool):
             return value
@@ -39,7 +42,7 @@ def config(name, default=None, cast=None):
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production-itam-2026')
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool, prefer_env=False)
 ALLOWED_HOSTS = [host.strip() for host in config('ALLOWED_HOSTS', default='*').split(',') if host.strip()]
 
 INSTALLED_APPS = [
@@ -115,6 +118,17 @@ if DB_ENGINE == 'django.db.backends.sqlite3':
             'NAME': BASE_DIR / config('DB_NAME', default='db.sqlite3'),
         }
     }
+elif DB_ENGINE == 'django.db.backends.postgresql':
+    DATABASES = {
+        'default': {
+            'ENGINE': DB_ENGINE,
+            'NAME': config('DB_NAME', default='Itam_DB'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
 else:
     DATABASES = {
         'default': {
@@ -157,12 +171,16 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+ITAM_ESTOQUE_ALERTA_MINIMO = config('ITAM_ESTOQUE_ALERTA_MINIMO', default=20, cast=int)
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
@@ -213,3 +231,5 @@ AUDITLOG_INCLUDE_ALL_MODELS = False
 
 ITAM_ESTOQUE_ALERTA_MINIMO = config('ITAM_ESTOQUE_ALERTA_MINIMO', default=5, cast=int)
 ITAM_PREVISAO_DIAS = config('ITAM_PREVISAO_DIAS', default=30, cast=int)
+ITAM_HEARTBEAT_STALE_MINUTES = config('ITAM_HEARTBEAT_STALE_MINUTES', default=10, cast=int)
+ITAM_MONITORING_ALERT_COOLDOWN_MINUTES = config('ITAM_MONITORING_ALERT_COOLDOWN_MINUTES', default=30, cast=int)

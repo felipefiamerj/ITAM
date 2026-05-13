@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Busca Global | ITAM System{% endblock %}
+{% block body_class %}app-page search-page{% endblock %}
+{% block content %}
+<div data-global-search-page>
+  <section class="hero-surface search-hero mb-4">
+    <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap position-relative">
+      <div class="search-hero-copy">
+        <div class="hero-kicker"><i class="fa-solid fa-magnifying-glass"></i> Busca global inteligente</div>
+        <h1 class="hero-title mb-2">Ache equipamentos, chamados, usuários e lotes em segundos.</h1>
+        <p class="hero-text mb-0" data-search-summary>{{ summary }}</p>
+        <div class="search-help-chips">
+          <span class="status-pill status-pill-dark">Patrimônio</span>
+          <span class="status-pill status-pill-dark">Matrícula</span>
+          <span class="status-pill status-pill-dark">Site</span>
+          <span class="status-pill status-pill-dark">Chamado</span>
+          <span class="status-pill status-pill-dark">Lote</span>
+        </div>
+      </div>
+      <div class="search-summary-panel">
+        <div class="section-kicker mb-2">Atalho global</div>
+        <strong>Ctrl + K</strong>
+        <p class="mb-0">Abra a busca em qualquer tela e encontre o que precisa sem navegar menu por menu.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="card app-card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3 flex-wrap">
+            <div>
+              <div class="section-kicker" data-search-mode-label>{{ mode_label }}</div>
+              <h2 class="h5 mb-0">Resultados</h2>
+            </div>
+            <div class="search-status">
+              <span class="live-dot"></span>
+              <span data-search-updated>Atualizado em {{ updated_at }}</span>
+            </div>
+          </div>
+
+          <form class="search-query-box mb-4" method="get" action="{% url 'busca_global' %}" data-global-search-form>
+            <label class="form-label visually-hidden" for="search-input">Buscar</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input
+                id="search-input"
+                name="q"
+                value="{{ query }}"
+                class="form-control"
+                placeholder="Patrimônio, matrícula, chamado, site, setor ou lote"
+                data-search-input
+                autofocus
+                autocomplete="off"
+                spellcheck="false"
+              >
+              <button class="btn btn-primary" type="submit">Buscar</button>
+            </div>
+            <div class="small text-muted mt-2">Os resultados são atualizados em tempo real enquanto você digita.</div>
+          </form>
+
+          <div class="search-results" data-search-results-body>
+            {% if groups %}
+              {% for group in groups %}
+                <section class="search-group-card">
+                  <div class="card-body">
+                    <div class="search-group-header">
+                      <div>
+                        <div class="section-kicker">{{ group.label }}</div>
+                        <div class="small text-muted">{{ group.description }}</div>
+                      </div>
+                      <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge badge-soft">{{ group.count }}</span>
+                        <a href="{{ group.see_all_url }}" class="small">{{ group.see_all_label }}</a>
+                      </div>
+                    </div>
+                    <div class="stack-list">
+                      {% for item in group.items %}
+                        <a href="{{ item.url }}" class="search-result-card">
+                          <div class="search-result-icon">
+                            <i class="fa-solid {{ item.icon }}"></i>
+                          </div>
+                          <div class="search-result-body">
+                            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                              <strong>{{ item.title }}</strong>
+                              <span class="badge {{ item.badge_class }}">{{ item.badge }}</span>
+                            </div>
+                            <div class="search-result-lines">{{ item.subtitle }}</div>
+                            <div class="small text-muted">{{ item.meta }}</div>
+                          </div>
+                        </a>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </section>
+              {% endfor %}
+            {% else %}
+              <div class="search-empty-state">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <strong>Nenhum resultado encontrado.</strong>
+                <p>Experimente buscar por patrimônio, matrícula, nome, site, setor, chamado ou status.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card app-card mb-4">
+        <div class="card-body">
+          <div class="section-kicker mb-2">Ações rápidas</div>
+          <div class="search-action-grid" data-search-actions-body>
+            {% for action in quick_actions %}
+              <a class="search-action-card" href="{{ action.url }}">
+                <div class="search-action-icon">
+                  <i class="fa-solid {{ action.icon }}"></i>
+                </div>
+                <div>
+                  <strong>{{ action.label }}</strong>
+                  <div class="small text-muted">{{ action.description }}</div>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card app-card">
+        <div class="card-body">
+          <div class="section-kicker mb-2">Dicas</div>
+          <ul class="search-tip-list mb-0">
+            <li><i class="fa-solid fa-bolt"></i><span>Procure por patrimônio, matrícula, nome, site, setor, chamado ou lote.</span></li>
+            <li><i class="fa-solid fa-keyboard"></i><span>Atalho global: <strong>Ctrl</strong> + <strong>K</strong>.</span></li>
+            <li><i class="fa-solid fa-shield-halved"></i><span>Os resultados respeitam suas permissões de acesso.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+  <script src="{% static 'js/global-search.js' %}"></script>
+{% endblock %}

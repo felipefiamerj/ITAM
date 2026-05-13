@@ -1,4 +1,5 @@
 from django import forms
+from django.core.validators import FileExtensionValidator
 
 from accounts.models import Usuario
 from chamados.models import Chamado
@@ -100,3 +101,22 @@ class MovimentacaoEquipamentoForm(forms.ModelForm):
         if tipo in {'saida', 'transferencia', 'troca'} and not usuario_novo:
             self.add_error('usuario_novo', 'Informe o novo usuário para este tipo de movimentação.')
         return cleaned_data
+
+
+class ImportacaoEquipamentosCSVForm(forms.Form):
+    arquivo = forms.FileField(
+        label='Arquivo CSV',
+        validators=[FileExtensionValidator(allowed_extensions=['csv'])],
+        help_text='Envie o CSV com a estrutura esperada para importar ou atualizar equipamentos em lote.',
+    )
+    descricao = forms.CharField(
+        label='Descrição do lote',
+        max_length=200,
+        required=False,
+        help_text='Opcional. Use para identificar a origem do arquivo importado.',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['arquivo'].widget.attrs.setdefault('class', 'form-control')
+        self.fields['descricao'].widget.attrs.setdefault('class', 'form-control')

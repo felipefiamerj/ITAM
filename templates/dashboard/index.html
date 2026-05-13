@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Dashboard | ITAM System{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
@@ -19,6 +20,9 @@
       <a href="{% url 'equipamentos' %}" class="btn btn-light">
         <i class="fa-solid fa-boxes-stacked me-1"></i>Equipamentos
       </a>
+      <a href="{% url 'busca_global' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-magnifying-glass me-1"></i>Busca global
+      </a>
       <a href="{% url 'chamados' %}" class="btn btn-outline-light">
         <i class="fa-solid fa-ticket-simple me-1"></i>Chamados
       </a>
@@ -34,56 +38,205 @@
   </div>
 </section>
 
-<div class="row g-3 mb-4">
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Painel ao vivo</div>
+      <h2 class="h6 mb-0">Indicadores principais</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualizado agora</span>
+    </div>
+  </div>
+<div class="row g-3">
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">Inventário</span>
+      </div>
       <div class="label">Total de equipamentos</div>
       <div class="value">{{ total_equipamentos }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">Operação</span>
+      </div>
       <div class="label">Em uso</div>
       <div class="value">{{ equipamentos_em_uso }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-warehouse" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">Estoque</span>
+      </div>
       <div class="label">Em estoque</div>
       <div class="value">{{ equipamentos_em_estoque }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">Técnico</span>
+      </div>
       <div class="label">Em manutenção</div>
       <div class="value">{{ equipamentos_em_manutencao }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
-      <div class="label">Chamados abertos</div>
+      <div class="app-stat dashboard-stat dashboard-stat-rose h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-headset" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Suporte</span>
+        </div>
+      <div class="label">Chamados ativos</div>
       <div class="value">{{ chamados_abertos }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">Prioridade</span>
+      </div>
       <div class="label">Chamados críticos</div>
       <div class="value">{{ chamados_criticos }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-violet h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-user-clock" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">Governança</span>
+      </div>
       <div class="label">Aprovações pendentes</div>
       <div class="value">{{ usuarios_pendentes }}</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
-    <div class="app-stat h-100">
+    <div class="app-stat dashboard-stat dashboard-stat-teal h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">IA</span>
+      </div>
       <div class="label">Alertas IA</div>
       <div class="value">{{ equipamentos_alerta }}</div>
     </div>
   </div>
 </div>
+</section>
+
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Gráficos</div>
+      <h2 class="h5 mb-0">Leituras visuais do parque</h2>
+    </div>
+    <span class="badge badge-soft">Atualização ao vivo</span>
+  </div>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-blue h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Inventário</div>
+              <h3 class="h6 mb-1">Equipamentos por status</h3>
+              <p class="small text-muted mb-0">A composição do parque em tempo real.</p>
+            </div>
+            <span class="badge badge-soft">{{ total_equipamentos }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-status-chart-wrap">
+            <canvas id="dashboard-status-chart" aria-label="Distribuição de equipamentos por status" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-amber h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Suporte</div>
+              <h3 class="h6 mb-1">Chamados ativos por prioridade</h3>
+              <p class="small text-muted mb-0">Foco imediato da fila operacional.</p>
+            </div>
+            <span class="badge badge-soft">{{ chamados_abertos }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-priority-chart-wrap">
+            <canvas id="dashboard-priority-chart" aria-label="Chamados ativos por prioridade" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if chamados_fluxo %}
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Equipe</div>
+      <h2 class="h5 mb-0">Fluxo operacional de chamados</h2>
+    </div>
+    <span class="badge badge-soft">Quem pegou, quem acompanha e quem encerrou</span>
+  </div>
+  <div class="row g-4">
+    {% for bloco in chamados_fluxo %}
+      <div class="col-lg-6 col-xxl-3">
+        <div class="card app-card h-100">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <div class="section-kicker">{{ bloco.label }}</div>
+                <h3 class="h6 mb-1">{{ bloco.count }} chamado{{ bloco.count|pluralize }}</h3>
+                <p class="small text-muted mb-0">{{ bloco.description }}</p>
+              </div>
+              <span class="status-pill status-pill-dark">{{ bloco.count }}</span>
+            </div>
+            <div class="list-group list-group-flush flex-grow-1">
+              {% for chamado in bloco.items %}
+                <a class="list-group-item list-group-item-action px-0" href="{% url 'detalhe_chamado' chamado.pk %}">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <strong>#{{ chamado.pk }} · {{ chamado.titulo }}</strong>
+                      <div class="small text-muted">
+                        Colaborador: {{ chamado.destinatario_nome_completo }}
+                      </div>
+                      <div class="small text-muted">
+                        Solicitante: {{ chamado.solicitante.nome_completo }}
+                      </div>
+                      <div class="small text-muted">
+                        {% if bloco.status == 'encerrado' %}
+                          Encerrado por: {{ chamado.responsavel.nome_completo|default:"-" }}
+                        {% else %}
+                          Responsável: {{ chamado.responsavel.nome_completo|default:"Aguardando definição" }}{% if chamado.responsavel %} ({{ chamado.responsavel.papel_fluxo }}){% endif %}
+                        {% endif %}
+                      </div>
+                      <div class="small text-muted">Fluxo: {{ chamado.fluxo_etapa_label }}</div>
+                    </div>
+                    <span class="badge badge-soft">{{ chamado.get_prioridade_display }}</span>
+                  </div>
+                  <div class="small text-muted mt-2">Atualizado em {{ chamado.updated_at|date:"d/m/Y H:i" }}</div>
+                </a>
+              {% empty %}
+                <div class="text-muted">Nenhum chamado nesta etapa.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <div class="row g-4 mb-4">
   <div class="col-lg-7">
@@ -102,7 +255,9 @@
               <tr>
                 <th>Título</th>
                 <th>Status</th>
+                <th>Colaborador</th>
                 <th>Responsável</th>
+                <th>Etapa</th>
               </tr>
             </thead>
             <tbody>
@@ -110,10 +265,12 @@
                 <tr>
                   <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
                   <td>{{ chamado.get_status_display }}</td>
+                  <td>{{ chamado.destinatario_nome_completo }}</td>
                   <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+                  <td class="small text-muted">{{ chamado.fluxo_etapa_label }}</td>
                 </tr>
               {% empty %}
-                <tr><td colspan="3" class="text-muted py-3">Nenhum chamado recente.</td></tr>
+                <tr><td colspan="5" class="text-muted py-3">Nenhum chamado recente.</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -221,4 +378,10 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ dashboard_charts|json_script:"dashboard-charts-data" }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'js/dashboard-charts.js' %}"></script>
 {% endblock %}

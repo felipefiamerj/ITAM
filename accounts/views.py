@@ -1,4 +1,4 @@
-from django.contrib import messages
+﻿from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from equipamentos.models import Equipamento
+from chamados.models import Chamado
 from notifications.services import notificar_admins, notificar_time_operacional, notificar_usuario
 
 from .forms import (
@@ -32,6 +33,10 @@ def _safe_next_url(request, next_url):
     return None
 
 
+def _home_url_name(user):
+    return 'chamados' if user.is_solicitante else 'dashboard'
+
+
 def _redirect_after_login(request, usuario):
     next_url = _safe_next_url(request, request.GET.get('next'))
     if usuario.exigir_troca_senha:
@@ -44,7 +49,7 @@ def _redirect_after_login(request, usuario):
     request.session.pop('post_password_change_next', None)
     if next_url:
         return redirect(next_url)
-    return redirect('dashboard')
+    return redirect(_home_url_name(usuario))
 
 
 def _aplicar_filtros_usuarios(qs, q=None, status=None):
@@ -78,7 +83,7 @@ def _aplicar_filtros_usuarios(qs, q=None, status=None):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect(_home_url_name(request.user))
 
     form_type = request.POST.get('form_type') if request.method == 'POST' else None
     login_form = LoginForm(
@@ -96,14 +101,14 @@ def login_view(request):
             if quick_form.is_valid():
                 usuario = quick_form.save()
                 notificar_admins(
-                    'Nova solicitação de acesso',
-                    f'{usuario.nome_completo} ({usuario.matricula}) solicitou acesso mínimo ao sistema.',
+                    'Nova solicitaÃ§Ã£o de acesso',
+                    f'{usuario.nome_completo} ({usuario.matricula}) solicitou acesso mÃ­nimo ao sistema.',
                     link=reverse('usuarios_pendentes'),
                 )
                 messages.success(
                     request,
-                    f'Solicitação registrada para {usuario.nome_completo}. '
-                    'O cadastro ficou pendente para aprovação do administrador.',
+                    f'SolicitaÃ§Ã£o registrada para {usuario.nome_completo}. '
+                    'O cadastro ficou pendente para aprovaÃ§Ã£o do administrador.',
                 )
                 return redirect('login')
         elif login_form.is_valid():
@@ -121,9 +126,9 @@ def login_view(request):
             if matricula:
                 usuario = Usuario.objects.filter(matricula__iexact=matricula).first()
                 if usuario and usuario.solicitacao_pendente:
-                    messages.warning(request, 'Seu acesso ainda está aguardando aprovação.')
+                    messages.warning(request, 'Seu acesso ainda estÃ¡ aguardando aprovaÃ§Ã£o.')
                 elif usuario and not usuario.ativo:
-                    messages.warning(request, 'Sua conta está inativa. Procure o administrador.')
+                    messages.warning(request, 'Sua conta estÃ¡ inativa. Procure o administrador.')
 
     return render(
         request,
@@ -235,19 +240,19 @@ def aprovar_usuario(request, pk):
             
             assunto = 'Acesso aprovado no ITAM System'
             mensagem = f'''
-Olá {usuario.first_name},
+OlÃ¡ {usuario.first_name},
 
-Sua solicitação de acesso ao ITAM System foi aprovada!
+Sua solicitaÃ§Ã£o de acesso ao ITAM System foi aprovada!
 
 Suas credenciais de acesso:
-- Matrícula: {usuario.matricula}
-- Senha temporária: {senha_temporaria}
+- MatrÃ­cula: {usuario.matricula}
+- Senha temporÃ¡ria: {senha_temporaria}
 
 Acesse: http://127.0.0.1:8000/accounts/login/
 
-⚠️ IMPORTANTE: Você será obrigado a alterar a senha no primeiro acesso por motivos de segurança.
+âš ï¸ IMPORTANTE: VocÃª serÃ¡ obrigado a alterar a senha no primeiro acesso por motivos de seguranÃ§a.
 
-Em caso de dúvidas, entre em contato com o administrador do sistema.
+Em caso de dÃºvidas, entre em contato com o administrador do sistema.
 
 Atenciosamente,
 ITAM System
@@ -274,17 +279,17 @@ ITAM System
             link=reverse('login'),
         )
         notificar_admins(
-            'Usuário aprovado',
+            'UsuÃ¡rio aprovado',
             f'{usuario.nome_completo} ({usuario.matricula}) foi aprovado por {request.user.nome_completo}.',
             link=reverse('perfil_usuario', kwargs={'pk': usuario.pk}),
         )
 
         senha_info = 'gerada automaticamente' if eh_auto_gerada else 'definida pelo administrador'
-        mensagem_sucesso = f'Conta de {usuario.nome_completo} aprovada. Senha temporária {senha_info}: {senha_temporaria}. '
+        mensagem_sucesso = f'Conta de {usuario.nome_completo} aprovada. Senha temporÃ¡ria {senha_info}: {senha_temporaria}. '
         if email_enviado:
             mensagem_sucesso += f'Email enviado para {usuario.email}.'
         else:
-            mensagem_sucesso += 'O usuário deverá trocá-la no primeiro acesso.'
+            mensagem_sucesso += 'O usuÃ¡rio deverÃ¡ trocÃ¡-la no primeiro acesso.'
         
         messages.success(request, mensagem_sucesso)
         return redirect('usuarios_pendentes')
@@ -318,11 +323,11 @@ def reprovar_usuario(request, pk):
 
     notificar_usuario(
         usuario,
-        'Solicitação analisada',
-        f'Sua solicitação de acesso ao ITAM System não foi aprovada. Motivo: {motivo}',
+        'SolicitaÃ§Ã£o analisada',
+        f'Sua solicitaÃ§Ã£o de acesso ao ITAM System nÃ£o foi aprovada. Motivo: {motivo}',
         link=reverse('login'),
     )
-    messages.success(request, f'Solicitação de {usuario.nome_completo} foi reprovada.')
+    messages.success(request, f'SolicitaÃ§Ã£o de {usuario.nome_completo} foi reprovada.')
     return redirect('usuarios_pendentes')
 
 
@@ -338,12 +343,12 @@ def criar_usuario(request):
         notificar_usuario(
             user,
             'Conta criada',
-            'Sua conta no ITAM System foi criada. Use a senha temporária e faça a troca no primeiro acesso.',
+            'Sua conta no ITAM System foi criada. Use a senha temporÃ¡ria e faÃ§a a troca no primeiro acesso.',
             link=reverse('login'),
         )
-        messages.success(request, f'Usuário {user.matricula} criado com sucesso.')
+        messages.success(request, f'UsuÃ¡rio {user.matricula} criado com sucesso.')
         return redirect('lista_usuarios')
-    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Novo usuário'})
+    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Novo usuÃ¡rio'})
 
 
 @login_required
@@ -376,10 +381,10 @@ def editar_usuario(request, pk):
                 link=reverse('meu_perfil'),
             )
 
-        messages.success(request, 'Usuário atualizado.')
+        messages.success(request, 'UsuÃ¡rio atualizado.')
         return redirect('lista_usuarios')
 
-    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Editar usuário', 'obj': usuario})
+    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Editar usuÃ¡rio', 'obj': usuario})
 
 
 @login_required
@@ -388,7 +393,7 @@ def trocar_senha_inicial(request):
         return redirect('login')
 
     if not request.user.exigir_troca_senha:
-        return redirect('dashboard')
+        return redirect(_home_url_name(request.user))
 
     form = TrocaSenhaInicialForm(request.user, request.POST or None)
     if form.is_valid():
@@ -397,8 +402,8 @@ def trocar_senha_inicial(request):
         usuario.save(update_fields=['exigir_troca_senha', 'updated_at'])
         update_session_auth_hash(request, usuario)
         next_url = _safe_next_url(request, request.session.pop('post_password_change_next', None))
-        messages.success(request, 'Senha alterada com sucesso. Seu acesso está liberado.')
-        return redirect(next_url or 'dashboard')
+        messages.success(request, 'Senha alterada com sucesso. Seu acesso estÃ¡ liberado.')
+        return redirect(next_url or _home_url_name(usuario))
 
     return render(
         request,
@@ -419,7 +424,11 @@ def perfil_usuario(request, pk=None):
         return redirect('dashboard')
 
     equipamentos = Equipamento.objects.filter(responsavel=usuario, status='em_uso').order_by('id_patrimonio')
-    historico = usuario.chamados_usuario.select_related('equipamento', 'responsavel').order_by('-updated_at')[:10]
+    historico = (
+        Chamado.objects.filter(Q(solicitante=usuario) | Q(destinatario=usuario))
+        .select_related('equipamento', 'responsavel', 'solicitante', 'destinatario')
+        .order_by('-updated_at')[:10]
+    )
     return render(
         request,
         'accounts/perfil.html',
@@ -429,3 +438,6 @@ def perfil_usuario(request, pk=None):
             'historico': historico,
         },
     )
+
+
+

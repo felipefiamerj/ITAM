@@ -1,0 +1,494 @@
+﻿<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Termo de responsabilidade | Chamado #{{ chamado.pk }}</title>
+  <style>
+    :root {
+      --bg: #edf2f7;
+      --paper: #ffffff;
+      --line: #d8e0ea;
+      --ink: #1f2937;
+      --muted: #5b6575;
+      --accent: #183b66;
+      --soft: #f6f9fc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 24px;
+    }
+    .toolbar {
+      max-width: 1120px;
+      margin: 0 auto 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .button {
+      border: 0;
+      background: var(--accent);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .button.secondary {
+      background: #e8edf4;
+      color: var(--accent);
+    }
+    .sheet {
+      max-width: 1120px;
+      margin: 0 auto;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+    }
+    .sheet-header {
+      padding: 24px 28px 18px;
+      background: linear-gradient(135deg, #0f2744, #1f4f7f);
+      color: white;
+    }
+    .sheet-header h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+    .sheet-header p {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 14px;
+    }
+    .sheet-body {
+      padding: 28px;
+    }
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--soft);
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 72px;
+    }
+    .field .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .field .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      min-height: 22px;
+      word-break: break-word;
+    }
+    .services {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .service-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .service-box {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #9fb2c8;
+      border-radius: 4px;
+      flex: 0 0 auto;
+      background: white;
+    }
+    .service-option.active {
+      border-color: rgba(24, 59, 102, 0.28);
+      color: var(--ink);
+      background: #eaf1fb;
+    }
+    .service-option.active .service-box {
+      border-color: var(--accent);
+      background: var(--accent);
+      box-shadow: inset 0 0 0 3px white;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid var(--line);
+    }
+    .items-table th,
+    .items-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .items-table th {
+      background: #f4f7fb;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+    .items-table tr:last-child td {
+      border-bottom: 0;
+    }
+    .terms {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px 20px;
+      line-height: 1.55;
+      color: #2c3340;
+    }
+    .terms ol {
+      margin: 12px 0 0 20px;
+      padding: 0;
+    }
+    .signature {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .signature-line {
+      margin-top: 48px;
+      border-top: 1px solid #2f3b4a;
+      padding-top: 10px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .small {
+      font-size: 13px;
+    }
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .toolbar {
+        display: none;
+      }
+      .sheet {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        max-width: none;
+      }
+      .sheet-header {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .service-option.active .service-box {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+    @media (max-width: 900px) {
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .services,
+      .signature {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a class="button secondary" href="{% url 'detalhe_chamado' chamado.pk %}">Voltar</a>
+    <button class="button" type="button" onclick="window.print()">Imprimir termo</button>
+  </div>
+
+  <article class="sheet">
+    <header class="sheet-header">
+      <h1>Termo de responsabilidade</h1>
+      <p>Documento gerado a partir do chamado #{{ chamado.pk }}. Use esta versÃ£o para formalizar entrega, recolhimento ou troca de equipamentos.</p>
+    </header>
+
+    <div class="sheet-body">
+      <section class="panel">
+        <h2 class="section-title">ServiÃ§o realizado</h2>
+        <div class="services">
+          <div class="service-option {% if chamado.servico_realizado == 'entrega' %}active{% endif %}">
+            <span class="service-box"></span><span>Entrega</span>
+          </div>
+          <div class="service-option {% if chamado.servico_realizado == 'recolhimento' %}active{% endif %}">
+            <span class="service-box"></span><span>Recolhimento</span>
+          </div>
+          <div class="service-option {% if chamado.servico_realizado == 'troca' %}active{% endif %}">
+            <span class="service-box"></span><span>Troca</span>
+          </div>
+          <div class="service-option {% if chamado.servico_realizado == 'manutencao' %}active{% endif %}">
+            <span class="service-box"></span><span>ManutenÃ§Ã£o</span>
+          </div>
+          <div class="service-option {% if chamado.servico_realizado == 'instalacao' %}active{% endif %}">
+            <span class="service-box"></span><span>InstalaÃ§Ã£o / configuraÃ§Ã£o</span>
+          </div>
+          <div class="service-option {% if chamado.servico_realizado == 'orientacao' %}active{% endif %}">
+            <span class="service-box"></span><span>OrientaÃ§Ã£o</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="section-title">Dados do chamado</h2>
+        <div class="grid-3">
+          <div class="field">
+            <div class="label">Chamado</div>
+            <div class="value">#{{ chamado.pk }} - {{ chamado.titulo }}</div>
+          </div>
+          <div class="field">
+            <div class="label">TÃ©cnico</div>
+            <div class="value">{{ chamado.responsavel.nome_completo|default:"-" }}</div>
+          </div>
+          <div class="field">
+            <div class="label">Data</div>
+            <div class="value">{{ chamado.updated_at|date:"d/m/Y" }}</div>
+          </div>
+          <div class="field">
+            <div class="label">Solicitante</div>
+            <div class="value">{{ chamado.solicitante.nome_completo }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="section-title">Dados do colaborador</h2>
+        <div class="grid-3">
+          <div class="field" style="grid-column: span 2;">
+            <div class="label">Nome</div>
+            <div class="value">{{ chamado.destinatario_nome_completo }}</div>
+          </div>
+          <div class="field">
+            <div class="label">Contato</div>
+            <div class="value">{{ chamado.usuario_destinatario.contato|default:"-" }}</div>
+          </div>
+          <div class="field">
+            <div class="label">Site</div>
+            <div class="value">{{ chamado.usuario_destinatario.site|default:"-" }}</div>
+          </div>
+          <div class="field">
+            <div class="label">Andar / sala</div>
+            <div class="value">{{ chamado.usuario_destinatario.andar_sala|default:"-" }}</div>
+          </div>
+          <div class="field">
+            <div class="label">MatrÃ­cula</div>
+            <div class="value">{{ chamado.destinatario_matricula }}</div>
+          </div>
+          <div class="field" style="grid-column: span 3;">
+            <div class="label">Gestor</div>
+            <div class="value">{% if chamado.usuario_destinatario.gestor %}{{ chamado.usuario_destinatario.gestor.nome_completo }}{% else %}-{% endif %}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="section-title">Itens solicitados</h2>
+        {% if itens_solicitados %}
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Quantidade</th>
+                <th>ObservaÃ§Ã£o</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in itens_solicitados %}
+                <tr>
+                  <td>{{ item.tipo_display }}</td>
+                  <td>{{ item.quantidade }}</td>
+                  <td>{{ item.observacao|default:"-" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="field">
+            <div class="label">Itens</div>
+            <div class="value">Nenhum item foi registrado neste chamado.</div>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <h2 class="section-title">Dados do equipamento recolhido</h2>
+        {% if recolhimentos %}
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Ativo</th>
+                <th>Service Tag</th>
+                <th>Monitor</th>
+                <th>IMEI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for movimento in recolhimentos %}
+                <tr>
+                  <td>{{ movimento.equipamento.id_patrimonio }}</td>
+                  <td>{{ movimento.equipamento.service_tag|default:"-" }}</td>
+                  <td>{{ movimento.equipamento.monitor_patrimonio|default:"-" }}</td>
+                  <td>{{ movimento.equipamento.imei|default:"-" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="field">
+            <div class="label">Recolhido</div>
+            <div class="value">-</div>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <h2 class="section-title">Itens entregues</h2>
+        {% if itens_solicitados %}
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantidade</th>
+                <th>ObservaÃ§Ã£o</th>
+                <th>Equipamento entregue</th>
+                <th>PatrimÃ´nio</th>
+                <th>Entregue por</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in itens_solicitados %}
+                <tr>
+                  <td>{{ item.tipo_display }}</td>
+                  <td>{{ item.quantidade }}</td>
+                  <td>{{ item.observacao|default:"-" }}</td>
+                  <td>
+                    {% if item.equipamento_entregue %}
+                      {{ item.equipamento_entregue.tipo_display }}
+                    {% else %}
+                      Pendente
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.equipamento_entregue %}
+                      {{ item.equipamento_entregue.id_patrimonio }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.entregue_por %}
+                      {{ item.entregue_por.nome_completo }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.entregue_em %}
+                      {{ item.entregue_em|date:"d/m/Y H:i" }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="field">
+            <div class="label">Entregue</div>
+            <div class="value">-</div>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <h2 class="section-title">Termo de responsabilidade</h2>
+        <div class="terms">
+          <p>O integrante Ã© responsÃ¡vel por manter os equipamentos corporativos em bom estado de conservaÃ§Ã£o e limpeza.</p>
+          <ol>
+            <li>Ã‰ terminantemente proibido o uso de aplicativos sem o devido licenciamento de uso, bem como o uso de aplicativos e serviÃ§os piratas e/ou ilÃ­citos.</li>
+            <li>NÃ£o Ã© permitida a fixaÃ§Ã£o de adesivos ou qualquer adereÃ§o nos equipamentos.</li>
+            <li>No caso de mudanÃ§a de responsabilidade, o integrante deverÃ¡ comunicar a Ã¡rea de Tecnologia atravÃ©s de solicitaÃ§Ã£o no sistema oficial.</li>
+            <li>Na movimentaÃ§Ã£o entre Ã¡reas, o integrante deverÃ¡ abrir uma solicitaÃ§Ã£o para o suporte local verificar se o perfil de trabalho estÃ¡ compatÃ­vel com as necessidades da nova funÃ§Ã£o.</li>
+            <li>Quando deixarem de ser necessÃ¡rios ou no processo de desligamento funcional, todos os recursos cedidos deverÃ£o ser devolvidos na localidade correspondente. Caso os equipamentos e seus acessÃ³rios estejam danificados, a empresa poderÃ¡ descontar o valor de reposiÃ§Ã£o ou reparo.</li>
+            <li>Em caso de furto, roubo ou perda de equipamento corporativo, o integrante deverÃ¡ comunicar a ocorrÃªncia Ã s Ã¡reas responsÃ¡veis atravÃ©s do canal oficial.</li>
+            <li>O equipamento deverÃ¡ ser devolvido sem qualquer associaÃ§Ã£o de conta, senha ou aplicativo instalado. Remover qualquer ID, senha ou vÃ­nculo antes da devoluÃ§Ã£o.</li>
+            <li>Declaro estar ciente e de acordo com a norma de concessÃ£o de serviÃ§os de Workplace disponÃ­vel para consulta interna.</li>
+          </ol>
+        </div>
+      </section>
+
+      <div class="signature">
+        <div>
+          <div class="signature-line">Assinatura do colaborador</div>
+          <div class="small muted">Nome: {{ chamado.destinatario_nome_completo }}</div>
+          <div class="small muted">MatrÃ­cula: {{ chamado.destinatario_matricula }}</div>
+          <div class="small muted">Data: ____/____/______</div>
+        </div>
+        <div>
+          <div class="signature-line">Assinatura do tÃ©cnico</div>
+          <div class="small muted">Nome: {{ chamado.responsavel.nome_completo|default:"-" }}</div>
+          <div class="small muted">Data: ____/____/______</div>
+        </div>
+      </div>
+    </div>
+  </article>
+</body>
+</html>
+

@@ -29,32 +29,95 @@
   </div>
 </div>
 
-<div class="card app-card">
-  <div class="card-body">
-    <div class="section-kicker mb-2">Menores scores</div>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead>
-          <tr>
-            <th>Patrimônio</th>
-            <th>Tipo</th>
-            <th>Score</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for equipamento in equipamentos_alerta %}
-            <tr>
-              <td><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></td>
-              <td>{{ equipamento.tipo_display }}</td>
-              <td>{{ equipamento.score_saude|floatformat:0 }}</td>
-              <td>{{ equipamento.get_status_display }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="4" class="text-muted">Nenhum equipamento encontrado.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Monitorados</div><div class="value">{{ monitorados }}</div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Online</div><div class="value">{{ telemetria_online }}</div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Sem sinal</div><div class="value">{{ sem_sinal }}</div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="app-stat h-100"><div class="label">Alerta telemetria</div><div class="value">{{ telemetria_alerta }}</div></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Menores scores</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Patrimônio</th>
+                <th>Tipo</th>
+                <th>Score</th>
+                <th>Status</th>
+                <th>Último sinal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for equipamento in equipamentos_alerta %}
+                <tr>
+                  <td><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></td>
+                  <td>{{ equipamento.tipo_display }}</td>
+                  <td>{{ equipamento.score_saude|floatformat:0 }}</td>
+                  <td>{{ equipamento.get_status_display }}</td>
+                  <td>
+                    {% if equipamento.last_seen_at %}
+                      {{ equipamento.last_seen_at|date:"d/m/Y H:i" }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-muted">Nenhum equipamento encontrado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Sem heartbeat</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Patrimônio</th>
+                <th>Agente</th>
+                <th>Último sinal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for equipamento in equipamentos_sem_sinal %}
+                <tr>
+                  <td><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></td>
+                  <td>{{ equipamento.last_telemetria_agente.nome|default:"-" }}</td>
+                  <td>
+                    {% if equipamento.last_seen_at %}
+                      {{ equipamento.last_seen_at|date:"d/m/Y H:i" }}
+                    {% else %}
+                      Nunca
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3" class="text-muted">Nenhum equipamento sem sinal no momento.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>

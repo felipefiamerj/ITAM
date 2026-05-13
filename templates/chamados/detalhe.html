@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}{{ chamado.titulo }} | ITAM System{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
@@ -9,42 +9,214 @@
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <span class="status-pill status-pill-dark">{{ chamado.get_status_display }}</span>
         <span class="status-pill status-pill-dark">{{ chamado.get_prioridade_display }}</span>
+        {% if chamado.servico_realizado %}
+          <span class="status-pill status-pill-dark">{{ chamado.get_servico_realizado_display }}</span>
+        {% endif %}
+        <span class="status-pill status-pill-dark">Colaborador: {{ chamado.destinatario_nome_completo }}</span>
+        {% if itens_solicitados %}
+          <span class="status-pill status-pill-dark">Itens: {{ chamado.itens_solicitados_resumo }}</span>
+        {% endif %}
         {% if chamado.equipamento %}
           <span class="status-pill status-pill-dark">{{ chamado.equipamento.id_patrimonio }}</span>
         {% endif %}
+        <span class="status-pill status-pill-dark">Fluxo: {{ chamado.fluxo_etapa_label }}</span>
+        {% if chamado.aprovado_por %}
+          <span class="status-pill status-pill-dark">Aprovado por: {{ chamado.aprovado_por.nome_completo }}</span>
+        {% endif %}
       </div>
     </div>
-    {% if request.user.is_admin or request.user.is_analista or request.user.is_tecnico or chamado.solicitante_id == request.user.id %}
-      <a class="btn btn-light btn-lg" href="{% url 'editar_chamado' chamado.pk %}">
-        <i class="fa-solid fa-pen-to-square me-1"></i>Editar
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+      {% if pode_editar_chamado %}
+        <a class="btn btn-light btn-lg" href="{% url 'editar_chamado' chamado.pk %}">
+          <i class="fa-solid fa-pen-to-square me-1"></i>Editar
+        </a>
+      {% endif %}
+      <a class="btn btn-outline-light btn-lg" href="{% url 'termo_chamado' chamado.pk %}" target="_blank" rel="noopener">
+        <i class="fa-solid fa-file-lines me-1"></i>Termo
       </a>
-    {% endif %}
+    </div>
   </div>
 </section>
 
 <div class="row g-4">
   <div class="col-lg-7">
-    <div class="card app-card h-100">
+    <div class="card app-card h-100 mb-4">
       <div class="card-body">
-        <div class="section-kicker mb-2">Descrição</div>
+        <div class="section-kicker mb-2">DescriÃ§Ã£o</div>
         <p class="mb-0">{{ chamado.descricao|linebreaksbr }}</p>
         {% if chamado.solucao %}
           <hr>
-          <div class="section-kicker mb-2">Solução</div>
+          <div class="section-kicker mb-2">SoluÃ§Ã£o</div>
           <p class="mb-0">{{ chamado.solucao|linebreaksbr }}</p>
         {% endif %}
       </div>
     </div>
+
+    <div class="card app-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">SolicitaÃ§Ã£o formal</div>
+            <h2 class="h5 mb-0">Itens solicitados</h2>
+          </div>
+          <span class="badge badge-soft">{{ itens_solicitados|length }} item{{ itens_solicitados|pluralize }}</span>
+        </div>
+
+        {% if itens_solicitados %}
+          <div class="row g-3">
+            {% for item in itens_solicitados %}
+              <div class="col-md-6 col-xl-4">
+                <div class="requested-item-card h-100">
+                  <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                      <div class="requested-item-order">Item {{ forloop.counter }}</div>
+                      <h3 class="h6 mb-1">{{ item.tipo_display }}</h3>
+                    </div>
+                    <span class="badge badge-soft">{{ item.quantidade }}x</span>
+                  </div>
+                  {% if item.observacao %}
+                    <p class="small text-muted mb-0 mt-2">{{ item.observacao }}</p>
+                  {% else %}
+                    <p class="small text-muted mb-0 mt-2">Sem observaÃ§Ãµes adicionais.</p>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Nenhum item solicitado foi informado neste chamado.</p>
+        {% endif %}
+      </div>
+    </div>
   </div>
+
   <div class="col-lg-5">
+    <div class="card app-card mb-4">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Fluxo inteligente</div>
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+          <div>
+            <h2 class="h5 mb-1">{{ chamado.fluxo_etapa_label }}</h2>
+            <p class="text-muted mb-0">{{ chamado.fluxo_etapa_descricao }}</p>
+          </div>
+          <span class="badge badge-soft">{{ chamado.get_status_display }}</span>
+        </div>
+
+        {% if chamado.responsavel %}
+          <div class="small text-muted mb-3">
+            Responsável atual: {{ chamado.responsavel.nome_completo }} ({{ chamado.responsavel.papel_fluxo }})
+          </div>
+        {% endif %}
+
+        <div class="timeline workflow-timeline mb-4">
+          {% for etapa in fluxo_etapas %}
+            <div class="timeline-item workflow-step{% if etapa.done %} is-done{% endif %}{% if etapa.active %} is-active{% endif %}">
+              <span class="timeline-dot"></span>
+              <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                  <strong>{{ etapa.label }}</strong>
+                  {% if etapa.active %}
+                    <span class="badge badge-soft">Atual</span>
+                  {% elif etapa.done %}
+                    <span class="badge badge-soft">Concluída</span>
+                  {% endif %}
+                </div>
+                <p class="small text-muted mb-0">{{ etapa.description }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if chamado.aprovado_por %}
+          <div class="alert alert-success py-2 mb-3">
+            <strong>Aprovação registrada:</strong> {{ chamado.aprovado_por_label }}
+          </div>
+        {% elif chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+          <div class="alert alert-warning py-2 mb-3">
+            Aguardando a aprovação do colaborador para liberar a retirada.
+          </div>
+        {% elif chamado.fluxo_etapa == 'aguardando_estoque' %}
+          <div class="alert alert-warning py-2 mb-3">
+            O chamado aguarda disponibilidade em estoque antes de seguir.
+          </div>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2">
+          {% if acoes_fluxo.pode_assumir %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="assumir">
+              <button class="btn btn-primary" type="submit">Assumir triagem</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_marcar_sem_estoque %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="sem_estoque">
+              <button class="btn btn-outline-warning" type="submit">Marcar sem estoque</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_enviar_para_aprovacao %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="enviar_aprovacao">
+              <button class="btn btn-outline-primary" type="submit">Enviar para aprovação</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_aprovar_retirada %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="aprovar_retirada">
+              <button class="btn btn-success" type="submit">Aprovar retirada</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_marcar_separacao %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="separar">
+              <button class="btn btn-outline-info" type="submit">Iniciar separação</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_marcar_pronto %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="pronto">
+              <button class="btn btn-outline-success" type="submit">Pronto para entrega</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
     <div class="card app-card h-100">
       <div class="card-body">
         <div class="section-kicker mb-2">Detalhes</div>
         <ul class="list-unstyled mb-0">
           <li class="mb-2"><strong>Solicitante:</strong> {{ chamado.solicitante.nome_completo }}</li>
-          <li class="mb-2"><strong>Responsável:</strong> {{ chamado.responsavel.nome_completo|default:"-" }}</li>
+          <li class="mb-2">
+            <strong>Colaborador:</strong> {{ chamado.destinatario_nome_completo }}
+            <div class="small text-muted">Matrícula: {{ chamado.destinatario_matricula }}</div>
+          </li>
+          <li class="mb-2"><strong>Origem da solicitação:</strong> {{ chamado.solicitacao_origem_label }}</li>
+          <li class="mb-2">
+            <strong>Responsável:</strong>
+            {% if chamado.responsavel %}
+              {{ chamado.responsavel.nome_completo }} <span class="text-muted">({{ chamado.responsavel.papel_fluxo }})</span>
+            {% else %}
+              -
+            {% endif %}
+          </li>
+          <li class="mb-2"><strong>ServiÃ§o:</strong> {{ chamado.get_servico_realizado_display|default:"-" }}</li>
           <li class="mb-2"><strong>Prioridade:</strong> {{ chamado.get_prioridade_display }}</li>
           <li class="mb-2"><strong>Status:</strong> {{ chamado.get_status_display }}</li>
+          <li class="mb-2">
+            <strong>Itens solicitados:</strong>
+            {% if itens_solicitados %}
+              {{ chamado.itens_solicitados_resumo }}
+            {% else %}
+              -
+            {% endif %}
+          </li>
           <li class="mb-2">
             <strong>Equipamento:</strong>
             {% if chamado.equipamento %}
@@ -60,4 +232,345 @@
     </div>
   </div>
 </div>
+
+{% if pode_gerenciar_chamado and entrega_form %}
+  <div class="card app-card mt-4">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+        <div>
+          <div class="section-kicker">Entrega</div>
+          <h2 class="h5 mb-0">Registrar entrega de equipamentos</h2>
+        </div>
+        {% if itens_solicitados %}
+          <span class="badge badge-soft">{{ chamado.itens_solicitados_resumo }}</span>
+        {% endif %}
+      </div>
+
+      {% if itens_solicitados %}
+        <div class="mb-4">
+          <div class="section-kicker mb-2">Pedido do colaborador</div>
+          <div class="row g-3">
+            {% for item in itens_solicitados %}
+              <div class="col-md-6 col-xl-4">
+                <div class="requested-item-card h-100 requested-item-card-compact">
+                  <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                      <div class="requested-item-order">Item {{ forloop.counter }}</div>
+                      <h3 class="h6 mb-1">{{ item.tipo_display }}</h3>
+                    </div>
+                    <span class="badge badge-soft">{{ item.quantidade }}x</span>
+                  </div>
+                  {% if item.observacao %}
+                    <p class="small text-muted mb-0 mt-2">{{ item.observacao }}</p>
+                  {% else %}
+                    <p class="small text-muted mb-0 mt-2">Sem observaÃ§Ãµes adicionais.</p>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'entregar_equipamento_chamado' chamado.pk %}" class="delivery-form">
+        {% csrf_token %}
+        {{ entrega_form.itens_entrega }}
+        {% if entrega_form.non_field_errors %}
+          <div class="alert alert-warning py-2">
+            {{ entrega_form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        {% for error in entrega_form.itens_entrega.errors %}
+          <div class="alert alert-warning py-2 mb-3">
+            {{ error }}
+          </div>
+        {% endfor %}
+
+        <div class="mb-4">
+          <label for="{{ entrega_form.observacoes.id_for_label }}" class="form-label">{{ entrega_form.observacoes.label }}</label>
+          {{ entrega_form.observacoes }}
+          {% if entrega_form.observacoes.help_text %}
+            <div class="form-text">{{ entrega_form.observacoes.help_text }}</div>
+          {% endif %}
+          {% for error in entrega_form.observacoes.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="form-check mb-4">
+          {{ entrega_form.concluir_chamado }}
+          <label class="form-check-label" for="{{ entrega_form.concluir_chamado.id_for_label }}">
+            {{ entrega_form.concluir_chamado.label }}
+          </label>
+          {% if entrega_form.concluir_chamado.help_text %}
+            <div class="form-text">{{ entrega_form.concluir_chamado.help_text }}</div>
+          {% endif %}
+          {% for error in entrega_form.concluir_chamado.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Seleção por item</div>
+            <h3 class="h6 mb-0">Escolha 1 equipamento para cada item solicitado</h3>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="badge badge-soft" data-selected-items-count>{{ entrega_form.itens_selecionados_total }}/{{ entrega_form.itens_solicitados_total }}</span>
+            <span class="badge badge-soft">{{ entrega_form.equipamentos_compativeis_total }} opção{{ entrega_form.equipamentos_compativeis_total|pluralize }}</span>
+          </div>
+        </div>
+
+        <div class="delivery-selection-summary mb-4">
+          <div class="delivery-selection-copy">
+            <div class="section-kicker mb-1">Progresso</div>
+            <h4 class="h6 mb-1">Clique em um card para escolher o equipamento daquele item</h4>
+            <p class="delivery-selection-meta mb-0">O contador precisa fechar em todos os itens para encerrar o chamado.</p>
+          </div>
+          <div class="delivery-selection-state">
+            <span class="badge badge-soft" data-selected-items-count>{{ entrega_form.itens_selecionados_total }}/{{ entrega_form.itens_solicitados_total }}</span>
+            <strong class="delivery-selection-value" data-selected-items-message aria-live="polite">
+              {% if entrega_form.itens_selecionados_total == entrega_form.itens_solicitados_total %}
+                Todos os itens estao selecionados.
+              {% else %}
+                Faltam itens para completar a entrega.
+              {% endif %}
+            </strong>
+          </div>
+        </div>
+
+        {% if entrega_form.equipamentos_compativeis_por_tipo %}
+          <div class="accordion equipment-accordion mb-4" id="equipmentAccordion">
+            {% for grupo in entrega_form.equipamentos_compativeis_por_tipo %}
+              <div
+                class="accordion-item equipment-accordion-item"
+                data-item-id="{{ grupo.item_id }}"
+                data-item-requer-selecao="{{ grupo.requer_selecao|yesno:'1,0' }}"
+              >
+                <h2 class="accordion-header" id="equipment-heading-{{ grupo.item_id }}">
+                  <button
+                    class="accordion-button {% if not forloop.first %}collapsed{% endif %}"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#equipment-collapse-{{ grupo.item_id }}"
+                    aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                    aria-controls="equipment-collapse-{{ grupo.item_id }}"
+                  >
+                    <div class="d-flex w-100 justify-content-between align-items-center gap-3">
+                      <div class="text-start">
+                        <div class="small text-uppercase text-muted fw-semibold">Item {{ grupo.ordem }}</div>
+                        <div class="fw-semibold">{{ grupo.label }}</div>
+                        <div class="small text-muted">
+                          {% if grupo.quantidade > 1 %}
+                            {{ grupo.quantidade }} unidades solicitadas
+                          {% else %}
+                            1 unidade solicitada
+                          {% endif %}
+                          {% if grupo.observacao %}
+                            · {{ grupo.observacao }}
+                          {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1" data-item-selection-label>
+                          {% if grupo.selecionado_id %}
+                            Selecionado: {{ grupo.selecionado_label }} {{ grupo.selecionado_tipo }}{% if grupo.selecionado_meta %} · {{ grupo.selecionado_meta }}{% endif %}
+                          {% elif grupo.requer_selecao %}
+                            Nenhum equipamento selecionado
+                          {% else %}
+                            Item sem selecao de estoque
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div class="d-flex flex-column align-items-end gap-2">
+                        <span class="badge badge-soft" data-item-selection-badge>
+                          {% if grupo.selecionado_id %}
+                            Selecionado
+                          {% elif grupo.requer_selecao %}
+                            Pendente
+                          {% else %}
+                            Opcional
+                          {% endif %}
+                        </span>
+                        <span class="badge badge-soft">{{ grupo.equipamentos_total }} em estoque</span>
+                      </div>
+                    </div>
+                  </button>
+                </h2>
+                <div
+                  id="equipment-collapse-{{ grupo.item_id }}"
+                  class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+                  aria-labelledby="equipment-heading-{{ grupo.item_id }}"
+                  data-bs-parent="#equipmentAccordion"
+                >
+                  <div class="accordion-body">
+                    {% if grupo.equipamentos %}
+                      <div class="row g-3">
+                        {% for equipamento in grupo.equipamentos %}
+                          <div class="col-md-6 col-xl-4">
+                            <button
+                              type="button"
+                              class="equipment-stock-card w-100 {% if equipamento.pk == grupo.selecionado_id %}is-selected{% endif %}"
+                              data-item-id="{{ grupo.item_id }}"
+                              data-select-equipamento="{{ equipamento.pk }}"
+                              data-equipamento-patrimonio="{{ equipamento.id_patrimonio }}"
+                              data-equipamento-tipo="{{ equipamento.tipo_display }}"
+                              data-equipamento-marca="{{ equipamento.marca }}"
+                              data-equipamento-modelo="{{ equipamento.modelo }}"
+                            >
+                              <div class="equipment-stock-card-top">
+                                <span class="equipment-stock-card-id">{{ equipamento.id_patrimonio }}</span>
+                                <span class="badge badge-soft">{{ equipamento.get_status_display }}</span>
+                              </div>
+                              <div class="equipment-stock-card-type">{{ equipamento.tipo_display }}</div>
+                              <div class="equipment-stock-card-meta">{{ equipamento.marca|default:"-" }} {{ equipamento.modelo|default:"" }}</div>
+                            </button>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="alert alert-warning mb-0">
+                        {% if grupo.requer_selecao %}
+                          Nenhum equipamento compatível encontrado para este item no estoque.
+                        {% else %}
+                          Este item nao exige selecao de equipamento de estoque.
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="alert alert-warning mb-4">
+            Não há itens solicitados vinculados a este chamado para organizar a entrega.
+          </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-box-open me-1"></i>Registrar entregas
+        </button>
+      </form>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const hidden = document.getElementById('id_itens_entrega');
+      const accordionItems = Array.from(document.querySelectorAll('.equipment-accordion-item'));
+      const cards = Array.from(document.querySelectorAll('[data-select-equipamento]'));
+      const summaryCounters = Array.from(document.querySelectorAll('[data-selected-items-count]'));
+      const summaryMessage = document.querySelector('[data-selected-items-message]');
+      const totalItems = accordionItems.filter((item) => item.dataset.itemRequerSelecao !== '0').length;
+
+      if (!hidden || !accordionItems.length || !cards.length) {
+        return;
+      }
+
+      let selections = {};
+      try {
+        selections = hidden.value ? JSON.parse(hidden.value) : {};
+      } catch (error) {
+        selections = {};
+      }
+
+      const normalizeItemId = (value) => String(value || '');
+
+      const updateHidden = () => {
+        hidden.value = JSON.stringify(selections);
+      };
+
+      const equipamentoUsadoEmOutroItem = (itemId, equipamentoId) => {
+        return Object.entries(selections).some(([otherItemId, otherEquipamentoId]) => {
+          return normalizeItemId(otherItemId) !== normalizeItemId(itemId) && String(otherEquipamentoId) === String(equipamentoId);
+        });
+      };
+
+      const syncSelection = () => {
+        let selectedCount = 0;
+
+        accordionItems.forEach((item) => {
+          const itemId = normalizeItemId(item.dataset.itemId);
+          const selectedEquipmentId = String(selections[itemId] || '');
+          const badge = item.querySelector('[data-item-selection-badge]');
+          const label = item.querySelector('[data-item-selection-label]');
+          const selected = Boolean(selectedEquipmentId);
+          const requerSelecao = item.dataset.itemRequerSelecao !== '0';
+
+          item.classList.toggle('has-selected-card', selected);
+          if (badge) {
+            badge.textContent = selected ? 'Selecionado' : (requerSelecao ? 'Pendente' : 'Opcional');
+          }
+          if (label) {
+            if (selected) {
+              const selectedCard = item.querySelector(`[data-select-equipamento="${selectedEquipmentId}"]`);
+              if (selectedCard) {
+                const patrimonio = selectedCard.dataset.equipamentoPatrimonio || 'Equipamento';
+                const tipo = selectedCard.dataset.equipamentoTipo || '';
+                const marca = selectedCard.dataset.equipamentoMarca || '';
+                const modelo = selectedCard.dataset.equipamentoModelo || '';
+                const detalhes = [patrimonio, tipo].filter(Boolean);
+                const complemento = [marca, modelo].filter(Boolean).join(' ');
+                if (complemento) {
+                  detalhes.push(complemento);
+                }
+                label.textContent = `Selecionado: ${detalhes.join(' · ')}`;
+              } else {
+                label.textContent = 'Selecionado';
+              }
+            } else {
+              label.textContent = requerSelecao ? 'Nenhum equipamento selecionado' : 'Item sem selecao de estoque';
+            }
+          }
+
+          item.querySelectorAll('.equipment-stock-card').forEach((card) => {
+            const active = card.dataset.selectEquipamento === selectedEquipmentId;
+            card.classList.toggle('is-selected', active);
+            card.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+
+          if (selected && requerSelecao) {
+            selectedCount += 1;
+          }
+        });
+
+        updateHidden();
+
+        summaryCounters.forEach((counter) => {
+          counter.textContent = `${selectedCount}/${totalItems}`;
+        });
+
+        if (summaryMessage) {
+          summaryMessage.textContent = selectedCount === totalItems
+            ? 'Todos os itens estao selecionados.'
+            : `Faltam ${totalItems - selectedCount} item(ns) para completar a entrega.`;
+        }
+      };
+
+      cards.forEach((card) => {
+        card.addEventListener('click', () => {
+          const itemId = normalizeItemId(card.dataset.itemId);
+          const equipamentoId = String(card.dataset.selectEquipamento || '');
+          if (!itemId || !equipamentoId) {
+            return;
+          }
+
+          if (equipamentoUsadoEmOutroItem(itemId, equipamentoId)) {
+            window.alert('Esse equipamento já foi selecionado para outro item.');
+            return;
+          }
+
+          selections[itemId] = equipamentoId;
+          syncSelection();
+        });
+      });
+
+      syncSelection();
+    });
+  </script>
+{% endblock %}
+
+

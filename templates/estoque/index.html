@@ -1,58 +1,264 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Estoque | ITAM System{% endblock %}
+{% block body_class %}app-page estoque-page{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
     <div>
       <div class="hero-kicker"><i class="fa-solid fa-warehouse"></i> Estoque e lotes</div>
-      <h1 class="hero-title mb-2">Visão rápida do material disponível e dos lotes importados.</h1>
-      <p class="hero-text mb-0">Monitore o que está em estoque, o que está em manutenção e o que precisa de atenção por volume baixo.</p>
+      <h1 class="hero-title mb-2">Painel vivo do parque de ativos.</h1>
+      <p class="hero-text mb-0">
+        Veja em tempo real onde estão os equipamentos, como eles se distribuem por site e quais lotes foram importados.
+        <span class="d-block mt-2">
+          Última atualização: <strong id="estoque-updated-at">Agora</strong>
+        </span>
+      </p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-box"></i> Total {{ total_equipamentos }}</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-location-dot"></i> {{ total_sites }} sites</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-map-location-dot"></i> {{ total_localizacoes }} localizações</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-hourglass-half"></i> Aguardando {{ total_aguardando }}</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-triangle-exclamation"></i> {{ equipamentos_alerta_total }} alertas</span>
+      </div>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-2">
+      <a class="btn btn-light btn-lg" href="{% url 'importar_equipamentos_csv' %}">
+        <i class="fa-solid fa-file-arrow-up me-1"></i>Importar CSV
+      </a>
+      <span class="status-pill status-pill-dark">
+        <span class="live-dot"></span> Atualização automática
+      </span>
     </div>
   </div>
 </section>
 
-<div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="app-stat h-100">
-      <div class="label">Em estoque</div>
-      <div class="value">{{ total_em_estoque }}</div>
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Painel ao vivo</div>
+      <h2 class="h6 mb-0">Resumo do estoque</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualização automática</span>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="app-stat h-100">
-      <div class="label">Em manutenção</div>
-      <div class="value">{{ equipamentos_em_manutencao }}</div>
+  <div class="row g-3" data-estoque-live data-api-url="{% url 'api_estoque_resumo' %}">
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Total</span>
+        </div>
+        <div class="label">Total de equipamentos</div>
+        <div class="value" data-live-total="total_equipamentos">{{ total_equipamentos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Em uso</span>
+        </div>
+        <div class="label">Ativos em operação</div>
+        <div class="value" data-live-total="em_uso">{{ total_em_uso }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-warehouse" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Estoque</span>
+        </div>
+        <div class="label">Prontos para alocação</div>
+        <div class="value" data-live-total="em_estoque">{{ total_em_estoque }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Manut.</span>
+        </div>
+        <div class="label">Fluxo técnico</div>
+        <div class="value" data-live-total="em_manutencao">{{ equipamentos_em_manutencao }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-slate h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Descart.</span>
+        </div>
+        <div class="label">Itens baixados</div>
+        <div class="value" data-live-total="descartados">{{ total_descartados }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Alerta IA</span>
+        </div>
+        <div class="label">Saúde abaixo do ideal</div>
+        <div class="value" data-live-total="alertas">{{ equipamentos_alerta_total }}</div>
+      </div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="app-stat h-100">
-      <div class="label">Limite de alerta</div>
-      <div class="value">{{ limite_alerta }}</div>
+</section>
+
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Gráficos</div>
+      <h2 class="h5 mb-0">Leituras visuais do estoque</h2>
+    </div>
+    <span class="badge badge-soft">Top insights</span>
+  </div>
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-teal h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Status</div>
+              <h3 class="h6 mb-1">Equipamentos por situação</h3>
+              <p class="small text-muted mb-0">Distribuição geral do parque.</p>
+            </div>
+            <span class="badge badge-soft">{{ total_equipamentos }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="estoque-status-chart-wrap">
+            <canvas id="estoque-status-chart" aria-label="Distribuição de equipamentos por status" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-violet h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Tipos</div>
+              <h3 class="h6 mb-1">Top tipos em estoque</h3>
+              <p class="small text-muted mb-0">Itens disponíveis com maior presença.</p>
+            </div>
+            <span class="badge badge-soft">{{ total_em_estoque }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="estoque-types-chart-wrap">
+            <canvas id="estoque-types-chart" aria-label="Principais tipos de equipamento em estoque" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Distribuição por site</div>
+            <h2 class="h5 mb-0">Mapa do parque</h2>
+          </div>
+          <div class="small text-muted">Atualizado em <span id="estoque-updated-at-inline">agora</span></div>
+        </div>
+        <div id="estoque-sites-list" class="stock-stack">
+          {% for item in resumo_por_site %}
+            <article class="location-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ item.site|default:"Sem site" }}</strong>
+                  <div class="small text-muted">{{ item.total }} equipamentos</div>
+                </div>
+                <span class="badge badge-soft">{{ item.total }}</span>
+              </div>
+              <div class="location-bars mt-3">
+                <div class="location-bar">
+                  <span class="location-bar-fill location-bar-fill-uso" style="width: {% widthratio item.em_uso item.total 100 %}%;"></span>
+                </div>
+                <div class="location-bar">
+                  <span class="location-bar-fill location-bar-fill-estoque" style="width: {% widthratio item.em_estoque item.total 100 %}%;"></span>
+                </div>
+                <div class="location-bar">
+                  <span class="location-bar-fill location-bar-fill-manutencao" style="width: {% widthratio item.em_manutencao item.total 100 %}%;"></span>
+                </div>
+              </div>
+              <div class="small text-muted mt-2">
+                Em uso {{ item.em_uso }} · Em estoque {{ item.em_estoque }} · Manutenção {{ item.em_manutencao }} · Descartados {{ item.descartado }}
+              </div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Sem dados de localização ainda.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Últimos lotes</div>
+        <div id="estoque-lotes-list" class="stack-list">
+          {% for lote in lotes %}
+            <article class="list-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ lote.descricao|default:"-" }}</strong>
+                  <div class="small text-muted">{{ lote.created_at|date:"d/m/Y H:i" }}</div>
+                </div>
+                <span class="badge badge-soft">{{ lote.get_status_display }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ lote.itens_importados }}/{{ lote.total_itens }} importados</div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Nenhum lote cadastrado.</div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="row g-4">
-  <div class="col-lg-6">
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
     <div class="card app-card h-100">
       <div class="card-body">
-        <div class="section-kicker mb-2">Resumo por tipo</div>
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Localizações</div>
+            <h2 class="h5 mb-0">Detalhe por região</h2>
+          </div>
+          <span class="badge badge-soft">Top {{ resumo_por_localizacao|length }}</span>
+        </div>
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
             <thead>
               <tr>
-                <th>Tipo</th>
+                <th>Localização</th>
                 <th>Total</th>
+                <th>Em uso</th>
+                <th>Em estoque</th>
+                <th>Manut.</th>
               </tr>
             </thead>
-            <tbody>
-              {% for item in resumo_por_tipo %}
+            <tbody id="estoque-localizacoes-list">
+              {% for item in resumo_por_localizacao %}
                 <tr>
-                  <td>{{ item.tipo }}</td>
+                  <td>
+                    <div class="fw-semibold">{{ item.site|default:"Sem site" }}</div>
+                    <div class="small text-muted">{{ item.setor|default:"Sem setor" }} · {{ item.andar_sala|default:"Sem andar/sala" }}</div>
+                  </td>
                   <td>{{ item.total }}</td>
+                  <td>{{ item.em_uso }}</td>
+                  <td>{{ item.em_estoque }}</td>
+                  <td>{{ item.em_manutencao }}</td>
                 </tr>
               {% empty %}
-                <tr><td colspan="2" class="text-muted">Sem itens em estoque.</td></tr>
+                <tr><td colspan="5" class="text-muted">Sem localizações registradas.</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -60,34 +266,43 @@
       </div>
     </div>
   </div>
-  <div class="col-lg-6">
+
+  <div class="col-lg-5">
     <div class="card app-card h-100">
       <div class="card-body">
-        <div class="section-kicker mb-2">Últimos lotes</div>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th>Status</th>
-                <th>Importados</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for lote in lotes %}
-                <tr>
-                  <td>{{ lote.descricao|default:"-" }}</td>
-                  <td>{{ lote.get_status_display }}</td>
-                  <td>{{ lote.itens_importados }}/{{ lote.total_itens }}</td>
-                </tr>
-              {% empty %}
-                <tr><td colspan="3" class="text-muted">Nenhum lote cadastrado.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Alertas</div>
+            <h2 class="h5 mb-0">Itens com score baixo</h2>
+          </div>
+          <span class="badge badge-soft">{{ equipamentos_alerta_total }}</span>
+        </div>
+        <div id="estoque-alertas-list" class="stack-list">
+          {% for equipamento in equipamentos_alerta %}
+            <article class="list-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></strong>
+                  <div class="small text-muted">{{ equipamento.tipo_display }} · {{ equipamento.localizacao_resumida }}</div>
+                </div>
+                <span class="badge badge-soft">{{ equipamento.score_saude|floatformat:0 }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ equipamento.get_status_display }}</div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Nenhum alerta de saúde no momento.</div>
+          {% endfor %}
         </div>
       </div>
     </div>
   </div>
 </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ estoque_charts|json_script:"estoque-charts-data" }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'js/dashboard-charts.js' %}"></script>
+  <script src="{% static 'js/estoque-live.js' %}"></script>
 {% endblock %}

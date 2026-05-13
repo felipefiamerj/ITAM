@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} | ITAM System{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-layer-group"></i> Entrada guiada</div>
+      <h1 class="hero-title mb-2">Escolha o tipo de solicitacao</h1>
+      <p class="hero-text mb-0">Cada card leva voce para um formulario ja filtrado. Assim o chamado nasce com foco, menos ruido e mais agilidade para o time.</p>
+    </div>
+    <div class="request-catalog-note">
+      <div class="small text-uppercase fw-semibold mb-1">Fluxo recomendado</div>
+      <div class="request-catalog-note-title">Comece pelo modelo certo</div>
+      <div class="request-catalog-note-text">Depois o formulario organiza os itens e o termo sai padronizado.</div>
+    </div>
+  </div>
+</section>
+
+<section class="request-catalog-grid">
+  {% for card in cards %}
+    <a class="request-catalog-card request-catalog-card-{{ card.tone }}" href="{% url 'criar_chamado' %}?template={{ card.key }}">
+      <div class="request-catalog-card-top">
+        <div class="request-catalog-eyebrow">
+          <span class="request-catalog-icon"><i class="fa-solid {{ card.icon }}"></i></span>
+          <span>{{ card.eyebrow }}</span>
+        </div>
+        <span class="request-catalog-favorite"><i class="fa-regular fa-heart"></i></span>
+      </div>
+
+      <h2 class="request-catalog-title">{{ card.title }} <span>{{ card.highlight }}</span></h2>
+      <p class="request-catalog-description">{{ card.description }}</p>
+
+      <div class="request-catalog-tags">
+        {% for tipo in card.tipos_labels %}
+          {% if forloop.counter <= 4 %}
+            <span class="badge badge-soft">{{ tipo }}</span>
+          {% endif %}
+        {% endfor %}
+        {% if card.tipos_total > 4 %}
+          <span class="badge badge-soft">+{{ card.tipos_total|add:"-4" }} tipos</span>
+        {% endif %}
+      </div>
+
+      <div class="request-catalog-card-footer">
+        <span>Selecionar modelo</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </div>
+    </a>
+  {% endfor %}
+</section>
+{% endblock %}

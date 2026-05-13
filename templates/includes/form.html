@@ -4,21 +4,40 @@
   </div>
 {% endif %}
 {% for field in form %}
-  <div class="mb-3">
-    {% if field.field.widget.input_type == "checkbox" %}
-      <div class="form-check">
+  {% if field.is_hidden %}
+    {{ field }}
+  {% else %}
+    <div class="mb-3">
+      {% if field.name == "equipamentos_solicitados" %}
+      <fieldset class="equipment-choice-field">
+        <legend class="form-label">{{ field.label }}</legend>
+        <div class="equipment-choice-grid">
+          {{ field }}
+        </div>
+        {% if field.help_text %}
+          <div class="form-text">{{ field.help_text }}</div>
+        {% endif %}
+        {% for error in field.errors %}
+          <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+      </fieldset>
+      {% elif field.field.widget.input_type == "checkbox" %}
+        <div class="form-check">
+          {{ field }}
+          <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
+        </div>
+      {% else %}
+        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
         {{ field }}
-        <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
-      </div>
-    {% else %}
-      <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-      {{ field }}
-    {% endif %}
-    {% if field.help_text %}
-      <div class="form-text">{{ field.help_text }}</div>
-    {% endif %}
-    {% for error in field.errors %}
-      <div class="text-danger small mt-1">{{ error }}</div>
-    {% endfor %}
-  </div>
+      {% endif %}
+      {% if field.name != "equipamentos_solicitados" %}
+        {% if field.help_text %}
+          <div class="form-text">{{ field.help_text }}</div>
+        {% endif %}
+        {% for error in field.errors %}
+          <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  {% endif %}
 {% endfor %}

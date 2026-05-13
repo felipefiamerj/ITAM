@@ -54,7 +54,7 @@ O projeto oferece:
 
 ## Tecnologias utilizadas
 
-- Python + Django 6.x
+- Python 3.10 + Django 4.2.x
 - Django REST Framework
 - Django Crispy Forms + Bootstrap 5
 - django-guardian para permissões objeto
@@ -69,7 +69,7 @@ O projeto oferece:
 1. Ative o ambiente virtual:
 
 ```powershell
-& .\venv\Scripts\Activate.ps1
+& .\.venv\Scripts\Activate.ps1
 ```
 
 2. Instale as dependências:
@@ -107,11 +107,12 @@ http://127.0.0.1:8000/
 
 ## Observações
 
-- O sistema utiliza `SQLite` por padrão, mas pode ser configurado para `MySQL` via variável `DB_ENGINE` no `.env`.
+- O sistema utiliza `SQLite` por padrão, mas pode ser configurado para `PostgreSQL` via variável `DB_ENGINE` no `.env`.
+- Para rodar com banco local, ajuste `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` conforme seu ambiente.
 - O `DEBUG` está ativado por padrão no ambiente de desenvolvimento.
 - A administração de arquivos está em `staticfiles/` e `media/`.
 
 ## Status das alterações
 
-- Executei uma verificação no repositório e não há alterações locais salvas pendentes em `git status`.
+- A base foi validada em Python 3.10 com PostgreSQL local e migrações recriadas do zero.
 - Se você deseja que eu implemente funcionalidades específicas de solicitação, entrega, troca de equipamentos ou comprovantes assinados, por favor descreva os requisitos detalhadamente para que eu possa aplicar as mudanças no código.
