@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Monitoramento IA | ITAM System{% endblock %}
+{% block title %}Monitoramento IA | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
@@ -8,9 +8,14 @@
       <h1 class="hero-title mb-2">Indicadores automáticos de saúde dos equipamentos.</h1>
       <p class="hero-text mb-0">Use os scores para antecipar manutenção, priorizar inspeções e reduzir indisponibilidade.</p>
     </div>
-    <a class="btn btn-light btn-lg" href="?recalcular=1">
-      <i class="fa-solid fa-rotate me-1"></i>Recalcular scores
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-outline-light btn-lg" href="{% url 'ia' %}">
+        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Copiloto operacional
+      </a>
+      <a class="btn btn-light btn-lg" href="?recalcular=1">
+        <i class="fa-solid fa-rotate me-1"></i>Recalcular scores
+      </a>
+    </div>
   </div>
 </section>
 

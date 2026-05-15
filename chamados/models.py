@@ -7,9 +7,9 @@ from equipamentos.models import TipoEquipamento
 
 class PrioridadeChamado(models.TextChoices):
     BAIXA = 'baixa', 'Baixa'
-    MEDIA = 'media', 'MÃ©dia'
+    MEDIA = 'media', 'Média'
     ALTA = 'alta', 'Alta'
-    CRITICA = 'critica', 'CrÃ­tica'
+    CRITICA = 'critica', 'Crítica'
 
 
 class StatusChamado(models.TextChoices):
@@ -95,9 +95,9 @@ class ServicoChamado(models.TextChoices):
     ENTREGA = 'entrega', 'Entrega de equipamento'
     RECOLHIMENTO = 'recolhimento', 'Recolhimento de equipamento'
     TROCA = 'troca', 'Troca de equipamento'
-    MANUTENCAO = 'manutencao', 'ManutenÃ§Ã£o'
-    INSTALACAO = 'instalacao', 'InstalaÃ§Ã£o / configuraÃ§Ã£o'
-    ORIENTACAO = 'orientacao', 'OrientaÃ§Ã£o'
+    MANUTENCAO = 'manutencao', 'Manutenção'
+    INSTALACAO = 'instalacao', 'Instalação / configuração'
+    ORIENTACAO = 'orientacao', 'Orientação'
     OUTRO = 'outro', 'Outro'
 
 

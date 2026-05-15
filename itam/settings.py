@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from celery.schedules import crontab
+
 def _read_dotenv(path):
     values = {}
     if not path.exists():
@@ -41,9 +43,24 @@ def config(name, default=None, cast=None, prefer_env=True):
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production-itam-2026')
-DEBUG = config('DEBUG', default=True, cast=bool, prefer_env=False)
-ALLOWED_HOSTS = [host.strip() for host in config('ALLOWED_HOSTS', default='*').split(',') if host.strip()]
+DJANGO_ENV = config('DJANGO_ENV', default='development').strip().lower()
+APP_NAME = config('APP_NAME', default='ITAM System')
+APP_SHORT_NAME = config('APP_SHORT_NAME', default='ITAM')
+
+SECRET_KEY = config('SECRET_KEY', default='', prefer_env=False)
+if not SECRET_KEY:
+    if DJANGO_ENV == 'production':
+        raise RuntimeError('SECRET_KEY precisa ser definido no ambiente de producao.')
+    SECRET_KEY = 'django-insecure-change-this-in-production-itam-2026'
+
+DEBUG = config('DEBUG', default=DJANGO_ENV in {'development', 'dev', 'local'}, cast=bool, prefer_env=False)
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in config('ALLOWED_HOSTS', default='127.0.0.1,localhost,testserver').split(',')
+    if host.strip()
+]
+SITE_URL = config('SITE_URL', default='')
+CSRF_TRUSTED_ORIGINS = [SITE_URL] if SITE_URL.startswith(('http://', 'https://')) else []
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -100,6 +117,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'itam.context_processors.site_context',
                 'accounts.context_processors.accounts_context',
                 'notifications.context_processors.notifications_context',
             ],
@@ -186,26 +204,54 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
 
 REDIS_URL = config('REDIS_URL', default='')
-CELERY_BROKER_URL = REDIS_URL or 'memory://'
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=REDIS_URL or '')
+if not CELERY_BROKER_URL:
+    if DJANGO_ENV == 'production':
+        raise RuntimeError('Defina CELERY_BROKER_URL ou REDIS_URL em producao.')
+    CELERY_BROKER_URL = 'memory://'
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'itam-recalcular-scores-diario': {
+        'task': 'equipamentos.recalcular_scores',
+        'schedule': crontab(hour=2, minute=0),
+    },
+    'itam-verificar-monitoramento-frequente': {
+        'task': 'equipamentos.verificar_monitoramento',
+        'schedule': crontab(minute='*/5'),
+    },
+}
 
-CHANNEL_LAYERS = {
-    'default': (
-        {
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
             'CONFIG': {'hosts': [REDIS_URL]},
         }
-        if REDIS_URL
-        else {
+    }
+elif DJANGO_ENV == 'production':
+    raise RuntimeError('Defina REDIS_URL em producao para habilitar Channels com Redis.')
+else:
+    CHANNEL_LAYERS = {
+        'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer',
         }
-    )
-}
+    }
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+    SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+    SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
 
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
@@ -213,7 +259,7 @@ EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='ITAM System <noreply@empresa.com>')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=f'{APP_NAME} <noreply@empresa.com>')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

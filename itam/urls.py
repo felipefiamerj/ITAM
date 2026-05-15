@@ -19,6 +19,6 @@ urlpatterns = [
     path('api/estoque/', include('estoque.api_urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-admin.site.site_header = 'ITAM System - Admin'
-admin.site.site_title = 'ITAM Admin'
+admin.site.site_header = f'{settings.APP_NAME} - Admin'
+admin.site.site_title = f'{settings.APP_NAME} Admin'
 admin.site.index_title = 'Painel de Administracao'

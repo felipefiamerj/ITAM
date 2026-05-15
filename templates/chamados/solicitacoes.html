@@ -1,17 +1,48 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} | ITAM System{% endblock %}
+{% block title %}{{ title }} | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
     <div>
       <div class="hero-kicker"><i class="fa-solid fa-layer-group"></i> Entrada guiada</div>
       <h1 class="hero-title mb-2">Escolha o tipo de solicitacao</h1>
-      <p class="hero-text mb-0">Cada card leva voce para um formulario ja filtrado. Assim o chamado nasce com foco, menos ruido e mais agilidade para o time.</p>
+      <p class="hero-text mb-0">Cada card leva você para um formulário já filtrado. Depois de enviar, o chamado entra no fluxo e pode ficar visivelmente em aprovação antes de seguir para separação e entrega.</p>
     </div>
-    <div class="request-catalog-note">
+    <div class="request-catalog-note request-flow-note">
       <div class="small text-uppercase fw-semibold mb-1">Fluxo recomendado</div>
-      <div class="request-catalog-note-title">Comece pelo modelo certo</div>
-      <div class="request-catalog-note-text">Depois o formulario organiza os itens e o termo sai padronizado.</div>
+      <div class="request-catalog-note-title">Acompanhe a aprovação no próprio chamado</div>
+      <div class="request-catalog-note-text">Se o pedido exigir liberação do colaborador, o status vai aparecer como <strong>Aguardando aprovação</strong> até a confirmação entrar no fluxo.</div>
+
+      <div class="request-flow-step-list mt-3">
+        <div class="request-flow-step">
+          <span class="request-flow-step-index">1</span>
+          <div>
+            <strong>Abrir</strong>
+            <p class="mb-0">Você escolhe o modelo e envia o pedido com os itens certos.</p>
+          </div>
+        </div>
+        <div class="request-flow-step">
+          <span class="request-flow-step-index">2</span>
+          <div>
+            <strong>Triagem</strong>
+            <p class="mb-0">O time confere a demanda, o estoque e o responsável.</p>
+          </div>
+        </div>
+        <div class="request-flow-step">
+          <span class="request-flow-step-index">3</span>
+          <div>
+            <strong>Aprovação / liberação</strong>
+            <p class="mb-0">Quando necessário, o colaborador aprova antes da separação.</p>
+          </div>
+        </div>
+        <div class="request-flow-step">
+          <span class="request-flow-step-index">4</span>
+          <div>
+            <strong>Entrega e encerramento</strong>
+            <p class="mb-0">O equipamento é entregue e o chamado fica encerrado com histórico.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>

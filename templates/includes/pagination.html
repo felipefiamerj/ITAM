@@ -1,7 +1,14 @@
 {% if page_obj.has_other_pages %}
-  <nav class="mt-4" aria-label="Paginação">
+  <nav class="pagination-shell mt-4" aria-label="Paginação">
+    <div class="pagination-shell-head">
+      <div>
+        <div class="section-kicker">Navegação</div>
+        <p class="page-subtitle mb-0">Use os controles abaixo para avançar ou voltar nas páginas.</p>
+      </div>
+      <span class="badge badge-soft">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+    </div>
     {% with qs=query_string|default:'' %}
-      <ul class="pagination justify-content-center flex-wrap gap-1">
+      <ul class="pagination justify-content-center flex-wrap gap-1 mb-0">
         {% if page_obj.has_previous %}
           <li class="page-item">
             <a class="page-link" href="{% if qs %}?{{ qs }}&page={{ page_obj.previous_page_number }}{% else %}?page={{ page_obj.previous_page_number }}{% endif %}">Anterior</a>
@@ -9,7 +16,6 @@
         {% else %}
           <li class="page-item disabled"><span class="page-link">Anterior</span></li>
         {% endif %}
-        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
         {% if page_obj.has_next %}
           <li class="page-item">
             <a class="page-link" href="{% if qs %}?{{ qs }}&page={{ page_obj.next_page_number }}{% else %}?page={{ page_obj.next_page_number }}{% endif %}">Próxima</a>

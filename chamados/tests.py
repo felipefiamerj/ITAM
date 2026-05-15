@@ -30,6 +30,8 @@ class ChamadoModelTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Escolha o tipo de solicitacao')
+        self.assertContains(response, 'Acompanhe a aprovação no próprio chamado')
+        self.assertContains(response, 'Aguardando aprovação')
         self.assertContains(response, 'Workplace as a Service')
         self.assertContains(response, '?template=workplace')
         self.assertNotContains(response, 'Perifericos')
@@ -44,6 +46,8 @@ class ChamadoModelTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Solicitacao de Equipamento Perifericos')
         self.assertContains(response, 'Voltar aos modelos')
+        self.assertContains(response, 'Como o chamado segue')
+        self.assertContains(response, 'Aguardando aprovação')
 
         form = response.context['form']
         labels = [label for _, label in form.fields['equipamentos_solicitados'].choices]
@@ -160,8 +164,10 @@ class ChamadoModelTests(TestCase):
         response = self.client.get(reverse('detalhe_chamado', args=[chamado.pk]))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Fluxo de entrega')
         self.assertContains(response, 'Seleção por item')
         self.assertContains(response, 'Escolha 1 equipamento para cada item solicitado')
+        self.assertContains(response, 'Cards de estoque')
         self.assertContains(response, 'data-select-equipamento')
         self.assertContains(response, 'id_itens_entrega')
         self.assertNotContains(response, 'Equipamento para entrega')
@@ -198,6 +204,11 @@ class ChamadoModelTests(TestCase):
         self.assertEqual(chamado.fluxo_etapa, EtapaFluxoChamado.AGUARDANDO_APROVACAO)
 
         self.client.force_login(self.destinatario)
+        pending = self.client.get(reverse('detalhe_chamado', args=[chamado.pk]))
+        self.assertEqual(pending.status_code, 200)
+        self.assertContains(pending, 'Sua aprovação está pendente')
+        self.assertContains(pending, 'Aguardando aprovação')
+
         response = self.client.post(reverse('fluxo_chamado_action', args=[chamado.pk]), {'acao': 'aprovar_retirada'})
         self.assertRedirects(response, reverse('detalhe_chamado', args=[chamado.pk]))
         chamado.refresh_from_db()
@@ -297,9 +308,13 @@ class ChamadoModelTests(TestCase):
         response = self.client.get(reverse('chamados'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Acompanhe seus chamados e aprovações.')
+        self.assertContains(response, 'Resumo da busca atual')
+        self.assertContains(response, 'Abrir chamado')
         self.assertContains(response, 'Pedido em nome de terceiro')
         self.assertContains(response, 'Solicitacao feita pelo gestor')
         self.assertContains(response, gestor.nome_completo)
+        self.assertContains(response, 'Acompanhamento rápido')
 
         detail = self.client.get(reverse('detalhe_chamado', args=[chamado.pk]))
         self.assertEqual(detail.status_code, 200)

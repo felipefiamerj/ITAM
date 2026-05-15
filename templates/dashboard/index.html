@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
-{% block title %}Dashboard | ITAM System{% endblock %}
+{% block title %}Dashboard | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap position-relative">
@@ -44,9 +44,9 @@
       <div class="section-kicker">Painel ao vivo</div>
       <h2 class="h6 mb-0">Indicadores principais</h2>
     </div>
-    <div class="dashboard-stats-live">
+    <div class="dashboard-stats-live" data-dashboard-live-indicator>
       <span class="live-dot"></span>
-      <span>Atualizado agora</span>
+      <span data-dashboard-live-text>Atualizado agora</span>
     </div>
   </div>
 <div class="row g-3">
@@ -178,7 +178,6 @@
     </div>
   </div>
 </section>
-
 {% if chamados_fluxo %}
 <section class="mb-4">
   <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
@@ -186,59 +185,108 @@
       <div class="section-kicker">Equipe</div>
       <h2 class="h5 mb-0">Fluxo operacional de chamados</h2>
     </div>
-    <span class="badge badge-soft">Quem pegou, quem acompanha e quem encerrou</span>
+    <span class="badge badge-soft">Visual moderno do fluxo ativo</span>
   </div>
-  <div class="row g-4">
-    {% for bloco in chamados_fluxo %}
-      <div class="col-lg-6 col-xxl-3">
-        <div class="card app-card h-100">
-          <div class="card-body d-flex flex-column">
-            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-              <div>
-                <div class="section-kicker">{{ bloco.label }}</div>
-                <h3 class="h6 mb-1">{{ bloco.count }} chamado{{ bloco.count|pluralize }}</h3>
-                <p class="small text-muted mb-0">{{ bloco.description }}</p>
-              </div>
-              <span class="status-pill status-pill-dark">{{ bloco.count }}</span>
-            </div>
-            <div class="list-group list-group-flush flex-grow-1">
-              {% for chamado in bloco.items %}
-                <a class="list-group-item list-group-item-action px-0" href="{% url 'detalhe_chamado' chamado.pk %}">
-                  <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div>
-                      <strong>#{{ chamado.pk }} · {{ chamado.titulo }}</strong>
-                      <div class="small text-muted">
-                        Colaborador: {{ chamado.destinatario_nome_completo }}
-                      </div>
-                      <div class="small text-muted">
-                        Solicitante: {{ chamado.solicitante.nome_completo }}
-                      </div>
-                      <div class="small text-muted">
-                        {% if bloco.status == 'encerrado' %}
-                          Encerrado por: {{ chamado.responsavel.nome_completo|default:"-" }}
-                        {% else %}
-                          Responsável: {{ chamado.responsavel.nome_completo|default:"Aguardando definição" }}{% if chamado.responsavel %} ({{ chamado.responsavel.papel_fluxo }}){% endif %}
-                        {% endif %}
-                      </div>
-                      <div class="small text-muted">Fluxo: {{ chamado.fluxo_etapa_label }}</div>
-                    </div>
-                    <span class="badge badge-soft">{{ chamado.get_prioridade_display }}</span>
-                  </div>
-                  <div class="small text-muted mt-2">Atualizado em {{ chamado.updated_at|date:"d/m/Y H:i" }}</div>
-                </a>
-              {% empty %}
-                <div class="text-muted">Nenhum chamado nesta etapa.</div>
-              {% endfor %}
-            </div>
+
+  <div class="dashboard-flow-layout">
+    <div class="card app-card dashboard-flow-overview h-100">
+      <div class="card-body">
+        <div class="dashboard-flow-overview-head">
+          <div class="dashboard-flow-overview-copy">
+            <div class="section-kicker">Visão rápida</div>
+            <h3 class="h5 mb-1">Chamados em movimento</h3>
+            <p class="small text-muted mb-0">
+              Leitura simplificada do fluxo com foco em triagem, atendimento e encerramento.
+            </p>
+          </div>
+          <div class="dashboard-flow-illustration" aria-hidden="true">
+            <span class="dashboard-flow-illustration-ring dashboard-flow-illustration-ring-a"></span>
+            <span class="dashboard-flow-illustration-ring dashboard-flow-illustration-ring-b"></span>
+            <span class="dashboard-flow-illustration-node dashboard-flow-illustration-node-a">
+              <i class="fa-solid fa-inbox"></i>
+            </span>
+            <span class="dashboard-flow-illustration-connector"></span>
+            <span class="dashboard-flow-illustration-node dashboard-flow-illustration-node-b">
+              <i class="fa-solid fa-headset"></i>
+            </span>
+            <span class="dashboard-flow-illustration-connector"></span>
+            <span class="dashboard-flow-illustration-node dashboard-flow-illustration-node-c">
+              <i class="fa-solid fa-circle-check"></i>
+            </span>
+          </div>
+        </div>
+
+        <div class="dashboard-chart-wrap dashboard-flow-chart-wrap mt-3" id="dashboard-flow-chart-wrap">
+          <canvas id="dashboard-flow-chart" aria-label="Distribuição do fluxo de chamados" role="img"></canvas>
+        </div>
+
+        <div class="dashboard-flow-summary">
+          <div class="dashboard-flow-summary-card">
+            <span>Total visível</span>
+            <strong>{{ dashboard_flow_total }}</strong>
+            <small>etapas mostradas no painel</small>
+          </div>
+          <div class="dashboard-flow-summary-card">
+            <span>Etapas ativas</span>
+            <strong>{{ chamados_fluxo|length }}</strong>
+            <small>fila, atendimento e encerramento</small>
+          </div>
+          <div class="dashboard-flow-summary-card">
+            <span>Última leitura</span>
+            <strong>Agora</strong>
+            <small>dados carregados com a página</small>
           </div>
         </div>
       </div>
-    {% endfor %}
+    </div>
+
+    <div class="dashboard-flow-lane-grid">
+      {% for bloco in chamados_fluxo %}
+        <article class="dashboard-flow-lane-card dashboard-flow-lane-card-{{ bloco.status }} h-100">
+          <div class="dashboard-flow-lane-head">
+            <div>
+              <div class="dashboard-flow-lane-kicker">{{ bloco.label }}</div>
+              <h3 class="h5 mb-1">{{ bloco.count }} chamado{{ bloco.count|pluralize }}</h3>
+            </div>
+            <span class="status-pill status-pill-dark">{{ bloco.count }}</span>
+          </div>
+          <p class="dashboard-flow-lane-text">{{ bloco.description }}</p>
+          <div class="dashboard-flow-lane-progress" aria-hidden="true">
+            <span
+              class="dashboard-flow-lane-progress-fill"
+              style="width: {% widthratio bloco.count dashboard_flow_total_safe 100 %}%"
+            ></span>
+          </div>
+          <div class="dashboard-flow-lane-list">
+            {% for chamado in bloco.items|slice:":3" %}
+              <a class="dashboard-flow-item" href="{% url 'detalhe_chamado' chamado.pk %}">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <strong>#{{ chamado.pk }} · {{ chamado.titulo }}</strong>
+                  <span class="badge badge-soft">{{ chamado.get_prioridade_display }}</span>
+                </div>
+                <div class="small text-muted">{{ chamado.destinatario_nome_completo }}</div>
+                <div class="small text-muted">Fluxo: {{ chamado.fluxo_etapa_label }}</div>
+                <div class="dashboard-flow-item-foot">
+                  <span>Atualizado em {{ chamado.updated_at|date:"d/m/Y H:i" }}</span>
+                  <span><i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+              </a>
+            {% empty %}
+              <div class="dashboard-flow-empty">
+                <i class="fa-regular fa-folder-open"></i>
+                <strong>Nenhum chamado nesta etapa.</strong>
+                <span>Quando aparecerem itens, eles vão ganhar destaque aqui.</span>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
   </div>
 </section>
 {% endif %}
 
-<div class="row g-4 mb-4">
+<div class="row g-4 mb-4" id="dashboard-lists">
   <div class="col-lg-7">
     <div class="card app-card h-100">
       <div class="card-body">
@@ -385,3 +433,5 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="{% static 'js/dashboard-charts.js' %}"></script>
 {% endblock %}
+
+

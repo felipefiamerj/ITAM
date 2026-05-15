@@ -1,57 +1,57 @@
 ﻿{% extends "accounts/auth_base.html" %}
-{% block title %}Entrar | ITAM System{% endblock %}
+{% block title %}Entrar | {{ app_name }}{% endblock %}
 {% block content %}
 <div class="auth-grid">
   <section class="auth-hero panel-surface">
-    <div class="eyebrow">Centro de operaÃ§Ãµes ITAM</div>
-    <h1 class="auth-title">GestÃ£o inteligente de ativos de TI</h1>
+    <div class="eyebrow">Centro de operações {{ app_short_name|default:"ITAM" }}</div>
+    <h1 class="auth-title">Gestão inteligente de ativos de TI</h1>
     <p class="auth-text">
-      Controle completo sobre equipamentos, chamados tÃ©cnicos, estoque e permissÃµes em uma Ãºnica plataforma enterprise.
+      Controle completo sobre equipamentos, chamados técnicos, estoque e permissões em uma única plataforma enterprise.
     </p>
-
+ 
     <div class="auth-chip-row">
       <span class="status-pill"><i class="fa-solid fa-laptop"></i> Equipamentos</span>
       <span class="status-pill"><i class="fa-solid fa-ticket"></i> Chamados</span>
       <span class="status-pill"><i class="fa-solid fa-box"></i> Estoque</span>
       <span class="status-pill"><i class="fa-solid fa-sparkles"></i> IA</span>
     </div>
-
+ 
     <div class="auth-metrics">
       <article class="mini-card">
         <span class="mini-label"><i class="fa-solid fa-laptop me-1"></i> Equipamentos</span>
-        <strong>CatÃ¡logo completo</strong>
-        <p>Rastreie todos os ativos, localizaÃ§Ãµes, estados e responsÃ¡veis em tempo real.</p>
+        <strong>Catálogo completo</strong>
+        <p>Rastreie todos os ativos, localizações, estados e responsáveis em tempo real.</p>
       </article>
       <article class="mini-card">
         <span class="mini-label"><i class="fa-solid fa-headset me-1"></i> Chamados</span>
         <strong>Suporte integrado</strong>
-        <p>Crie, acompanhe e resolva tickets com histÃ³rico completo e rastreabilidade.</p>
+        <p>Crie, acompanhe e resolva tickets com histórico completo e rastreabilidade.</p>
       </article>
       <article class="mini-card">
-        <span class="mini-label"><i class="fa-solid fa-chart-line me-1"></i> RelatÃ³rios</span>
-        <strong>AnÃ¡lise de dados</strong>
-        <p>Dashboards intuitivos com mÃ©tricas de equipamentos, chamados e operaÃ§Ãµes.</p>
+        <span class="mini-label"><i class="fa-solid fa-chart-line me-1"></i> Relatórios</span>
+        <strong>Análise de dados</strong>
+        <p>Dashboards intuitivos com métricas de equipamentos, chamados e operações.</p>
       </article>
       <article class="mini-card">
-        <span class="mini-label"><i class="fa-solid fa-user-shield me-1"></i> GovernanÃ§a</span>
+        <span class="mini-label"><i class="fa-solid fa-user-shield me-1"></i> Governança</span>
         <strong>Controle de acesso</strong>
-        <p>PermissÃµes por perfil com rastreamento de todas as aÃ§Ãµes no sistema.</p>
+        <p>Permissões por perfil com rastreamento de todas as ações no sistema.</p>
       </article>
     </div>
-
+ 
     <div class="auth-callout">
       <div class="auth-callout-icon">
         <i class="fa-solid fa-shield-halved"></i>
       </div>
       <div>
         <strong>Enterprise Security</strong>
-        <p class="mb-0">Autenticacao por identificador, auditoria completa de operacoes e permissoes granulares por perfil.</p>
+        <p class="mb-0">Autenticação por identificador, auditoria completa de operações e permissões granulares por perfil.</p>
       </div>
     </div>
-
+ 
     <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; text-align: center;">
       <div>
-        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">âˆž</div>
+        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">🔍</div>
         <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Equipamentos rastreados</div>
       </div>
       <div>
@@ -64,18 +64,18 @@
       </div>
     </div>
   </section>
-
+ 
   <section class="auth-stack">
     <article class="auth-card">
       <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
         <div>
           <div class="section-kicker">Acesso operacional</div>
           <h2 class="auth-card-title mb-1">Entrar no sistema</h2>
-          <p class="auth-card-subtitle mb-0">Use seu identificador (matricula, RG ou CPF) e a senha definida pelo administrador.</p>
+          <p class="auth-card-subtitle mb-0">Use seu identificador e a senha criada no primeiro acesso ou definida pelo administrador.</p>
         </div>
         <span class="auth-badge">Seguro</span>
       </div>
-
+ 
       <form method="post" novalidate>
         {% csrf_token %}
         <input type="hidden" name="form_type" value="login">
@@ -84,12 +84,12 @@
           <i class="fa-solid fa-right-to-bracket me-2"></i>Entrar
         </button>
       </form>
-
+ 
       <div class="auth-card-note">
         <i class="fa-solid fa-info-circle"></i>
-        Credenciais seguras: identificador + senha com autenticacao em dois fatores em breve.
+        Depois da aprovação, você receberá um link de primeiro acesso por e-mail para criar sua senha inicial.
       </div>
-
+ 
       <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
         <div>
           <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
@@ -105,21 +105,21 @@
         </div>
         <div>
           <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
-          <span>RÃ¡pido e seguro</span>
+          <span>Rápido e seguro</span>
         </div>
       </div>
     </article>
-
+ 
     <article class="auth-card auth-card-soft">
       <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
         <div>
-          <div class="section-kicker">Novo usuÃ¡rio</div>
+          <div class="section-kicker">Novo usuário</div>
           <h2 class="auth-card-title mb-1">Solicitar acesso</h2>
-          <p class="auth-card-subtitle mb-0">Preencha seus dados e enviaremos uma senha temporÃ¡ria apÃ³s aprovaÃ§Ã£o.</p>
+          <p class="auth-card-subtitle mb-0">Preencha seus dados e enviaremos um link de primeiro acesso após aprovação.</p>
         </div>
         <span class="auth-badge auth-badge-soft">Leve</span>
       </div>
-
+ 
       <form method="post" novalidate>
         {% csrf_token %}
         <input type="hidden" name="form_type" value="solicitante">
@@ -128,20 +128,20 @@
           <i class="fa-solid fa-user-plus me-2"></i>Solicitar acesso
         </button>
       </form>
-
+ 
       <div class="auth-card-note">
         <i class="fa-solid fa-circle-info"></i>
-        Sua solicitaÃ§Ã£o serÃ¡ analisada pelo administrador. VocÃª receberÃ¡ a senha por email.
+        Sua solicitação será analisada pelo administrador. Você receberá um link de primeiro acesso por email.
       </div>
-
+ 
       <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
         <div>
           <i class="fa-solid fa-envelope me-2" style="color: var(--color-info);"></i>
-          <span>NotificaÃ§Ã£o por email</span>
+          <span>Notificação por email</span>
         </div>
         <div>
           <i class="fa-solid fa-clock me-2" style="color: var(--color-info);"></i>
-          <span>AprovaÃ§Ã£o rÃ¡pida</span>
+          <span>Aprovação rápida</span>
         </div>
         <div>
           <i class="fa-solid fa-shield-halved me-2" style="color: var(--color-info);"></i>
@@ -149,12 +149,39 @@
         </div>
         <div>
           <i class="fa-solid fa-headset me-2" style="color: var(--color-info);"></i>
-          <span>Suporte disponÃ­vel</span>
+          <span>Suporte disponível</span>
         </div>
       </div>
     </article>
   </section>
 </div>
+ 
+<style>
+  html {
+    scroll-behavior: smooth;
+  }
+</style>
+ 
+<script>
+  (function () {
+    let isScrolling = false;
+ 
+    document.addEventListener('wheel', function (e) {
+      e.preventDefault();
+ 
+      if (isScrolling) return;
+      isScrolling = true;
+ 
+      window.scrollBy({
+        top: e.deltaY * 2,
+        behavior: 'smooth'
+      });
+ 
+      setTimeout(function () {
+        isScrolling = false;
+      }, 200);
+    }, { passive: false });
+  })();
+</script>
+ 
 {% endblock %}
-
-

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} | ITAM System{% endblock %}
+{% block title %}{{ title }} | {{ app_name }}{% endblock %}
 {% block content %}
 {% if template_info %}
   <section class="hero-surface mb-4 request-template-banner request-template-banner-{{ template_info.tone }}">
@@ -36,6 +36,60 @@
     </div>
   </section>
 {% endif %}
+
+<div class="card app-card mb-4 workflow-roadmap">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <div class="section-kicker">Como o chamado segue</div>
+        <h2 class="h5 mb-1">Abra agora e acompanhe o status ate o fechamento</h2>
+        <p class="text-muted mb-0">Depois de salvar, você consegue ver se o chamado ficou em triagem, aguardando aprovação ou pronto para entrega. Nada fica escondido.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="status-pill status-pill-neutral">Abrir</span>
+        <span class="status-pill status-pill-neutral">Triagem</span>
+        <span class="status-pill status-pill-warning">Aprovacao</span>
+        <span class="status-pill status-pill-info">Separacao</span>
+        <span class="status-pill status-pill-success">Entrega</span>
+      </div>
+    </div>
+
+    <div class="workflow-roadmap-track mt-3">
+      <div class="workflow-roadmap-step is-done">
+        <span class="workflow-roadmap-step-index">1</span>
+        <div>
+          <strong>Abrir</strong>
+          <p class="mb-0">Você escolhe o modelo e preenche o formulário.</p>
+        </div>
+      </div>
+      <div class="workflow-roadmap-step is-done">
+        <span class="workflow-roadmap-step-index">2</span>
+        <div>
+          <strong>Triagem</strong>
+          <p class="mb-0">O time confere a solicitação e organiza o atendimento.</p>
+        </div>
+      </div>
+      <div class="workflow-roadmap-step">
+        <span class="workflow-roadmap-step-index">3</span>
+        <div>
+          <strong>Aprovacao</strong>
+          <p class="mb-0">Se for necessário, o chamado fica visivelmente em aprovação.</p>
+        </div>
+      </div>
+      <div class="workflow-roadmap-step">
+        <span class="workflow-roadmap-step-index">4</span>
+        <div>
+          <strong>Entrega</strong>
+          <p class="mb-0">O equipamento é separado, entregue e o chamado é encerrado.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="workflow-roadmap-note mt-3">
+      Se o pedido exigir liberação do colaborador, o status vai aparecer como <strong>Aguardando aprovação</strong> até a confirmação entrar no fluxo.
+    </div>
+  </div>
+</div>
 
 <div class="card app-card">
   <div class="card-body p-4">

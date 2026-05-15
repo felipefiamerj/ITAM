@@ -1,6 +1,10 @@
+from io import StringIO
+from unittest.mock import MagicMock, patch
+
 import shutil
 import tempfile
 
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -94,20 +98,18 @@ class BuscaGlobalTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         fluxo = response.context['chamados_fluxo']
-        self.assertEqual(len(fluxo), 4)
+        self.assertEqual(len(fluxo), 3)
         self.assertEqual(
             [bloco['status'] for bloco in fluxo],
             [
                 StatusChamado.FILA,
                 StatusChamado.EM_ATENDIMENTO,
-                StatusChamado.AGUARDANDO_ATENDIMENTO,
                 StatusChamado.ENCERRADO,
             ],
         )
         self.assertEqual(fluxo[0]['count'], 1)
         self.assertEqual(fluxo[1]['count'], 1)
         self.assertEqual(fluxo[2]['count'], 1)
-        self.assertEqual(fluxo[3]['count'], 1)
         self.assertContains(response, 'Fluxo operacional de chamados')
         self.assertContains(response, 'Chamado encerrado')
 
@@ -215,3 +217,22 @@ class BuscaGlobalTests(TestCase):
         self.assertTrue(any(action['label'] == 'Chamados' for action in payload['quick_actions']))
         self.assertTrue(any(action['label'] == 'Novo chamado' for action in payload['quick_actions']))
         self.assertTrue(any(action['label'] == 'Meu perfil' for action in payload['quick_actions']))
+
+    @patch('dashboard.management.commands.verificar_instalacao.redis.from_url')
+    @override_settings(
+        REDIS_URL='redis://127.0.0.1:6379/0',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='smtp.example.com',
+        EMAIL_HOST_USER='usuario',
+        EMAIL_HOST_PASSWORD='senha',
+    )
+    def test_verificar_instalacao_confirma_ambiente_pronto(self, mock_from_url):
+        cliente = MagicMock()
+        cliente.ping.return_value = True
+        mock_from_url.return_value = cliente
+
+        saida = StringIO()
+        call_command('verificar_instalacao', stdout=saida)
+
+        self.assertIn('Ambiente pronto para instalacao.', saida.getvalue())
+        cliente.ping.assert_called_once()

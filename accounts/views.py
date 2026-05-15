@@ -101,14 +101,14 @@ def login_view(request):
             if quick_form.is_valid():
                 usuario = quick_form.save()
                 notificar_admins(
-                    'Nova solicitaÃ§Ã£o de acesso',
-                    f'{usuario.nome_completo} ({usuario.matricula}) solicitou acesso mÃ­nimo ao sistema.',
+                    'Nova solicitação de acesso',
+                    f'{usuario.nome_completo} ({usuario.matricula}) solicitou acesso mínimo ao sistema.',
                     link=reverse('usuarios_pendentes'),
                 )
                 messages.success(
                     request,
-                    f'SolicitaÃ§Ã£o registrada para {usuario.nome_completo}. '
-                    'O cadastro ficou pendente para aprovaÃ§Ã£o do administrador.',
+                    f'Solicitação registrada para {usuario.nome_completo}. '
+                    'O cadastro ficou pendente para aprovação do administrador.',
                 )
                 return redirect('login')
         elif login_form.is_valid():
@@ -126,9 +126,9 @@ def login_view(request):
             if matricula:
                 usuario = Usuario.objects.filter(matricula__iexact=matricula).first()
                 if usuario and usuario.solicitacao_pendente:
-                    messages.warning(request, 'Seu acesso ainda estÃ¡ aguardando aprovaÃ§Ã£o.')
+                    messages.warning(request, 'Seu acesso ainda está aguardando aprovação.')
                 elif usuario and not usuario.ativo:
-                    messages.warning(request, 'Sua conta estÃ¡ inativa. Procure o administrador.')
+                    messages.warning(request, 'Sua conta está inativa. Procure o administrador.')
 
     return render(
         request,
@@ -233,31 +233,25 @@ def aprovar_usuario(request, pk):
         senha_temporaria = getattr(form, 'generated_password', '')
         eh_auto_gerada = getattr(form, 'generated_password_is_auto', False)
         
-        # Enviar email com credenciais se email existe
+        # Enviar email com o link de primeiro acesso se houver endereço cadastrado
         if usuario.email:
             from django.core.mail import send_mail
-            from django.template.loader import render_to_string
-            
+
             assunto = 'Acesso aprovado no ITAM System'
             mensagem = f'''
-OlÃ¡ {usuario.first_name},
+Olá {usuario.first_name},
 
-Sua solicitaÃ§Ã£o de acesso ao ITAM System foi aprovada!
+Sua solicitação de acesso ao ITAM System foi aprovada!
 
-Suas credenciais de acesso:
-- MatrÃ­cula: {usuario.matricula}
-- Senha temporÃ¡ria: {senha_temporaria}
+Para criar sua senha de primeiro acesso, acesse:
+{request.build_absolute_uri(reverse('login'))}
 
-Acesse: http://127.0.0.1:8000/accounts/login/
-
-âš ï¸ IMPORTANTE: VocÃª serÃ¡ obrigado a alterar a senha no primeiro acesso por motivos de seguranÃ§a.
-
-Em caso de dÃºvidas, entre em contato com o administrador do sistema.
+Se você ainda não recebeu a senha temporária de contingência, procure o administrador do sistema.
 
 Atenciosamente,
 ITAM System
             '''
-            
+
             try:
                 send_mail(
                     assunto,
@@ -267,7 +261,7 @@ ITAM System
                     fail_silently=False,
                 )
                 email_enviado = True
-            except Exception as e:
+            except Exception:
                 email_enviado = False
         else:
             email_enviado = False
@@ -275,21 +269,21 @@ ITAM System
         notificar_usuario(
             usuario,
             'Acesso aprovado',
-            f'Seu acesso ao ITAM System foi liberado. Suas credenciais foram enviadas para {usuario.email or "sua conta"}.{"" if email_enviado else " Procure o administrador para obter a senha."}',
+            f'Seu acesso ao ITAM System foi liberado. {"" if email_enviado else "Procure o administrador para obter a senha temporária."}',
             link=reverse('login'),
         )
         notificar_admins(
-            'UsuÃ¡rio aprovado',
+            'Usuário aprovado',
             f'{usuario.nome_completo} ({usuario.matricula}) foi aprovado por {request.user.nome_completo}.',
             link=reverse('perfil_usuario', kwargs={'pk': usuario.pk}),
         )
 
         senha_info = 'gerada automaticamente' if eh_auto_gerada else 'definida pelo administrador'
-        mensagem_sucesso = f'Conta de {usuario.nome_completo} aprovada. Senha temporÃ¡ria {senha_info}: {senha_temporaria}. '
+        mensagem_sucesso = f'Conta de {usuario.nome_completo} aprovada. Senha temporária {senha_info}: {senha_temporaria}. '
         if email_enviado:
-            mensagem_sucesso += f'Email enviado para {usuario.email}.'
+            mensagem_sucesso += f' Link de primeiro acesso enviado para {usuario.email}.'
         else:
-            mensagem_sucesso += 'O usuÃ¡rio deverÃ¡ trocÃ¡-la no primeiro acesso.'
+            mensagem_sucesso += 'O usuário deverá trocá-la no primeiro acesso.'
         
         messages.success(request, mensagem_sucesso)
         return redirect('usuarios_pendentes')
@@ -323,11 +317,11 @@ def reprovar_usuario(request, pk):
 
     notificar_usuario(
         usuario,
-        'SolicitaÃ§Ã£o analisada',
-        f'Sua solicitaÃ§Ã£o de acesso ao ITAM System nÃ£o foi aprovada. Motivo: {motivo}',
+        'Solicitação analisada',
+        f'Sua solicitação de acesso ao ITAM System não foi aprovada. Motivo: {motivo}',
         link=reverse('login'),
     )
-    messages.success(request, f'SolicitaÃ§Ã£o de {usuario.nome_completo} foi reprovada.')
+    messages.success(request, f'Solicitação de {usuario.nome_completo} foi reprovada.')
     return redirect('usuarios_pendentes')
 
 
@@ -343,12 +337,12 @@ def criar_usuario(request):
         notificar_usuario(
             user,
             'Conta criada',
-            'Sua conta no ITAM System foi criada. Use a senha temporÃ¡ria e faÃ§a a troca no primeiro acesso.',
+            'Sua conta no ITAM System foi criada. Use a senha inicial e conclua o primeiro acesso.',
             link=reverse('login'),
         )
-        messages.success(request, f'UsuÃ¡rio {user.matricula} criado com sucesso.')
+        messages.success(request, f'Usuário {user.matricula} criado com sucesso.')
         return redirect('lista_usuarios')
-    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Novo usuÃ¡rio'})
+    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Novo usuário'})
 
 
 @login_required
@@ -381,10 +375,10 @@ def editar_usuario(request, pk):
                 link=reverse('meu_perfil'),
             )
 
-        messages.success(request, 'UsuÃ¡rio atualizado.')
+        messages.success(request, 'Usuário atualizado.')
         return redirect('lista_usuarios')
 
-    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Editar usuÃ¡rio', 'obj': usuario})
+    return render(request, 'accounts/form_usuario.html', {'form': form, 'title': 'Editar usuário', 'obj': usuario})
 
 
 @login_required
@@ -402,7 +396,7 @@ def trocar_senha_inicial(request):
         usuario.save(update_fields=['exigir_troca_senha', 'updated_at'])
         update_session_auth_hash(request, usuario)
         next_url = _safe_next_url(request, request.session.pop('post_password_change_next', None))
-        messages.success(request, 'Senha alterada com sucesso. Seu acesso estÃ¡ liberado.')
+        messages.success(request, 'Senha alterada com sucesso. Seu acesso está liberado.')
         return redirect(next_url or _home_url_name(usuario))
 
     return render(

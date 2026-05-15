@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ITAM System{% endblock %}</title>
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -17,14 +17,16 @@
   data-search-page="{% if request.resolver_match.url_name == 'busca_global' %}true{% else %}false{% endif %}"
   data-search-url="{% url 'busca_global' %}"
   data-search-api-url="{% url 'api_busca_global' %}"
+  data-user-id="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}"
+  data-notifications-ws-path="/ws/notifications/"
 >
   <nav class="navbar navbar-expand-xl app-navbar navbar-dark">
     <div class="container-fluid app-shell-frame">
       <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
-        <span class="brand-mark">ITAM</span>
-        <span>ITAM System</span>
+        <span class="brand-mark">{{ app_short_name|default:"ITAM" }}</span>
+        <span>{{ app_name }}</span>
       </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Alternar navegaÃ§Ã£o">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Alternar navegação">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="mainNav">
@@ -38,13 +40,17 @@
               <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
               <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
               <li class="nav-item"><a class="nav-link {% if current == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">Estoque</a></li>
-              <li class="nav-item"><a class="nav-link {% if current == 'ia' %}active{% endif %}" href="{% url 'ia' %}">IA</a></li>
+              <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
               <li class="nav-item">
                 <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
-                  NotificaÃ§Ãµes
-                  {% if notifications_unread_count %}
-                    <span class="badge rounded-pill text-bg-light text-dark ms-1">{{ notifications_unread_count }}</span>
-                  {% endif %}
+                  Notificações
+                  <span
+                    class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
+                    data-notification-badge
+                    data-notification-count="{{ notifications_unread_count|default:0 }}"
+                  >
+                    <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
+                  </span>
                 </a>
               </li>
               {% endif %}
@@ -60,7 +66,7 @@
                 </span>
               </a>
               <div class="nav-userbox">
-                <div class="small text-uppercase opacity-75">UsuÃ¡rio logado</div>
+                <div class="small text-uppercase opacity-75">Usuário logado</div>
                 <div class="fw-semibold">{{ request.user.nome_completo }}</div>
                 <div class="nav-user-meta">
                   <span class="status-pill status-pill-dark">{{ request.user.get_nivel_acesso_display }}</span>
@@ -72,13 +78,13 @@
               </a>
               {% if request.user.is_admin %}
                 <a class="btn btn-sm btn-outline-light" href="{% url 'usuarios_pendentes' %}">
-                  <i class="fa-solid fa-user-clock me-1"></i>AprovaÃ§Ãµes
+                  <i class="fa-solid fa-user-clock me-1"></i>Aprovações
                   {% if accounts_pending_count %}
                     <span class="badge rounded-pill text-bg-light text-dark ms-1">{{ accounts_pending_count }}</span>
                   {% endif %}
                 </a>
                 <a class="btn btn-sm btn-light" href="{% url 'lista_usuarios' %}">
-                  <i class="fa-solid fa-users-gear me-1"></i>UsuÃ¡rios
+                  <i class="fa-solid fa-users-gear me-1"></i>Usuários
                 </a>
               {% endif %}
               <form action="{% url 'logout' %}" method="post" class="d-inline">
@@ -112,14 +118,15 @@
 
   <footer class="container-fluid app-shell-frame pb-4">
     <div class="app-footer d-flex justify-content-between flex-wrap gap-2">
-      <span>ITAM System</span>
-      <span>GovernanÃ§a, rastreabilidade e operaÃ§Ã£o centralizada.</span>
+      <span>{{ app_name }}</span>
+      <span>Experiência refinada, rastreabilidade e operação centralizada.</span>
     </div>
   </footer>
+
+  <div class="notification-toast-stack" aria-live="polite" aria-atomic="true" data-notification-toast-stack></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{% static 'js/app.js' %}"></script>
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>
-

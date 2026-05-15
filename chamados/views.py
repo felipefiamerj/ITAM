@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -15,7 +15,7 @@ from .forms import (
     REQUEST_TEMPLATE_CARDS,
     get_request_template,
 )
-from .models import Chamado, EtapaFluxoChamado, StatusChamado
+from .models import Chamado, EtapaFluxoChamado, STATUS_CHAMADO_EM_FLUXO, StatusChamado
 from .services import registrar_entregas_chamado, sincronizar_itens_solicitados
 from notifications.services import notificar_time_operacional, notificar_usuarios
 
@@ -61,12 +61,21 @@ def _fluxo_acoes_chamado(user, chamado):
 
 def _contexto_detalhe_chamado(request, chamado, entrega_form=None):
     acoes_fluxo = _fluxo_acoes_chamado(request.user, chamado)
+    fluxo_etapas = chamado.fluxo_etapas
+    etapa_atual_indice = next((index for index, etapa in enumerate(fluxo_etapas) if etapa['active']), 0)
+    total_etapas = len(fluxo_etapas)
+    progresso = 100 if total_etapas <= 1 else round(((etapa_atual_indice + 1) / total_etapas) * 100)
+    proxima_etapa = fluxo_etapas[etapa_atual_indice + 1] if etapa_atual_indice + 1 < total_etapas else None
     contexto = {
         'chamado': chamado,
         'pode_gerenciar_chamado': _pode_gerenciar_chamado(request.user),
         'pode_editar_chamado': _pode_editar_chamado(request.user, chamado),
         'acoes_fluxo': acoes_fluxo,
-        'fluxo_etapas': chamado.fluxo_etapas,
+        'fluxo_etapas': fluxo_etapas,
+        'fluxo_etapa_indice': etapa_atual_indice + 1,
+        'fluxo_etapas_total': total_etapas,
+        'fluxo_progresso_percent': progresso,
+        'fluxo_proxima_etapa': proxima_etapa,
         'itens_solicitados': chamado.itens_solicitados.select_related('equipamento_entregue', 'entregue_por').all(),
     }
     if contexto['pode_gerenciar_chamado'] and chamado.status != StatusChamado.ENCERRADO and chamado.fluxo_etapa in {
@@ -84,7 +93,8 @@ def _contexto_detalhe_chamado(request, chamado, entrega_form=None):
 def lista_chamados(request):
     qs = Chamado.objects.select_related('equipamento', 'solicitante', 'destinatario', 'responsavel', 'aprovado_por').prefetch_related('itens_solicitados').order_by('-created_at')
 
-    if not (request.user.is_admin or request.user.is_analista or request.user.is_tecnico):
+    is_operacional = _pode_gerenciar_chamado(request.user)
+    if not is_operacional:
         qs = qs.filter(Q(solicitante=request.user) | Q(destinatario=request.user))
 
     q = request.GET.get('q', '')
@@ -108,6 +118,14 @@ def lista_chamados(request):
     if status:
         qs = qs.filter(status=status)
 
+    resumo_chamados = qs.aggregate(
+        total=Count('id'),
+        em_andamento=Count('id', filter=Q(status__in=STATUS_CHAMADO_EM_FLUXO)),
+        aguardando_aprovacao=Count('id', filter=Q(fluxo_etapa=EtapaFluxoChamado.AGUARDANDO_APROVACAO)),
+        pronto_para_entrega=Count('id', filter=Q(fluxo_etapa=EtapaFluxoChamado.PRONTO_PARA_ENTREGA)),
+        encerrados=Count('id', filter=Q(status=StatusChamado.ENCERRADO)),
+    )
+
     params = request.GET.copy()
     params.pop('page', None)
     query_string = params.urlencode()
@@ -123,6 +141,8 @@ def lista_chamados(request):
             'status': status,
             'status_choices': StatusChamado.choices,
             'query_string': query_string,
+            'is_operacional': is_operacional,
+            'resumo_chamados': {key: int(value or 0) for key, value in resumo_chamados.items()},
         },
     )
 
@@ -163,7 +183,7 @@ def criar_chamado(request):
         except ValidationError as exc:
             form.add_error(
                 'outros_itens_solicitados',
-                exc.messages[0] if exc.messages else 'NÃ£o foi possÃ­vel salvar os itens solicitados.',
+                exc.messages[0] if exc.messages else 'Não foi possível salvar os itens solicitados.',
             )
         else:
             messages.success(request, 'Chamado criado com sucesso.')
@@ -231,7 +251,7 @@ def editar_chamado(request, pk):
         except ValidationError as exc:
             form.add_error(
                 'outros_itens_solicitados',
-                exc.messages[0] if exc.messages else 'NÃ£o foi possÃ­vel salvar os itens solicitados.',
+                exc.messages[0] if exc.messages else 'Não foi possível salvar os itens solicitados.',
             )
         else:
             messages.success(request, 'Chamado atualizado.')
@@ -394,14 +414,14 @@ def entregar_equipamento_chamado(request, pk):
 
     chamado = get_object_or_404(Chamado.objects.select_related('equipamento', 'solicitante', 'destinatario', 'responsavel', 'aprovado_por'), pk=pk)
     if chamado.status == StatusChamado.ENCERRADO:
-        messages.warning(request, 'Este chamado jÃ¡ estÃ¡ concluÃ­do.')
+        messages.warning(request, 'Este chamado já está concluído.')
         return redirect('detalhe_chamado', pk=chamado.pk)
     if chamado.fluxo_etapa not in {
         EtapaFluxoChamado.APROVADO_PARA_RETIRADA,
         EtapaFluxoChamado.EM_SEPARACAO,
         EtapaFluxoChamado.PRONTO_PARA_ENTREGA,
     }:
-        messages.warning(request, 'O chamado ainda nÃ£o foi liberado para entrega.')
+        messages.warning(request, 'O chamado ainda não foi liberado para entrega.')
         return redirect('detalhe_chamado', pk=chamado.pk)
 
     if request.method != 'POST':
@@ -418,14 +438,10 @@ def entregar_equipamento_chamado(request, pk):
                 concluir_chamado=form.cleaned_data.get('concluir_chamado', True),
             )
         except ValidationError as exc:
-            form.add_error('itens_entrega', exc.messages[0] if exc.messages else 'NÃ£o foi possÃ­vel registrar a entrega.')
+            form.add_error('itens_entrega', exc.messages[0] if exc.messages else 'Não foi possível registrar a entrega.')
         else:
             messages.success(request, 'Entrega registrada e chamado atualizado.')
             return redirect('detalhe_chamado', pk=chamado.pk)
 
     contexto = _contexto_detalhe_chamado(request, chamado, entrega_form=form)
     return render(request, 'chamados/detalhe.html', contexto)
-
-
-
-

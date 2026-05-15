@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ITAM System{% endblock %}</title>
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -22,9 +22,9 @@
   <main class="auth-shell container-fluid">
     <header class="auth-topbar">
       <a class="auth-brand" href="{% url 'login' %}">
-        <span class="auth-brand-mark">ITAM</span>
+        <span class="auth-brand-mark">{{ app_short_name|default:"ITAM" }}</span>
         <span class="auth-brand-copy">
-          <strong>ITAM System</strong>
+          <strong>{{ app_name }}</strong>
           <small>Gestão corporativa de ativos</small>
         </span>
       </a>
@@ -46,7 +46,7 @@
 
     <footer class="auth-footer">
       <span>Permissões por perfil, operação simplificada e rastreabilidade completa.</span>
-      <span>ITAM System</span>
+      <span>{{ app_name }}</span>
     </footer>
   </main>
 

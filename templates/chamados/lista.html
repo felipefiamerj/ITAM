@@ -1,12 +1,23 @@
-﻿{% extends "base.html" %}
-{% block title %}Chamados | ITAM System{% endblock %}
+{% extends "base.html" %}
+{% block title %}Chamados | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
-    <div>
+    <div class="ticket-list-hero-copy">
       <div class="hero-kicker"><i class="fa-solid fa-ticket-simple"></i> Atendimento</div>
-      <h1 class="hero-title mb-2">Abertura e acompanhamento de chamados.</h1>
-      <p class="hero-text mb-0">Centralize as solicitaÃ§Ãµes, acompanhe o status e mantenha o histÃ³rico do atendimento visÃ­vel para a equipe.</p>
+      {% if is_operacional %}
+        <h1 class="hero-title mb-2">Gestão de chamados em fluxo contínuo.</h1>
+        <p class="hero-text mb-0">Acompanhe fila, aprovações, separação e encerramento com mais clareza para agir rápido no atendimento.</p>
+      {% else %}
+        <h1 class="hero-title mb-2">Acompanhe seus chamados e aprovações.</h1>
+        <p class="hero-text mb-0">Veja de forma visual se o pedido já foi aprovado, se ainda está em triagem ou se está pronto para entrega.</p>
+      {% endif %}
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-ticket me-1"></i>{{ resumo_chamados.total }} chamados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-user-shield me-1"></i>{{ resumo_chamados.aguardando_aprovacao }} aguardando aprovação</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-spinner me-1"></i>{{ resumo_chamados.em_andamento }} em andamento</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-circle-check me-1"></i>{{ resumo_chamados.encerrados }} encerrados</span>
+      </div>
     </div>
     <a class="btn btn-light btn-lg" href="{% url 'criar_chamado' %}">
       <i class="fa-solid fa-plus me-1"></i>Novo chamado
@@ -14,14 +25,95 @@
   </div>
 </section>
 
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">{% if is_operacional %}Painel operacional{% else %}Seu painel{% endif %}</div>
+      <h2 class="h6 mb-0">Resumo da busca atual</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>{% if is_operacional %}Visão do time de atendimento{% else %}Acompanhamento do solicitante{% endif %}</span>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-ticket" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Resultados</span>
+        </div>
+        <div class="label">Chamados visíveis</div>
+        <div class="value">{{ resumo_chamados.total }}</div>
+        <div class="small text-white-50">Na busca atual.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-spinner" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Andamento</span>
+        </div>
+        <div class="label">Em andamento</div>
+        <div class="value">{{ resumo_chamados.em_andamento }}</div>
+        <div class="small text-white-50">Ainda em execução.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Atenção</span>
+        </div>
+        <div class="label">Aguardando aprovação</div>
+        <div class="value">{{ resumo_chamados.aguardando_aprovacao }}</div>
+        <div class="small text-white-50">Pede ação do colaborador.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Fechados</span>
+        </div>
+        <div class="label">Encerrados</div>
+        <div class="value">{{ resumo_chamados.encerrados }}</div>
+        <div class="small text-white-50">Histórico disponível.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="card app-card mb-4 ticket-list-legend">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <div class="section-kicker">Acompanhamento rápido</div>
+        {% if is_operacional %}
+          <h2 class="h5 mb-1">A equipe enxerga o fluxo inteiro e consegue agir com rapidez.</h2>
+          <p class="text-muted mb-0">Os cartões abaixo ajudam a perceber em qual etapa cada chamado está e se existe alguma aprovação pendente no caminho.</p>
+        {% else %}
+          <h2 class="h5 mb-1">Seu chamado pode parar em aprovação antes de seguir para a separação.</h2>
+          <p class="text-muted mb-0">Se o fluxo entrar em <strong>Aguardando aprovação</strong>, o colaborador verá isso aqui e também no detalhamento do chamado.</p>
+        {% endif %}
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="status-pill status-pill-warning">Aguardando aprovação</span>
+        <span class="status-pill status-pill-success">Aprovado para retirada</span>
+        <span class="status-pill status-pill-info">Pronto para entrega</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="card app-card mb-4">
   <div class="card-body">
     <form class="row g-3" method="get">
-      <div class="col-md-8">
+      <div class="col-lg-7">
         <label class="form-label">Buscar</label>
-        <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="TÃ­tulo, descriÃ§Ã£o, colaborador, itens, patrimÃ´nio ou matrÃ­cula">
+        <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="Título, descrição, colaborador, itens, patrimônio ou matrícula">
       </div>
-      <div class="col-md-2">
+      <div class="col-lg-3">
         <label class="form-label">Status</label>
         <select class="form-select" name="status">
           <option value="">Todos</option>
@@ -30,55 +122,179 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2 align-self-end">
+      <div class="col-lg-2 align-self-end">
         <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="card app-card">
-  <div class="table-responsive">
-    <table class="table align-middle mb-0">
-      <thead>
-        <tr>
-          <th>TÃ­tulo</th>
-          <th>Itens solicitados</th>
-          <th>Status</th>
-          <th>Prioridade</th>
-          <th>Colaborador</th>
-          <th>ResponsÃ¡vel</th>
-          <th>Atualizado</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for chamado in page_obj %}
+{% if is_operacional %}
+  <div class="card app-card">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
           <tr>
-            <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
-            <td>{{ chamado.itens_solicitados_resumo }}</td>
-            <td>{{ chamado.get_status_display }}</td>
-            <td>{{ chamado.get_prioridade_display }}</td>
-            <td>
-              <div class="fw-semibold">{{ chamado.destinatario_nome_completo }}</div>
-              <div class="small text-muted">Solicitante: {{ chamado.solicitante.nome_completo }}</div>
-              <div class="small text-muted">{{ chamado.solicitacao_origem_label }}</div>
-              <div class="small text-muted">Fluxo: {{ chamado.fluxo_etapa_label }}</div>
-            </td>
-            <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
-            <td>{{ chamado.updated_at|date:"d/m/Y H:i" }}</td>
-            <td class="text-end">
-              <a class="btn btn-sm btn-outline-secondary" href="{% url 'detalhe_chamado' chamado.pk %}">Abrir</a>
-            </td>
+            <th>Título</th>
+            <th>Itens solicitados</th>
+            <th>Status</th>
+            <th>Prioridade</th>
+            <th>Colaborador</th>
+            <th>Responsável</th>
+            <th>Atualizado</th>
+            <th></th>
           </tr>
-        {% empty %}
-          <tr><td colspan="8" class="text-center py-4 text-muted">Nenhum chamado encontrado.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for chamado in page_obj %}
+            <tr>
+              <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
+              <td>{{ chamado.itens_solicitados_resumo }}</td>
+              <td>
+                {% if chamado.status == 'encerrado' %}
+                  <span class="status-pill status-pill-success">{{ chamado.get_status_display }}</span>
+                {% elif chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+                  <span class="status-pill status-pill-warning">{{ chamado.fluxo_etapa_label }}</span>
+                {% elif chamado.fluxo_etapa == 'aprovado_para_retirada' %}
+                  <span class="status-pill status-pill-success">{{ chamado.fluxo_etapa_label }}</span>
+                {% elif chamado.fluxo_etapa == 'em_separacao' %}
+                  <span class="status-pill status-pill-info">{{ chamado.fluxo_etapa_label }}</span>
+                {% else %}
+                  <span class="status-pill">{{ chamado.get_status_display }}</span>
+                {% endif %}
+                <div class="small text-muted mt-2">Fluxo atual: {{ chamado.fluxo_etapa_label }}</div>
+                {% if chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+                  <div class="small text-warning fw-semibold">Aguardando aprovação do colaborador.</div>
+                {% elif chamado.fluxo_etapa == 'aprovado_para_retirada' %}
+                  <div class="small text-success fw-semibold">Liberado para seguir para a separação.</div>
+                {% elif chamado.fluxo_etapa == 'pronto_para_entrega' %}
+                  <div class="small text-info fw-semibold">Pronto para registrar a entrega.</div>
+                {% endif %}
+              </td>
+              <td>{{ chamado.get_prioridade_display }}</td>
+              <td>
+                <div class="fw-semibold">{{ chamado.destinatario_nome_completo }}</div>
+                <div class="small text-muted">Solicitante: {{ chamado.solicitante.nome_completo }}</div>
+                <div class="small text-muted">{{ chamado.solicitacao_origem_label }}</div>
+                <div class="small text-muted">Fluxo: {{ chamado.fluxo_etapa_label }}</div>
+              </td>
+              <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+              <td>{{ chamado.updated_at|date:"d/m/Y H:i" }}</td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'detalhe_chamado' chamado.pk %}">Abrir</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="text-center py-4 text-muted">Nenhum chamado encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
+{% else %}
+  <div class="ticket-card-grid">
+    {% for chamado in page_obj %}
+      <article class="ticket-card ticket-card-{{ chamado.fluxo_etapa }}">
+        <div class="ticket-card-head">
+          <div>
+            <div class="ticket-card-kicker">Chamado #{{ chamado.pk }}</div>
+            <h2 class="ticket-card-title"><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></h2>
+          </div>
+          <div class="d-flex flex-column align-items-end gap-2">
+            {% if chamado.status == 'encerrado' %}
+              <span class="status-pill status-pill-success">{{ chamado.get_status_display }}</span>
+            {% elif chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+              <span class="status-pill status-pill-warning">{{ chamado.fluxo_etapa_label }}</span>
+            {% elif chamado.fluxo_etapa == 'aprovado_para_retirada' %}
+              <span class="status-pill status-pill-success">{{ chamado.fluxo_etapa_label }}</span>
+            {% elif chamado.fluxo_etapa == 'pronto_para_entrega' %}
+              <span class="status-pill status-pill-info">{{ chamado.fluxo_etapa_label }}</span>
+            {% else %}
+              <span class="status-pill status-pill-neutral">{{ chamado.fluxo_etapa_label }}</span>
+            {% endif %}
+            <span class="status-pill status-pill-neutral">Atualizado {{ chamado.updated_at|date:"d/m/Y H:i" }}</span>
+          </div>
+        </div>
+
+        <p class="ticket-card-description mb-0">{{ chamado.descricao|truncatechars:180 }}</p>
+
+        <div class="ticket-card-meta-grid">
+          <div class="ticket-card-meta">
+            <span class="ticket-card-meta-label">Solicitante</span>
+            <strong>{{ chamado.solicitante.nome_completo }}</strong>
+          </div>
+          <div class="ticket-card-meta">
+            <span class="ticket-card-meta-label">Colaborador</span>
+            <strong>{{ chamado.destinatario_nome_completo }}</strong>
+          </div>
+          <div class="ticket-card-meta">
+            <span class="ticket-card-meta-label">Itens</span>
+            <strong>{{ chamado.itens_solicitados_resumo }}</strong>
+          </div>
+          <div class="ticket-card-meta">
+            <span class="ticket-card-meta-label">Prioridade</span>
+            <strong>{{ chamado.get_prioridade_display }}</strong>
+          </div>
+        </div>
+
+        <div class="ticket-card-progress" aria-hidden="true">
+          {% for etapa in chamado.fluxo_etapas %}
+            <span class="{% if etapa.done %}is-done{% elif etapa.active %}is-active{% endif %}" title="{{ etapa.label }}"></span>
+          {% endfor %}
+        </div>
+
+        <div class="ticket-card-status-copy">
+          <div class="small text-uppercase fw-semibold text-muted mb-1">Fluxo atual</div>
+          <div class="fw-semibold">{{ chamado.fluxo_etapa_label }}</div>
+          <div class="small text-muted">{{ chamado.fluxo_etapa_descricao }}</div>
+        </div>
+
+        {% if chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+          <div class="ticket-card-callout ticket-card-callout-warning">
+            {% if request.user.id == chamado.destinatario_id %}
+              <strong>Sua aprovação está pendente</strong>
+              <p class="mb-0">Abra o chamado para liberar a retirada e seguir para a separação.</p>
+            {% else %}
+              <strong>Aguardando aprovação</strong>
+              <p class="mb-0">O colaborador ainda precisa confirmar antes da separação.</p>
+            {% endif %}
+          </div>
+        {% elif chamado.fluxo_etapa == 'aprovado_para_retirada' %}
+          <div class="ticket-card-callout ticket-card-callout-success">
+            <strong>Aprovação concluída</strong>
+            <p class="mb-0">O pedido já foi liberado para o time seguir com a separação.</p>
+          </div>
+        {% elif chamado.fluxo_etapa == 'pronto_para_entrega' %}
+          <div class="ticket-card-callout ticket-card-callout-info">
+            <strong>Pronto para entrega</strong>
+            <p class="mb-0">Os itens estão separados e aguardam o registro final da entrega.</p>
+          </div>
+        {% elif chamado.status == 'encerrado' %}
+          <div class="ticket-card-callout ticket-card-callout-success">
+            <strong>Chamado encerrado</strong>
+            <p class="mb-0">O histórico está fechado e o termo continua disponível para consulta.</p>
+          </div>
+        {% endif %}
+
+        <div class="ticket-card-footer">
+          <div class="ticket-card-footer-meta">
+            <div class="small text-muted">Solicitação</div>
+            <strong>{{ chamado.solicitacao_origem_label }}</strong>
+          </div>
+          <a class="btn btn-outline-primary" href="{% url 'detalhe_chamado' chamado.pk %}">Abrir chamado</a>
+        </div>
+      </article>
+    {% empty %}
+      <div class="card app-card">
+        <div class="card-body p-4 text-center">
+          <div class="section-kicker mb-2">Nenhum chamado encontrado</div>
+          <h2 class="h5 mb-2">Nada para mostrar nesta busca.</h2>
+          <p class="text-muted mb-0">Abra um novo chamado ou ajuste os filtros para localizar registros anteriores.</p>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
 
 {% include "includes/pagination.html" with page_obj=page_obj query_string=query_string %}
 {% endblock %}
-

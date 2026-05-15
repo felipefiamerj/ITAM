@@ -4,17 +4,20 @@ from django.utils import timezone
 from accounts.models import NivelAcesso, Usuario
 
 from .models import Notification
+from .realtime import broadcast_notification
 
 
 def notificar_usuario(usuario, titulo, mensagem='', link=''):
     if not usuario or not getattr(usuario, 'pk', None):
         return None
-    return Notification.objects.create(
+    notification = Notification.objects.create(
         user=usuario,
         title=titulo,
         message=mensagem,
         link=link or '',
     )
+    broadcast_notification(notification)
+    return notification
 
 
 def notificar_usuarios(usuarios, titulo, mensagem='', link=''):
@@ -40,6 +43,8 @@ def notificar_usuarios(usuarios, titulo, mensagem='', link=''):
 
     if enviados:
         Notification.objects.bulk_create(enviados)
+        for notification in enviados:
+            broadcast_notification(notification)
 
     return enviados
 

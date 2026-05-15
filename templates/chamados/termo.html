@@ -4,23 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Termo de responsabilidade | Chamado #{{ chamado.pk }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #edf2f7;
-      --paper: #ffffff;
-      --line: #d8e0ea;
-      --ink: #1f2937;
-      --muted: #5b6575;
-      --accent: #183b66;
-      --soft: #f6f9fc;
+      --paper: rgba(255, 255, 255, 0.98);
+      --line: rgba(16, 32, 51, 0.10);
+      --ink: #102033;
+      --muted: #607084;
+      --accent: #134a8b;
+      --accent-2: #0f8b8d;
+      --soft: rgba(247, 250, 255, 0.94);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: var(--bg);
+      font-family: "Inter", "Segoe UI", Tahoma, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(19, 74, 139, 0.12), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(15, 139, 141, 0.10), transparent 30%),
+        linear-gradient(180deg, #f3f7fc 0%, #f8fbfe 45%, #edf3f9 100%);
       color: var(--ink);
       padding: 24px;
+    }
+    h1,
+    h2,
+    .section-title,
+    .field .label,
+    .service-option,
+    .button {
+      font-family: "Sora", "Inter", "Segoe UI", sans-serif;
     }
     .toolbar {
       max-width: 1120px;
@@ -31,7 +46,7 @@
     }
     .button {
       border: 0;
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
       color: white;
       padding: 10px 14px;
       border-radius: 10px;
@@ -41,8 +56,9 @@
       font-size: 14px;
     }
     .button.secondary {
-      background: #e8edf4;
+      background: rgba(255, 255, 255, 0.92);
       color: var(--accent);
+      border: 1px solid rgba(16, 32, 51, 0.10);
     }
     .sheet {
       max-width: 1120px;
@@ -55,7 +71,7 @@
     }
     .sheet-header {
       padding: 24px 28px 18px;
-      background: linear-gradient(135deg, #0f2744, #1f4f7f);
+      background: linear-gradient(135deg, #091d34 0%, var(--accent) 55%, var(--accent-2) 100%);
       color: white;
     }
     .sheet-header h1 {
@@ -150,11 +166,11 @@
     .service-option.active {
       border-color: rgba(24, 59, 102, 0.28);
       color: var(--ink);
-      background: #eaf1fb;
+      background: rgba(19, 74, 139, 0.08);
     }
     .service-option.active .service-box {
       border-color: var(--accent);
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
       box-shadow: inset 0 0 0 3px white;
     }
     .items-table {
@@ -213,6 +229,11 @@
     .small {
       font-size: 13px;
     }
+    .sheet-header p,
+    .terms,
+    .field .value {
+      line-height: 1.55;
+    }
     @media print {
       body {
         background: white;
@@ -256,12 +277,12 @@
   <article class="sheet">
     <header class="sheet-header">
       <h1>Termo de responsabilidade</h1>
-      <p>Documento gerado a partir do chamado #{{ chamado.pk }}. Use esta versÃ£o para formalizar entrega, recolhimento ou troca de equipamentos.</p>
+      <p>Documento gerado a partir do chamado #{{ chamado.pk }}. Use esta versão para formalizar entrega, recolhimento ou troca de equipamentos.</p>
     </header>
 
     <div class="sheet-body">
       <section class="panel">
-        <h2 class="section-title">ServiÃ§o realizado</h2>
+        <h2 class="section-title">Serviço realizado</h2>
         <div class="services">
           <div class="service-option {% if chamado.servico_realizado == 'entrega' %}active{% endif %}">
             <span class="service-box"></span><span>Entrega</span>
@@ -273,13 +294,13 @@
             <span class="service-box"></span><span>Troca</span>
           </div>
           <div class="service-option {% if chamado.servico_realizado == 'manutencao' %}active{% endif %}">
-            <span class="service-box"></span><span>ManutenÃ§Ã£o</span>
+            <span class="service-box"></span><span>Manutenção</span>
           </div>
           <div class="service-option {% if chamado.servico_realizado == 'instalacao' %}active{% endif %}">
-            <span class="service-box"></span><span>InstalaÃ§Ã£o / configuraÃ§Ã£o</span>
+            <span class="service-box"></span><span>Instalação / configuração</span>
           </div>
           <div class="service-option {% if chamado.servico_realizado == 'orientacao' %}active{% endif %}">
-            <span class="service-box"></span><span>OrientaÃ§Ã£o</span>
+            <span class="service-box"></span><span>Orientação</span>
           </div>
         </div>
       </section>
@@ -292,7 +313,7 @@
             <div class="value">#{{ chamado.pk }} - {{ chamado.titulo }}</div>
           </div>
           <div class="field">
-            <div class="label">TÃ©cnico</div>
+            <div class="label">Técnico</div>
             <div class="value">{{ chamado.responsavel.nome_completo|default:"-" }}</div>
           </div>
           <div class="field">
@@ -326,7 +347,7 @@
             <div class="value">{{ chamado.usuario_destinatario.andar_sala|default:"-" }}</div>
           </div>
           <div class="field">
-            <div class="label">MatrÃ­cula</div>
+            <div class="label">Matrícula</div>
             <div class="value">{{ chamado.destinatario_matricula }}</div>
           </div>
           <div class="field" style="grid-column: span 3;">
@@ -344,7 +365,7 @@
               <tr>
                 <th>Tipo</th>
                 <th>Quantidade</th>
-                <th>ObservaÃ§Ã£o</th>
+                <th>Observação</th>
               </tr>
             </thead>
             <tbody>
@@ -404,9 +425,9 @@
               <tr>
                 <th>Item</th>
                 <th>Quantidade</th>
-                <th>ObservaÃ§Ã£o</th>
+                <th>Observação</th>
                 <th>Equipamento entregue</th>
-                <th>PatrimÃ´nio</th>
+                <th>Patrimônio</th>
                 <th>Entregue por</th>
                 <th>Data</th>
               </tr>
@@ -460,16 +481,16 @@
       <section class="panel">
         <h2 class="section-title">Termo de responsabilidade</h2>
         <div class="terms">
-          <p>O integrante Ã© responsÃ¡vel por manter os equipamentos corporativos em bom estado de conservaÃ§Ã£o e limpeza.</p>
+          <p>O integrante é responsável por manter os equipamentos corporativos em bom estado de conservação e limpeza.</p>
           <ol>
-            <li>Ã‰ terminantemente proibido o uso de aplicativos sem o devido licenciamento de uso, bem como o uso de aplicativos e serviÃ§os piratas e/ou ilÃ­citos.</li>
-            <li>NÃ£o Ã© permitida a fixaÃ§Ã£o de adesivos ou qualquer adereÃ§o nos equipamentos.</li>
-            <li>No caso de mudanÃ§a de responsabilidade, o integrante deverÃ¡ comunicar a Ã¡rea de Tecnologia atravÃ©s de solicitaÃ§Ã£o no sistema oficial.</li>
-            <li>Na movimentaÃ§Ã£o entre Ã¡reas, o integrante deverÃ¡ abrir uma solicitaÃ§Ã£o para o suporte local verificar se o perfil de trabalho estÃ¡ compatÃ­vel com as necessidades da nova funÃ§Ã£o.</li>
-            <li>Quando deixarem de ser necessÃ¡rios ou no processo de desligamento funcional, todos os recursos cedidos deverÃ£o ser devolvidos na localidade correspondente. Caso os equipamentos e seus acessÃ³rios estejam danificados, a empresa poderÃ¡ descontar o valor de reposiÃ§Ã£o ou reparo.</li>
-            <li>Em caso de furto, roubo ou perda de equipamento corporativo, o integrante deverÃ¡ comunicar a ocorrÃªncia Ã s Ã¡reas responsÃ¡veis atravÃ©s do canal oficial.</li>
-            <li>O equipamento deverÃ¡ ser devolvido sem qualquer associaÃ§Ã£o de conta, senha ou aplicativo instalado. Remover qualquer ID, senha ou vÃ­nculo antes da devoluÃ§Ã£o.</li>
-            <li>Declaro estar ciente e de acordo com a norma de concessÃ£o de serviÃ§os de Workplace disponÃ­vel para consulta interna.</li>
+            <li>É terminantemente proibido o uso de aplicativos sem o devido licenciamento de uso, bem como o uso de aplicativos e serviços piratas e/ou ilícitos.</li>
+            <li>Não é permitida a fixação de adesivos ou qualquer adereço nos equipamentos.</li>
+            <li>No caso de mudança de responsabilidade, o integrante deverá comunicar a área de Tecnologia através de solicitação no sistema oficial.</li>
+            <li>Na movimentação entre áreas, o integrante deverá abrir uma solicitação para o suporte local verificar se o perfil de trabalho está compatível com as necessidades da nova função.</li>
+            <li>Quando deixarem de ser necessários ou no processo de desligamento funcional, todos os recursos cedidos deverão ser devolvidos na localidade correspondente. Caso os equipamentos e seus acessórios estejam danificados, a empresa poderá descontar o valor de reposição ou reparo.</li>
+            <li>Em caso de furto, roubo ou perda de equipamento corporativo, o integrante deverá comunicar a ocorrência às áreas responsáveis através do canal oficial.</li>
+            <li>O equipamento deverá ser devolvido sem qualquer associação de conta, senha ou aplicativo instalado. Remover qualquer ID, senha ou vínculo antes da devolução.</li>
+            <li>Declaro estar ciente e de acordo com a norma de concessão de serviços de Workplace disponível para consulta interna.</li>
           </ol>
         </div>
       </section>
@@ -478,11 +499,11 @@
         <div>
           <div class="signature-line">Assinatura do colaborador</div>
           <div class="small muted">Nome: {{ chamado.destinatario_nome_completo }}</div>
-          <div class="small muted">MatrÃ­cula: {{ chamado.destinatario_matricula }}</div>
+          <div class="small muted">Matrícula: {{ chamado.destinatario_matricula }}</div>
           <div class="small muted">Data: ____/____/______</div>
         </div>
         <div>
-          <div class="signature-line">Assinatura do tÃ©cnico</div>
+          <div class="signature-line">Assinatura do técnico</div>
           <div class="small muted">Nome: {{ chamado.responsavel.nome_completo|default:"-" }}</div>
           <div class="small muted">Data: ____/____/______</div>
         </div>

@@ -1,44 +1,106 @@
 {% extends "base.html" %}
-{% block title %}Notificações | ITAM System{% endblock %}
+{% block title %}Notificações | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
-  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
-    <div>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-lg-8">
       <div class="hero-kicker"><i class="fa-regular fa-bell"></i> Central de avisos</div>
       <h1 class="hero-title mb-2">Notificações do sistema.</h1>
-      <p class="hero-text mb-0">{{ unread_notifications_count }} não lidas no momento.</p>
+      <p class="hero-text mb-0">
+        {{ unread_notifications_count }} notificação{{ unread_notifications_count|pluralize }} não lida{{ unread_notifications_count|pluralize }} no momento.
+        Use esta tela para acompanhar aprovações, chamados e alertas operacionais sem perder o ritmo.
+      </p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-list-ul me-1"></i>{{ notifications|length }} aviso{{ notifications|length|pluralize }}</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-circle-exclamation me-1"></i>{{ unread_notifications_count }} pendente{{ unread_notifications_count|pluralize }}</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-wifi me-1"></i>Tempo real</span>
+      </div>
     </div>
-    <a class="btn btn-light btn-lg" href="{% url 'notification_read_all' %}">
-      <i class="fa-solid fa-check-double me-1"></i>Marcar todas como lidas
-    </a>
+    <div class="col-lg-4">
+      <div class="notification-summary-panel h-100 d-flex flex-column justify-content-between">
+        <div>
+          <div class="section-kicker mb-2">Leitura rápida</div>
+          <strong>{{ unread_notifications_count }}</strong>
+          <p>notificação{{ unread_notifications_count|pluralize }} aguardando sua atenção.</p>
+          <div class="small text-white-50 mt-3">
+            Os avisos aparecem do mais recente para o mais antigo e você pode marcar tudo com um clique.
+          </div>
+        </div>
+        <a class="btn btn-light btn-sm mt-3 align-self-start" href="{% url 'notification_read_all' %}">
+          <i class="fa-solid fa-check-double me-1"></i>Marcar todas como lidas
+        </a>
+      </div>
+    </div>
   </div>
 </section>
 
-<div class="card app-card">
-  <div class="list-group list-group-flush">
+<div class="card app-card notification-board">
+  <div class="notification-board-head">
+    <div>
+      <div class="section-kicker">Últimos registros</div>
+      <h2 class="h5 mb-1">Acompanhe os avisos que chegaram agora.</h2>
+      <p class="text-muted mb-0">Abra o link associado ou marque cada item como lido quando concluir a leitura.</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{% url 'notification_read_all' %}">
+      <i class="fa-solid fa-check-double me-1"></i>Marcar todas
+    </a>
+  </div>
+
+  <div class="notification-card-stack">
     {% for notification in notifications %}
-      <div class="list-group-item d-flex justify-content-between align-items-start gap-3">
-        <div>
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <strong>{{ notification.title }}</strong>
-            {% if not notification.is_read %}
-              <span class="badge text-bg-warning">Nova</span>
-            {% endif %}
+      <article class="notification-card {% if not notification.is_read %}notification-card-unread{% endif %}">
+        <div class="notification-card-rail" aria-hidden="true"></div>
+        <div class="notification-card-icon" aria-hidden="true">
+          <i class="fa-regular fa-bell"></i>
+        </div>
+        <div class="notification-card-body">
+          <div class="notification-card-top">
+            <div>
+              <div class="notification-card-kicker">
+                {% if notification.is_read %}Lida{% else %}Nova notificação{% endif %}
+              </div>
+              <h3 class="notification-card-title">{{ notification.title }}</h3>
+            </div>
+            <div class="d-flex flex-column align-items-end gap-2">
+              {% if notification.is_read %}
+                <span class="status-pill status-pill-success">Lida</span>
+              {% else %}
+                <span class="status-pill status-pill-warning">Nova</span>
+              {% endif %}
+              <span class="status-pill status-pill-neutral">{{ notification.created_at|date:"d/m/Y H:i" }}</span>
+            </div>
           </div>
-          <div class="small text-muted">{{ notification.message|default:"-" }}</div>
-          <div class="small text-muted">{{ notification.created_at|date:"d/m/Y H:i" }}</div>
+
+          <p class="notification-card-message">{{ notification.message|default:"-" }}</p>
+
+          <div class="notification-card-actions">
+            <div class="d-flex flex-wrap gap-2">
+              {% if notification.link %}
+                <span class="status-pill status-pill-info">Possui link</span>
+              {% else %}
+                <span class="status-pill status-pill-neutral">Sem link</span>
+              {% endif %}
+              {% if not notification.is_read %}
+                <span class="status-pill status-pill-warning">Exige atenção</span>
+              {% endif %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+              {% if notification.link %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ notification.link }}">Abrir</a>
+              {% endif %}
+              {% if not notification.is_read %}
+                <a class="btn btn-sm btn-primary" href="{% url 'notification_read' notification.pk %}">Marcar como lida</a>
+              {% endif %}
+            </div>
+          </div>
         </div>
-        <div class="text-end">
-          {% if notification.link %}
-            <a class="btn btn-sm btn-outline-secondary mb-2" href="{{ notification.link }}">Abrir</a>
-          {% endif %}
-          {% if not notification.is_read %}
-            <a class="btn btn-sm btn-primary" href="{% url 'notification_read' notification.pk %}">Marcar lida</a>
-          {% endif %}
-        </div>
-      </div>
+      </article>
     {% empty %}
-      <div class="p-4 text-muted">Nenhuma notificação.</div>
+      <div class="notification-empty-state">
+        <i class="fa-regular fa-bell-slash"></i>
+        <strong>Nenhuma notificação no momento.</strong>
+        <p class="mb-0">Quando algo novo chegar, ele vai aparecer aqui com destaque para leitura rápida.</p>
+      </div>
     {% endfor %}
   </div>
 </div>

@@ -1,9 +1,11 @@
 from django.urls import path
-from . import views
+
+from . import views_public as views
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('ativar/<str:uidb64>/<str:token>/', views.ativar_conta, name='ativar_conta'),
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
     path('usuarios/pendentes/', views.usuarios_pendentes, name='usuarios_pendentes'),
     path('usuarios/novo/', views.criar_usuario, name='criar_usuario'),

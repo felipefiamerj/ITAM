@@ -1,20 +1,42 @@
 {% extends "accounts/auth_base.html" %}
-{% block title %}Trocar senha | ITAM System{% endblock %}
+{% block title %}Trocar senha | {{ app_name }}{% endblock %}
 {% block content %}
 <div class="auth-grid">
   <section class="auth-hero panel-surface">
     <div class="eyebrow">Primeiro acesso</div>
-    <h1 class="auth-title">Troque sua senha temporária</h1>
+    <h1 class="auth-title">
+      {% if modo_ativacao %}
+        Ative seu acesso
+      {% else %}
+        Troque sua senha temporária
+      {% endif %}
+    </h1>
     <p class="auth-text">
-      Para sua segurança, você precisa alterar a senha temporária fornecida pelo administrador antes de continuar.
+      {% if modo_ativacao %}
+        Seu acesso foi aprovado. Crie agora uma senha pessoal para entrar no sistema.
+      {% else %}
+        Para sua segurança, você precisa alterar a senha temporária fornecida pelo administrador antes de continuar.
+      {% endif %}
     </p>
     <div class="auth-callout">
       <div class="auth-callout-icon">
         <i class="fa-solid fa-key"></i>
       </div>
       <div>
-        <strong>Segurança em primeiro lugar.</strong>
-        <p class="mb-0">Use uma senha exclusiva e de preferência com letras, números e símbolos.</p>
+        <strong>
+          {% if modo_ativacao %}
+            Acesso liberado com segurança.
+          {% else %}
+            Segurança em primeiro lugar.
+          {% endif %}
+        </strong>
+        <p class="mb-0">
+          {% if modo_ativacao %}
+            Depois de criar sua senha, você será redirecionado para o login.
+          {% else %}
+            Use uma senha exclusiva e de preferência com letras, números e símbolos.
+          {% endif %}
+        </p>
       </div>
     </div>
   </section>
@@ -41,13 +63,22 @@
         {% csrf_token %}
         {% include "includes/form.html" with form=form %}
         <button type="submit" class="btn btn-primary btn-lg w-100">
-          <i class="fa-solid fa-lock me-2"></i>Alterar senha
+          <i class="fa-solid fa-lock me-2"></i>
+          {% if modo_ativacao %}
+            Ativar acesso
+          {% else %}
+            Alterar senha
+          {% endif %}
         </button>
       </form>
 
       <div class="auth-card-note">
         <i class="fa-solid fa-info-circle"></i>
-        Após a troca, você será redirecionado ao painel com o acesso liberado.
+        {% if modo_ativacao %}
+          Após salvar, você poderá entrar com a nova senha no login.
+        {% else %}
+          Após a troca, você será redirecionado ao painel com o acesso liberado.
+        {% endif %}
       </div>
     </article>
   </section>

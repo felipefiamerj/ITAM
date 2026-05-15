@@ -13,11 +13,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='chamado',
             name='prioridade',
-            field=models.CharField(choices=[('baixa', 'Baixa'), ('media', 'MÃ©dia'), ('alta', 'Alta'), ('critica', 'CrÃ\xadtica')], default='media', max_length=20),
+            field=models.CharField(choices=[('baixa', 'Baixa'), ('media', 'Média'), ('alta', 'Alta'), ('critica', 'Crítica')], default='media', max_length=20),
         ),
         migrations.AlterField(
             model_name='chamado',
             name='servico_realizado',
-            field=models.CharField(blank=True, choices=[('entrega', 'Entrega de equipamento'), ('recolhimento', 'Recolhimento de equipamento'), ('troca', 'Troca de equipamento'), ('manutencao', 'ManutenÃ§Ã£o'), ('instalacao', 'InstalaÃ§Ã£o / configuraÃ§Ã£o'), ('orientacao', 'OrientaÃ§Ã£o'), ('outro', 'Outro')], db_index=True, default='', max_length=30),
+            field=models.CharField(blank=True, choices=[('entrega', 'Entrega de equipamento'), ('recolhimento', 'Recolhimento de equipamento'), ('troca', 'Troca de equipamento'), ('manutencao', 'Manutenção'), ('instalacao', 'Instalação / configuração'), ('orientacao', 'Orientação'), ('outro', 'Outro')], db_index=True, default='', max_length=30),
         ),
     ]

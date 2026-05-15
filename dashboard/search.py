@@ -173,7 +173,7 @@ def _quick_actions(user):
 
 
 def _equipment_item(equipamento):
-    descricao = ' Â· '.join(
+    descricao = ' · '.join(
         parte
         for parte in [
             equipamento.tipo_display,
@@ -191,12 +191,12 @@ def _equipment_item(equipamento):
 
     meta_parts = [equipamento.localizacao_resumida]
     if equipamento.responsavel:
-        meta_parts.append(f'ResponsÃ¡vel: {equipamento.responsavel.nome_completo}')
+        meta_parts.append(f'Responsável: {equipamento.responsavel.nome_completo}')
 
     return {
         'title': equipamento.id_patrimonio,
         'subtitle': descricao or equipamento.get_tipo_display(),
-        'meta': ' Â· '.join(meta_parts),
+        'meta': ' · '.join(meta_parts),
         'url': reverse('detalhe_equipamento', kwargs={'id_patrimonio': equipamento.id_patrimonio}),
         'icon': 'fa-boxes-stacked',
         'badge': equipamento.get_status_display(),
@@ -212,8 +212,8 @@ def _chamado_item(chamado):
         responsavel = 'Sem responsável'
 
     return {
-        'title': f'#{chamado.pk} Â· {chamado.titulo}',
-        'subtitle': f'{chamado.fluxo_etapa_label} Â· {chamado.get_status_display()} Â· {chamado.get_prioridade_display()}',
+        'title': f'#{chamado.pk} · {chamado.titulo}',
+        'subtitle': f'{chamado.fluxo_etapa_label} · {chamado.get_status_display()} · {chamado.get_prioridade_display()}',
         'meta': f'Colaborador: {chamado.destinatario_nome_completo} · Solicitante: {chamado.solicitante.nome_completo} · Responsável: {responsavel} · Fluxo: {chamado.fluxo_etapa_label} · {equipamento}',
         'url': reverse('detalhe_chamado', kwargs={'pk': chamado.pk}),
         'icon': 'fa-ticket-simple',
@@ -232,7 +232,7 @@ def _usuario_item(usuario):
     return {
         'title': usuario.nome_completo,
         'subtitle': usuario.matricula,
-        'meta': ' Â· '.join(meta_parts),
+        'meta': ' · '.join(meta_parts),
         'url': reverse('perfil_usuario', kwargs={'pk': usuario.pk}),
         'icon': 'fa-user-gear',
         'badge': usuario.status_acesso,
@@ -252,7 +252,7 @@ def _lote_item(lote):
     return {
         'title': descricao,
         'subtitle': lote.get_status_display(),
-        'meta': ' Â· '.join(meta_parts),
+        'meta': ' · '.join(meta_parts),
         'url': reverse('estoque'),
         'icon': 'fa-warehouse',
         'badge': lote.get_status_display(),
@@ -323,7 +323,7 @@ def _equipment_group(user, query=None):
             'key': 'equipamentos',
             'label': 'Equipamentos',
             'icon': 'fa-boxes-stacked',
-            'description': 'Ativos, localizaÃ§Ã£o e responsÃ¡vel atual.',
+            'description': 'Ativos, localização e responsável atual.',
             'count': qs.count(),
             'items': [_equipment_item(equipamento) for equipamento in qs[:SEARCH_LIMITS['equipamentos']]],
             'see_all_url': reverse('equipamentos') + (f'?{urlencode({"q": query})}' if query else ''),
@@ -335,7 +335,7 @@ def _equipment_group(user, query=None):
         'key': 'equipamentos',
         'label': 'Equipamentos recentes',
         'icon': 'fa-boxes-stacked',
-        'description': 'Ãšltimos ativos cadastrados.',
+        'description': 'Últimos ativos cadastrados.',
         'count': len(itens),
         'items': [_equipment_item(equipamento) for equipamento in itens],
         'see_all_url': reverse('equipamentos'),
@@ -395,7 +395,7 @@ def _chamado_group(user, query=None):
             'key': 'chamados',
             'label': 'Chamados',
             'icon': 'fa-ticket-simple',
-            'description': 'SolicitaÃ§Ãµes, histÃ³rico e responsÃ¡veis.',
+            'description': 'Solicitações, histórico e responsáveis.',
             'count': qs.count(),
             'items': [_chamado_item(chamado) for chamado in qs[:SEARCH_LIMITS['chamados']]],
             'see_all_url': reverse('chamados') + (f'?{urlencode({"q": query})}' if query else ''),
@@ -407,7 +407,7 @@ def _chamado_group(user, query=None):
         'key': 'chamados',
         'label': 'Chamados recentes',
         'icon': 'fa-ticket-simple',
-        'description': 'Ãšltimas solicitaÃ§Ãµes registradas.',
+        'description': 'Últimas solicitações registradas.',
         'count': len(itens),
         'items': [_chamado_item(chamado) for chamado in itens],
         'see_all_url': reverse('chamados'),
@@ -462,9 +462,9 @@ def _usuario_group(user, query=None):
         ).order_by('-_search_relevance', 'first_name', 'last_name', 'matricula')
         return {
             'key': 'usuarios',
-            'label': 'UsuÃ¡rios',
+            'label': 'Usuários',
             'icon': 'fa-user-gear',
-            'description': 'Perfis, matrÃ­cula e localizaÃ§Ã£o.',
+            'description': 'Perfis, matrícula e localização.',
             'count': qs.count(),
             'items': [_usuario_item(usuario) for usuario in qs[:SEARCH_LIMITS['usuarios']]],
             'see_all_url': (
@@ -479,7 +479,7 @@ def _usuario_group(user, query=None):
         itens = list(Usuario.objects.select_related('gestor', 'aprovado_por').order_by('-created_at')[:RECENT_LIMITS['usuarios']])
         return {
             'key': 'usuarios',
-            'label': 'UsuÃ¡rios recentes',
+            'label': 'Usuários recentes',
             'icon': 'fa-user-gear',
             'description': 'Contas mais recentes e perfis ativos.',
             'count': len(itens),
@@ -520,7 +520,7 @@ def _lote_group(query=None):
             'key': 'lotes',
             'label': 'Lotes',
             'icon': 'fa-warehouse',
-            'description': 'ImportaÃ§Ãµes em massa e histÃ³rico de carga.',
+            'description': 'Importações em massa e histórico de carga.',
             'count': qs.count(),
             'items': [_lote_item(lote) for lote in qs[:SEARCH_LIMITS['lotes']]],
             'see_all_url': reverse('estoque'),
@@ -532,7 +532,7 @@ def _lote_group(query=None):
         'key': 'lotes',
         'label': 'Lotes recentes',
         'icon': 'fa-warehouse',
-        'description': 'Ãšltimas cargas importadas.',
+        'description': 'Últimas cargas importadas.',
         'count': len(itens),
         'items': [_lote_item(lote) for lote in itens],
         'see_all_url': reverse('estoque'),
@@ -572,18 +572,18 @@ def build_search_payload(user, raw_query):
 
     if query_mode:
         if total_resultados:
-            summary = f'Encontramos {total_resultados} resultado(s) em ativos, chamados, usuÃ¡rios e lotes.'
+            summary = f'Encontramos {total_resultados} resultado(s) em ativos, chamados, usuários e lotes.'
         else:
-            summary = f'Nenhum resultado encontrado para "{query}". Tente patrimÃ´nio, matrÃ­cula, site, setor ou status.'
+            summary = f'Nenhum resultado encontrado para "{query}". Tente patrimônio, matrícula, site, setor ou status.'
         mode_label = 'Resultados'
         total_label = 'resultados'
     elif short_query:
         summary = 'Digite ao menos 2 caracteres para uma busca precisa. Enquanto isso, seguem itens recentes.'
-        mode_label = 'Acesso rÃ¡pido'
+        mode_label = 'Acesso rápido'
         total_label = 'itens'
     else:
-        summary = 'Mostrando itens recentes e atalhos rÃ¡pidos para vocÃª comeÃ§ar.'
-        mode_label = 'Acesso rÃ¡pido'
+        summary = 'Mostrando itens recentes e atalhos rápidos para você começar.'
+        mode_label = 'Acesso rápido'
         total_label = 'itens'
 
     return {

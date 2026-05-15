@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   const numberFormatter = new Intl.NumberFormat('pt-BR');
   const defaultPalette = [
     '#134a8b',
@@ -225,6 +225,16 @@
         'Sem chamados abertos',
         'Nenhum chamado aberto está disponível para análise agora.'
       );
+      if (dashboardData.fluxo_chamados) {
+        renderDoughnutChart(
+          'dashboard-flow-chart',
+          'dashboard-flow-chart-wrap',
+          toSeries(dashboardData.fluxo_chamados),
+          ['#134a8b', '#0f8b8d', '#64748b'],
+          'Sem fluxo operacional',
+          'Ainda não há chamados suficientes para exibir o fluxo.'
+        );
+      }
     }
 
     const estoqueData = readJsonScript('estoque-charts-data');
@@ -246,7 +256,28 @@
         'Ainda não há tipos suficientes em estoque para exibir o gráfico.'
       );
     }
+
+    const copilotData = readJsonScript('ia-copilot-data');
+    if (copilotData) {
+      renderDoughnutChart(
+        'ia-copilot-risk-chart',
+        'ia-copilot-risk-chart-wrap',
+        toSeries(copilotData.recomendacoes_por_origem),
+        ['#134a8b', '#f97316', '#0f8b8d', '#8b5cf6'],
+        'Sem recomendações',
+        'Nenhum sinal relevante foi encontrado para o copiloto operacional.'
+      );
+      renderHorizontalBarChart(
+        'ia-copilot-horizon-chart',
+        'ia-copilot-horizon-chart-wrap',
+        toSeries(copilotData.recomendacoes_por_horizonte),
+        ['#ef4444', '#f5b700', '#2563eb'],
+        'Sem horizonte definido',
+        'Ainda não há recomendações suficientes para classificar o horizonte.'
+      );
+    }
   }
 
   document.addEventListener('DOMContentLoaded', initCharts);
 })();
+

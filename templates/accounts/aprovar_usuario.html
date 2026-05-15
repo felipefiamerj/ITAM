@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Aprovar usuário | ITAM System{% endblock %}
+{% block title %}Aprovar usuário | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
@@ -53,8 +53,8 @@
         <div class="section-kicker mb-2">Boas práticas</div>
         <ul class="mb-0 ps-3 text-muted">
           <li>Escolha o nível de acesso correto antes de liberar.</li>
-          <li>Use a senha temporária gerada pelo sistema ou defina uma manualmente.</li>
-          <li>Deixe a troca de senha no primeiro acesso ativada para manter segurança.</li>
+          <li>O sistema envia um link de primeiro acesso por e-mail para o usuário criar a senha.</li>
+          <li>Se o e-mail não estiver disponível, a senha temporária continua como contingência.</li>
         </ul>
       </div>
     </div>

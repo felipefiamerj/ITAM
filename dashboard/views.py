@@ -1,4 +1,4 @@
-﻿from auditlog.models import LogEntry
+from auditlog.models import LogEntry
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import JsonResponse
@@ -16,17 +16,12 @@ FLUXO_CHAMADO_DASHBOARD = [
     {
         'status': StatusChamado.FILA,
         'label': 'Fila',
-        'description': 'Chamados aguardando triagem ou assunÃ§Ã£o pelo time.',
+        'description': 'Chamados aguardando triagem ou assunção pelo time.',
     },
     {
         'status': StatusChamado.EM_ATENDIMENTO,
         'label': 'Em atendimento',
-        'description': 'Chamados que jÃ¡ estÃ£o com um responsÃ¡vel definido.',
-    },
-    {
-        'status': StatusChamado.AGUARDANDO_ATENDIMENTO,
-        'label': 'Aguardando atendimento',
-        'description': 'Chamados pausados para retorno, peÃ§a ou prÃ³xima aÃ§Ã£o.',
+        'description': 'Chamados que já estão com um responsável definido.',
     },
     {
         'status': StatusChamado.ENCERRADO,
@@ -41,7 +36,9 @@ def _chamados_fluxo_dashboard(chamados):
         item['status']: item['total']
         for item in chamados.values('status').annotate(total=Count('id'))
     }
-    recentes = list(chamados.select_related('solicitante', 'destinatario', 'responsavel').order_by('-updated_at', '-created_at')[:40])
+    recentes = list(
+        chamados.select_related('solicitante', 'destinatario', 'responsavel').order_by('-updated_at', '-created_at')[:40]
+    )
 
     fluxo = []
     for etapa in FLUXO_CHAMADO_DASHBOARD:
@@ -63,6 +60,7 @@ def _chamados_fluxo_dashboard(chamados):
 def dashboard_view(request):
     if request.user.is_solicitante:
         return redirect('chamados')
+
     equipamentos = Equipamento.objects.select_related('responsavel', 'criado_por')
     chamados = Chamado.objects.select_related('equipamento', 'solicitante', 'destinatario', 'responsavel')
 
@@ -115,7 +113,14 @@ def dashboard_view(request):
     }
 
     if request.user.is_operacional:
-        context['chamados_fluxo'] = _chamados_fluxo_dashboard(chamados)
+        chamados_fluxo = _chamados_fluxo_dashboard(chamados)
+        context['chamados_fluxo'] = chamados_fluxo
+        context['dashboard_flow_total'] = sum(item['count'] for item in chamados_fluxo)
+        context['dashboard_flow_total_safe'] = max(context['dashboard_flow_total'], 1)
+        context['dashboard_charts']['fluxo_chamados'] = {
+            'labels': [item['label'] for item in chamados_fluxo],
+            'values': [item['count'] for item in chamados_fluxo],
+        }
 
     return render(request, 'dashboard/index.html', context)
 
@@ -129,5 +134,3 @@ def busca_view(request):
 @login_required
 def busca_global_api(request):
     return JsonResponse(build_search_payload(request.user, request.GET.get('q', '')))
-
-

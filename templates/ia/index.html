@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Copiloto Operacional | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4 ia-copilot-hero">
+  <div class="ia-copilot-hero-grid">
+    <div class="ia-copilot-hero-copy">
+      <div class="hero-kicker"><i class="fa-solid fa-wand-magic-sparkles"></i> Copiloto operacional</div>
+      <h1 class="hero-title mb-2">Transforme sinais soltos em próximas ações claras.</h1>
+      <p class="hero-text mb-0">
+        O motor de recomendação cruza chamados, telemetria e saúde dos ativos para mostrar o que exige reação,
+        o que cabe no turno e o que pode entrar no planejamento.
+      </p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-bolt"></i> Reação</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-bullseye"></i> Prognóstico</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-route"></i> Próxima ação</span>
+      </div>
+      <div class="d-flex gap-2 flex-wrap mt-3">
+        <a href="?recalcular=1" class="btn btn-light btn-lg">
+          <i class="fa-solid fa-rotate me-1"></i>Recalcular score
+        </a>
+        <a href="{% url 'ia_monitoramento' %}" class="btn btn-outline-light btn-lg">
+          <i class="fa-solid fa-wave-square me-1"></i>Ver monitoramento
+        </a>
+      </div>
+    </div>
+
+    <aside class="ia-copilot-hero-aside">
+      <div class="ia-copilot-score-card">
+        <span class="ia-copilot-score-kicker">Índice operacional</span>
+        <div class="ia-copilot-score-orb">
+          <strong>{{ index_operacional }}</strong>
+          <span>/100</span>
+        </div>
+        <div class="ia-copilot-state">{{ state_label }}</div>
+        <p class="ia-copilot-state-text mb-3">{{ state_caption }}</p>
+
+        {% if primary_recommendation %}
+          <div class="ia-copilot-primary-action">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+              <div>
+                <div class="section-kicker">Próxima melhor ação</div>
+                <h2 class="h6 mb-1">{{ primary_recommendation.action }}</h2>
+              </div>
+              <span class="status-pill status-pill-dark">{{ primary_recommendation.horizon_label }}</span>
+            </div>
+            <p class="small text-muted mb-2">{{ primary_text }}</p>
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+              <span class="badge {{ primary_recommendation.badge_class }}">{{ primary_recommendation.severity_label }}</span>
+              <a class="btn btn-sm btn-light" href="{{ primary_recommendation.url }}">Abrir agora</a>
+            </div>
+          </div>
+        {% else %}
+          <div class="dashboard-chart-empty ia-copilot-empty">
+            <i class="fa-regular fa-circle-check"></i>
+            <strong>Nenhuma ação crítica no momento.</strong>
+            <span>Use o monitoramento para acompanhar o parque com mais profundidade.</span>
+          </div>
+        {% endif %}
+
+        <div class="ia-copilot-mini-grid">
+          <div>
+            <span>Imediatas</span>
+            <strong>{{ recomendacoes_imediatas }}</strong>
+          </div>
+          <div>
+            <span>Hoje</span>
+            <strong>{{ recomendacoes_hoje }}</strong>
+          </div>
+          <div>
+            <span>Planejamento</span>
+            <strong>{{ recomendacoes_planejamento }}</strong>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="row g-3">
+    {% for metric in metrics %}
+      <div class="col-md-6 col-xl-4">
+        <div class="app-stat ia-copilot-metric ia-copilot-metric-{{ metric.tone }} h-100">
+          <div class="ia-copilot-metric-top">
+            <span class="ia-copilot-metric-icon"><i class="fa-solid {{ metric.icon }}"></i></span>
+            <span class="badge badge-soft">{{ metric.label }}</span>
+          </div>
+          <div class="value">{{ metric.value }}</div>
+          <div class="ia-copilot-metric-caption">{{ metric.caption }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Radar IA</div>
+      <h2 class="h5 mb-0">O que mais pesa na operação</h2>
+    </div>
+    <span class="badge badge-soft">{{ recomendacoes_total }} recomendações geradas</span>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-xl-7">
+      <div class="card app-card ia-copilot-panel h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Distribuição</div>
+              <h3 class="h6 mb-1">Recomendações por frente</h3>
+              <p class="small text-muted mb-0">Chamados, equipamentos, monitoramento e governança lado a lado.</p>
+            </div>
+            <span class="badge badge-soft">{{ recomendacoes_total }}</span>
+          </div>
+          <div class="dashboard-chart-wrap ia-copilot-chart-wrap" id="ia-copilot-risk-chart-wrap">
+            <canvas id="ia-copilot-risk-chart" aria-label="Distribuição de recomendações por frente" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-5">
+      <div class="card app-card ia-copilot-panel h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Horizonte</div>
+              <h3 class="h6 mb-1">Quando agir</h3>
+              <p class="small text-muted mb-0">A IA separa o que é imediato, o que cabe no turno e o que pode ser planejado.</p>
+            </div>
+          </div>
+          <div class="dashboard-chart-wrap ia-copilot-chart-wrap ia-copilot-chart-compact" id="ia-copilot-horizon-chart-wrap">
+            <canvas id="ia-copilot-horizon-chart" aria-label="Distribuição de recomendações por horizonte" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Plano do dia</div>
+      <h2 class="h5 mb-0">Ações priorizadas</h2>
+    </div>
+    <span class="badge badge-soft">{{ recomendacoes_total }} recomendações</span>
+  </div>
+
+  <div class="ia-copilot-action-stack">
+    {% for recomendacao in recomendacoes %}
+      <article class="ia-copilot-action-card ia-copilot-action-card-{{ recomendacao.source_tone }}">
+        <div class="ia-copilot-action-top">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="ia-copilot-source-chip">
+              <i class="fa-solid {{ recomendacao.source_icon }}"></i>{{ recomendacao.source_label }}
+            </span>
+            <span class="badge {{ recomendacao.badge_class }}">{{ recomendacao.severity_label }}</span>
+            {% if recomendacao.subtitle %}
+              <span class="badge badge-soft">{{ recomendacao.subtitle }}</span>
+            {% endif %}
+          </div>
+          <span class="status-pill status-pill-dark">{{ recomendacao.horizon_label }}</span>
+        </div>
+
+        <div class="ia-copilot-action-body">
+          <h3 class="h5 mb-1">{{ recomendacao.title }}</h3>
+          <p class="mb-2">{{ recomendacao.reason }}</p>
+          {% if recomendacao.meta %}
+            <div class="ia-copilot-action-meta">{{ recomendacao.meta }}</div>
+          {% endif %}
+        </div>
+
+        <div class="ia-copilot-action-footer">
+          <span class="ia-copilot-impact">Impacto {{ recomendacao.impact_score }}</span>
+          <a class="btn btn-sm btn-light" href="{{ recomendacao.url }}">{{ recomendacao.action }}</a>
+        </div>
+      </article>
+    {% empty %}
+      <div class="dashboard-chart-empty">
+        <i class="fa-regular fa-circle-check"></i>
+        <strong>Nenhuma ação pendente.</strong>
+        <span>A operação está estável por enquanto.</span>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ copilot_charts|json_script:"ia-copilot-data" }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'js/dashboard-charts.js' %}"></script>
+{% endblock %}

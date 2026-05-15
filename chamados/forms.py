@@ -71,7 +71,7 @@ REQUEST_TEMPLATE_DEFINITIONS = [
         'eyebrow': 'Geral',
         'title': 'Chamado padrao',
         'highlight': 'Fluxo livre',
-        'description': 'Use quando a demanda nao se encaixar em nenhum dos fluxos guiados.',
+        'description': 'Use quando a demanda não se encaixar em nenhum dos fluxos guiados.',
         'icon': 'fa-circle-plus',
         'tone': 'neutral',
         'tipos': [valor for valor, _ in TipoEquipamento.choices if valor != TipoEquipamento.OUTRO],
@@ -143,20 +143,20 @@ class ChamadoCreateForm(BaseChamadoForm):
     destinatario = UsuarioDisplayChoiceField(
         label='Para quem e essa solicitacao?',
         queryset=Usuario.objects.none(),
-        help_text='Informe o colaborador que vai receber o equipamento. Se estiver abrindo em nome dele, o chamado sera registrado como solicitado pelo gestor.',
+        help_text='Informe o colaborador que vai receber o equipamento. Se estiver abrindo em nome dele, o chamado será registrado como solicitado pelo gestor.',
     )
     equipamentos_solicitados = forms.MultipleChoiceField(
         label='Equipamentos solicitados',
         required=False,
         choices=TIPOS_EQUIPAMENTOS_SELECIONAVEIS,
         widget=forms.CheckboxSelectMultiple,
-        help_text='Marque um ou mais equipamentos. Cada selecao vira um item do termo.',
+        help_text='Marque um ou mais equipamentos. Cada seleção vira um item do termo.',
     )
     outros_itens_solicitados = forms.CharField(
         label='Outros itens',
         required=False,
         widget=forms.Textarea(attrs={'rows': 4}),
-        help_text='Use apenas se precisar complementar com itens que nao aparecem na lista acima. Uma linha por item.',
+        help_text='Use apenas se precisar complementar com itens que não aparecem na lista acima. Uma linha por item.',
     )
 
     class Meta:
@@ -199,13 +199,13 @@ class ChamadoUpdateForm(BaseChamadoForm):
         required=False,
         choices=TIPOS_EQUIPAMENTOS_SELECIONAVEIS,
         widget=forms.CheckboxSelectMultiple,
-        help_text='Marque um ou mais equipamentos. Cada selecao vira um item do termo.',
+        help_text='Marque um ou mais equipamentos. Cada seleção vira um item do termo.',
     )
     outros_itens_solicitados = forms.CharField(
         label='Outros itens',
         required=False,
         widget=forms.Textarea(attrs={'rows': 4}),
-        help_text='Use apenas se precisar complementar com itens que nao aparecem na lista acima. Uma linha por item.',
+        help_text='Use apenas se precisar complementar com itens que não aparecem na lista acima. Uma linha por item.',
     )
 
     class Meta:
@@ -267,15 +267,15 @@ class ChamadoUpdateForm(BaseChamadoForm):
 class EntregaEquipamentoChamadoForm(forms.Form):
     itens_entrega = forms.CharField(required=False, widget=forms.HiddenInput())
     observacoes = forms.CharField(
-        label='ObservaÃ§Ãµes da entrega',
+        label='Observações da entrega',
         required=False,
         widget=forms.Textarea(attrs={'rows': 3}),
     )
     concluir_chamado = forms.BooleanField(
-        label='Encerrar chamado apÃ³s concluir todos os itens',
+        label='Encerrar chamado após concluir todos os itens',
         required=False,
         initial=True,
-        help_text='Marque apenas quando cada item solicitado jÃ¡ tiver um equipamento selecionado.',
+        help_text='Marque apenas quando cada item solicitado já tiver um equipamento selecionado.',
     )
 
     def __init__(self, *args, **kwargs):
@@ -346,10 +346,10 @@ class EntregaEquipamentoChamadoForm(forms.Form):
             try:
                 selecoes = json.loads(selecoes)
             except json.JSONDecodeError as exc:
-                raise ValidationError('SeleÃ§Ãµes de equipamentos invÃ¡lidas.') from exc
+                raise ValidationError('Seleções de equipamentos inválidas.') from exc
 
         if not isinstance(selecoes, dict):
-            raise ValidationError('SeleÃ§Ãµes de equipamentos invÃ¡lidas.')
+            raise ValidationError('Seleções de equipamentos inválidas.')
 
         normalizadas = {}
         for item_id_raw, equipamento_id_raw in selecoes.items():
@@ -357,7 +357,7 @@ class EntregaEquipamentoChamadoForm(forms.Form):
                 item_id = int(item_id_raw)
                 equipamento_id = int(equipamento_id_raw)
             except (TypeError, ValueError) as exc:
-                raise ValidationError('SeleÃ§Ãµes de equipamentos invÃ¡lidas.') from exc
+                raise ValidationError('Seleções de equipamentos inválidas.') from exc
             normalizadas[item_id] = equipamento_id
 
         return normalizadas
