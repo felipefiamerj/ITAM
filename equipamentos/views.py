@@ -34,6 +34,13 @@ def _aplicar_movimentacao(equipamento, movimentacao):
         equipamento.status = StatusEquipamento.EM_ESTOQUE
         equipamento.responsavel = None
         equipamento.data_atribuicao = None
+    elif tipo == 'reserva':
+        equipamento.status = StatusEquipamento.RESERVADO
+        equipamento.data_atribuicao = None
+    elif tipo == 'liberacao_reserva':
+        equipamento.status = StatusEquipamento.EM_ESTOQUE
+        equipamento.responsavel = None
+        equipamento.data_atribuicao = None
     elif tipo == 'saida':
         equipamento.status = StatusEquipamento.EM_USO
         equipamento.responsavel = movimentacao.usuario_novo or equipamento.responsavel

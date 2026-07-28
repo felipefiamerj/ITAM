@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from accounts.models import NivelAcesso, Usuario
+from estoque.models import reservas_ativas_por_chamado
 from equipamentos.models import Equipamento, StatusEquipamento, TipoEquipamento
 
 from .models import Chamado, ChamadoItemSolicitado
@@ -122,7 +123,7 @@ class BaseChamadoForm(forms.ModelForm):
         fields = []
 
     def _style_fields(self):
-        for field_name, field in self.fields.items():
+        for field in self.fields.values():
             if field.widget.is_hidden:
                 continue
             if isinstance(field.widget, forms.CheckboxSelectMultiple):
@@ -288,11 +289,17 @@ class EntregaEquipamentoChamadoForm(forms.Form):
         self.selecoes_por_item = {}
         super().__init__(*args, **kwargs)
 
-        queryset = (
-            Equipamento.objects.select_related('responsavel')
-            .filter(status=StatusEquipamento.EM_ESTOQUE)
-            .order_by('tipo', 'id_patrimonio')
-        )
+        queryset = Equipamento.objects.select_related('responsavel').order_by('tipo', 'id_patrimonio')
+        if self.chamado:
+            reserved_ids = list(
+                reservas_ativas_por_chamado(self.chamado).values_list('equipamento_id', flat=True)
+            )
+            if reserved_ids:
+                queryset = queryset.filter(Q(status=StatusEquipamento.EM_ESTOQUE) | Q(pk__in=reserved_ids)).distinct()
+            else:
+                queryset = queryset.filter(status=StatusEquipamento.EM_ESTOQUE)
+        else:
+            queryset = queryset.filter(status=StatusEquipamento.EM_ESTOQUE)
 
         tipos_solicitados = self._tipos_solicitados()
         if tipos_solicitados:
@@ -371,9 +378,16 @@ class EntregaEquipamentoChamadoForm(forms.Form):
                 return {}
 
         selecoes = {}
+        selecoes_reserva = {
+            reserva.item_solicitado_id: reserva.equipamento_id
+            for reserva in reservas_ativas_por_chamado(self.chamado)
+            if reserva.item_solicitado_id and reserva.equipamento_id
+        }
         for item in self.itens_solicitados:
             if getattr(item, 'equipamento_entregue_id', None):
                 selecoes[item.id] = item.equipamento_entregue_id
+            elif item.id in selecoes_reserva:
+                selecoes[item.id] = selecoes_reserva[item.id]
         return selecoes
 
     def _tipos_solicitados(self):

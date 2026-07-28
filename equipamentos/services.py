@@ -24,6 +24,7 @@ STATUS_MAP = {
     'uso': StatusEquipamento.EM_USO,
     'estoque': StatusEquipamento.EM_ESTOQUE,
     'em_estoque': StatusEquipamento.EM_ESTOQUE,
+    'reservado': StatusEquipamento.RESERVADO,
     'manutencao': StatusEquipamento.EM_MANUTENCAO,
     'em_manutencao': StatusEquipamento.EM_MANUTENCAO,
     'baixado': StatusEquipamento.DESCARTADO,
@@ -54,6 +55,13 @@ def aplicar_movimentacao_equipamento(equipamento, movimentacao):
     tipo = movimentacao.tipo
 
     if tipo == 'entrada':
+        equipamento.status = StatusEquipamento.EM_ESTOQUE
+        equipamento.responsavel = None
+        equipamento.data_atribuicao = None
+    elif tipo == 'reserva':
+        equipamento.status = StatusEquipamento.RESERVADO
+        equipamento.data_atribuicao = None
+    elif tipo == 'liberacao_reserva':
         equipamento.status = StatusEquipamento.EM_ESTOQUE
         equipamento.responsavel = None
         equipamento.data_atribuicao = None
@@ -91,8 +99,7 @@ def _normalize_key(value):
     text = str(value).strip().lower()
     text = unicodedata.normalize('NFKD', text)
     text = ''.join(char for char in text if not unicodedata.combining(char))
-    text = re.sub(r'\s+', ' ', text)
-    return text
+    return re.sub(r'\s+', ' ', text)
 
 
 def _normalize_person_name(value):

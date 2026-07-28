@@ -14,3 +14,18 @@ class AccountActivationTokenGenerator(PasswordResetTokenGenerator):
 
 
 account_activation_token = AccountActivationTokenGenerator()
+
+
+class PasswordRecoveryTokenGenerator(PasswordResetTokenGenerator):
+    def _make_hash_value(self, user, timestamp):
+        updated_at = ''
+        if getattr(user, 'updated_at', None):
+            updated_at = user.updated_at.replace(microsecond=0, tzinfo=None).isoformat()
+
+        return (
+            f'{user.pk}{user.password}{user.is_active}{user.ativo}{user.solicitacao_pendente}'
+            f'{user.exigir_troca_senha}{user.email}{updated_at}{timestamp}'
+        )
+
+
+password_recovery_token = PasswordRecoveryTokenGenerator()

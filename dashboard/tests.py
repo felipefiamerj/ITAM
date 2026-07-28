@@ -9,7 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from accounts.models import Usuario
+from accounts.models import NivelAcesso, Usuario
 from chamados.models import Chamado, StatusChamado
 from equipamentos.models import EntradaLote, Equipamento, StatusEquipamento
 
@@ -110,8 +110,45 @@ class BuscaGlobalTests(TestCase):
         self.assertEqual(fluxo[0]['count'], 1)
         self.assertEqual(fluxo[1]['count'], 1)
         self.assertEqual(fluxo[2]['count'], 1)
+        self.assertContains(response, 'Ação imediata')
+        self.assertContains(response, 'Abrir agora')
         self.assertContains(response, 'Fluxo operacional de chamados')
         self.assertContains(response, 'Chamado encerrado')
+
+    def test_dashboard_mostra_estoque_para_analista(self):
+        analista = Usuario.objects.create_user(
+            matricula='4005',
+            password='test12345',
+            first_name='Ana',
+            last_name='Estoque',
+            nivel_acesso=NivelAcesso.ANALISTA,
+        )
+
+        self.client.force_login(analista)
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Operação do estoque')
+        self.assertContains(response, 'Reserva rápida e em lote')
+        self.assertContains(response, 'Chamados')
+
+    def test_dashboard_mostra_painel_operacional_para_tecnico(self):
+        tecnico = Usuario.objects.create_user(
+            matricula='4006',
+            password='test12345',
+            first_name='Tacio',
+            last_name='Fila',
+            nivel_acesso=NivelAcesso.TECNICO,
+        )
+
+        self.client.force_login(tecnico)
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Painel operacional')
+        self.assertContains(response, 'Fila de execução e entrega em um único lugar.')
+        self.assertContains(response, 'Lista completa')
+        self.assertIsNotNone(response.context[-1].get('painel_total'))
 
     def test_busca_global_api_retorna_resultados_em_multiplos_grupos_para_admin(self):
         auto_user = Usuario.objects.create_user(
@@ -128,7 +165,7 @@ class BuscaGlobalTests(TestCase):
             setor='TI',
             andar_sala='12o Andar - Sala 1',
         )
-        chamado = Chamado.objects.create(
+        Chamado.objects.create(
             titulo='BuscaTop falhou',
             descricao='Chamado para validar a busca global.',
             solicitante=auto_user,
@@ -190,12 +227,44 @@ class BuscaGlobalTests(TestCase):
         self.assertNotIn('chamados', grupos)
         self.assertNotIn('usuarios', grupos)
 
-    def test_dashboard_redireciona_solicitante_para_chamados(self):
+    def test_dashboard_renderiza_portal_para_solicitante(self):
+        Chamado.objects.create(
+            titulo='Portal do solicitante',
+            descricao='Chamado usado para validar o portal.',
+            solicitante=self.viewer,
+            status=StatusChamado.FILA,
+        )
         self.client.force_login(self.viewer)
 
         response = self.client.get(reverse('dashboard'))
 
-        self.assertRedirects(response, reverse('chamados'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Portal do solicitante')
+        self.assertEqual(response.context['portal_chamados_total'], 1)
+        self.assertEqual(response.context['portal_chamados_abertos'], 1)
+        self.assertEqual(response.context['portal_chamados_encerrados'], 0)
+        self.assertNotIn('Location', response.headers)
+
+    def test_api_relatorios_retorna_indicadores_para_operacional(self):
+        self._criar_equipamento('PAT-REL-01', score_saude=55)
+        Chamado.objects.create(
+            titulo='Relatorio operacional',
+            descricao='Chamado usado para validar o endpoint de relatorios.',
+            solicitante=self.viewer,
+            status=StatusChamado.FILA,
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('api_relatorios'))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn('relatorios', payload)
+        self.assertIn('dashboard_charts', payload)
+        self.assertEqual(payload['relatorios']['chamados_total'], 1)
+        self.assertEqual(payload['relatorios']['equipamentos_total'], 1)
+        self.assertEqual(payload['relatorios']['equipamentos_alerta'], 1)
+        self.assertTrue(payload['atividade_recente'] is not None)
 
     def test_busca_global_api_limita_solicitante_ao_modulo_de_chamados(self):
         self._criar_equipamento('PAT-LIMIT-01')

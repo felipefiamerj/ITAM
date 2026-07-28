@@ -23,6 +23,8 @@
         {% if chamado.aprovado_por %}
           <span class="status-pill status-pill-dark">Aprovado por: {{ chamado.aprovado_por.nome_completo }}</span>
         {% endif %}
+        <span class="status-pill status-pill-dark">SLA: {{ chamado.sla_status_label }}</span>
+        <span class="status-pill status-pill-dark">{{ chamado.sla_restante_label }}</span>
       </div>
     </div>
     <div class="d-flex gap-2 flex-wrap justify-content-end">
@@ -31,8 +33,24 @@
           <i class="fa-solid fa-pen-to-square me-1"></i>Editar
         </a>
       {% endif %}
+      {% if pode_excluir_chamado %}
+        <form
+          method="post"
+          action="{% url 'excluir_chamado' chamado.pk %}"
+          onsubmit="return confirm('Excluir este chamado? As reservas ativas serao devolvidas ao estoque.');"
+          class="mb-0"
+        >
+          {% csrf_token %}
+          <button class="btn btn-outline-danger btn-lg" type="submit">
+            <i class="fa-solid fa-trash-can me-1"></i>Excluir
+          </button>
+        </form>
+      {% endif %}
       <a class="btn btn-outline-light btn-lg" href="{% url 'termo_chamado' chamado.pk %}" target="_blank" rel="noopener">
         <i class="fa-solid fa-file-lines me-1"></i>Termo
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'termo_chamado_pdf' chamado.pk %}" target="_blank" rel="noopener">
+        <i class="fa-solid fa-file-pdf me-1"></i>PDF
       </a>
     </div>
   </div>
@@ -184,15 +202,6 @@
           </div>
         {% endif %}
 
-        <div class="section-kicker mb-2">Fluxo inteligente</div>
-        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
-          <div>
-            <h2 class="h5 mb-1">{{ chamado.fluxo_etapa_label }}</h2>
-            <p class="text-muted mb-0">{{ chamado.fluxo_etapa_descricao }}</p>
-          </div>
-          <span class="badge badge-soft">{{ chamado.get_status_display }}</span>
-        </div>
-
         {% if chamado.responsavel %}
           <div class="small text-muted mb-3">
             Responsável atual: {{ chamado.responsavel.nome_completo }} ({{ chamado.responsavel.papel_fluxo }})
@@ -292,6 +301,9 @@
           <li class="mb-2"><strong>Serviço:</strong> {{ chamado.get_servico_realizado_display|default:"-" }}</li>
           <li class="mb-2"><strong>Prioridade:</strong> {{ chamado.get_prioridade_display }}</li>
           <li class="mb-2"><strong>Status:</strong> {{ chamado.get_status_display }}</li>
+          <li class="mb-2"><strong>SLA:</strong> {{ chamado.sla_status_label }}</li>
+          <li class="mb-2"><strong>Prazo SLA:</strong> {{ chamado.sla_prazo_em|date:"d/m/Y H:i" }}</li>
+          <li class="mb-2"><strong>Restante:</strong> {{ chamado.sla_restante_label }}</li>
           <li class="mb-2">
             <strong>Itens solicitados:</strong>
             {% if itens_solicitados %}
@@ -384,37 +396,6 @@
           </div>
         </div>
 
-        <div class="delivery-flow-step-grid">
-          <article class="delivery-flow-step">
-            <div class="delivery-flow-step-index">1</div>
-            <div>
-              <strong>Leia o pedido</strong>
-              <p>Veja o que o colaborador precisa e confira a quantidade solicitada.</p>
-            </div>
-          </article>
-          <article class="delivery-flow-step">
-            <div class="delivery-flow-step-index">2</div>
-            <div>
-              <strong>Abra o item</strong>
-              <p>Use o accordion para visualizar os equipamentos compatíveis com aquele item.</p>
-            </div>
-          </article>
-          <article class="delivery-flow-step">
-            <div class="delivery-flow-step-index">3</div>
-            <div>
-              <strong>Escolha o card certo</strong>
-              <p>Clique no patrimônio, compare marca e modelo e veja a seleção ficar marcada.</p>
-            </div>
-          </article>
-          <article class="delivery-flow-step">
-            <div class="delivery-flow-step-index">4</div>
-            <div>
-              <strong>Feche o contador</strong>
-              <p>Quando todos os itens obrigatórios estiverem vinculados, registre a entrega.</p>
-            </div>
-          </article>
-        </div>
-
         {% if entrega_form.itens_solicitados_total %}
           <div class="workflow-progress mt-3">
             <span style="width: {% widthratio entrega_form.itens_selecionados_total entrega_form.itens_solicitados_total 100 %}%"></span>
@@ -459,22 +440,6 @@
           {% for error in entrega_form.concluir_chamado.errors %}
             <div class="text-danger small mt-1">{{ error }}</div>
           {% endfor %}
-        </div>
-
-        <div class="delivery-accordion-intro mb-4">
-          <div class="delivery-accordion-intro-copy">
-            <div class="section-kicker mb-1">Seleção por item</div>
-            <h3 class="h6 mb-1">Escolha 1 equipamento para cada item solicitado</h3>
-            <p class="mb-0">
-              Clique em um item para abrir os cards compatíveis, compare as informações e marque a opção correta.
-              A escolha pode ser trocada a qualquer momento antes de salvar.
-            </p>
-          </div>
-          <div class="delivery-accordion-intro-meta">
-            <span class="status-pill status-pill-dark" data-selected-items-count>{{ entrega_form.itens_selecionados_total }}/{{ entrega_form.itens_solicitados_total }}</span>
-            <span class="status-pill status-pill-info">{{ entrega_form.equipamentos_compativeis_total }} opção{{ entrega_form.equipamentos_compativeis_total|pluralize }}</span>
-            <span class="status-pill status-pill-neutral">1 equipamento por item</span>
-          </div>
         </div>
 
         <div class="delivery-selection-summary mb-4">

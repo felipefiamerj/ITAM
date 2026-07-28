@@ -1,0 +1,63 @@
+{% extends "accounts/auth_base.html" %}
+{% block title %}Recuperar senha | {{ app_name }}{% endblock %}
+{% block content %}
+<div class="auth-grid">
+  <section class="auth-hero panel-surface">
+    <div class="eyebrow">Acesso seguro</div>
+    <h1 class="auth-title">Recupere sua senha sem bloquear o fluxo.</h1>
+    <p class="auth-text">
+      Digite seu e-mail. Se houver uma conta ativa com esse identificador, enviaremos um link seguro para redefinir a senha.
+    </p>
+    <div class="auth-callout">
+      <div class="auth-callout-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div>
+        <strong>Recuperação self-service</strong>
+        <p class="mb-0">O link expira automaticamente e só pode ser usado uma vez.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="auth-stack">
+    <article class="auth-card">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <div class="section-kicker">Redefinição de senha</div>
+          <h2 class="auth-card-title mb-1">Solicitar novo acesso</h2>
+          <p class="auth-card-subtitle mb-0">Vamos enviar as instruções para o e-mail cadastrado, se ele existir.</p>
+        </div>
+        <span class="auth-badge">Seguro</span>
+      </div>
+
+      <!-- SISTEMA DE ALERTAS DO DJANGO (Adicionado para dar feedback na tela) -->
+      {% if messages %}
+        <div class="mb-3">
+          {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} small alert-dismissible fade show" role="alert">
+              {{ message.message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "includes/form.html" with form=form %}
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+          <i class="fa-solid fa-paper-plane me-2"></i>Enviar link de recuperação
+        </button>
+      </form>
+
+      <div class="auth-card-note">
+        <i class="fa-solid fa-circle-info"></i>
+        Se o cadastro não tiver e-mail, procure o administrador para validar o acesso.
+      </div>
+
+      <div class="mt-3 small text-center">
+        <a href="{% url 'login' %}" class="link-primary text-decoration-none fw-semibold">Voltar para o login</a>
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}

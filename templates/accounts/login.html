@@ -49,18 +49,18 @@
       </div>
     </div>
  
-    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; text-align: center;">
+    <div class="auth-proof-grid auth-proof-grid-three">
       <div>
-        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">🔍</div>
-        <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Equipamentos rastreados</div>
+        <div class="auth-proof-value"><i class="fa-solid fa-magnifying-glass"></i></div>
+        <div class="auth-proof-label">Equipamentos rastreados</div>
       </div>
       <div>
-        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">24/7</div>
-        <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Disponibilidade do sistema</div>
+        <div class="auth-proof-value">24/7</div>
+        <div class="auth-proof-label">Disponibilidade do sistema</div>
       </div>
       <div>
-        <div style="font-size: 2rem; font-weight: bold; color: var(--color-primary);">100%</div>
-        <div style="font-size: 0.875rem; color: var(--color-text-secondary);">Rastreabilidade</div>
+        <div class="auth-proof-value">100%</div>
+        <div class="auth-proof-label">Rastreabilidade</div>
       </div>
     </div>
   </section>
@@ -89,22 +89,29 @@
         <i class="fa-solid fa-info-circle"></i>
         Depois da aprovação, você receberá um link de primeiro acesso por e-mail para criar sua senha inicial.
       </div>
- 
-      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
+
+      <div class="mt-3 small text-center">
+        <a href="{% url 'recuperar_senha' %}" class="link-primary text-decoration-none fw-semibold">
+          Esqueci minha senha
+        </a>
+        <span class="text-muted">· recupere o acesso sem depender do suporte</span>
+      </div>
+
+      <div class="auth-feature-grid">
         <div>
-          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success"></i>
           <span>Controle centralizado</span>
         </div>
         <div>
-          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success"></i>
           <span>Auditoria completa</span>
         </div>
         <div>
-          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success"></i>
           <span>Sem burocracia</span>
         </div>
         <div>
-          <i class="fa-solid fa-check-circle me-2" style="color: var(--color-success);"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success"></i>
           <span>Rápido e seguro</span>
         </div>
       </div>
@@ -134,54 +141,26 @@
         Sua solicitação será analisada pelo administrador. Você receberá um link de primeiro acesso por email.
       </div>
  
-      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
+      <div class="auth-feature-grid">
         <div>
-          <i class="fa-solid fa-envelope me-2" style="color: var(--color-info);"></i>
+          <i class="fa-solid fa-envelope me-2 text-info"></i>
           <span>Notificação por email</span>
         </div>
         <div>
-          <i class="fa-solid fa-clock me-2" style="color: var(--color-info);"></i>
+          <i class="fa-solid fa-clock me-2 text-info"></i>
           <span>Aprovação rápida</span>
         </div>
         <div>
-          <i class="fa-solid fa-shield-halved me-2" style="color: var(--color-info);"></i>
+          <i class="fa-solid fa-shield-halved me-2 text-info"></i>
           <span>Senha segura</span>
         </div>
         <div>
-          <i class="fa-solid fa-headset me-2" style="color: var(--color-info);"></i>
+          <i class="fa-solid fa-headset me-2 text-info"></i>
           <span>Suporte disponível</span>
         </div>
       </div>
     </article>
   </section>
 </div>
- 
-<style>
-  html {
-    scroll-behavior: smooth;
-  }
-</style>
- 
-<script>
-  (function () {
-    let isScrolling = false;
- 
-    document.addEventListener('wheel', function (e) {
-      e.preventDefault();
- 
-      if (isScrolling) return;
-      isScrolling = true;
- 
-      window.scrollBy({
-        top: e.deltaY * 2,
-        behavior: 'smooth'
-      });
- 
-      setTimeout(function () {
-        isScrolling = false;
-      }, 200);
-    }, { passive: false });
-  })();
-</script>
- 
+
 {% endblock %}

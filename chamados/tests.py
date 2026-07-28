@@ -2,6 +2,8 @@
 from django.urls import reverse
 
 from accounts.models import NivelAcesso, Usuario
+from estoque.models import ReservaEstoque, StatusReservaEstoque
+from estoque.services import criar_reserva_estoque
 from equipamentos.models import Equipamento, StatusEquipamento
 
 from .forms import EntregaEquipamentoChamadoForm
@@ -165,8 +167,8 @@ class ChamadoModelTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Fluxo de entrega')
-        self.assertContains(response, 'Seleção por item')
-        self.assertContains(response, 'Escolha 1 equipamento para cada item solicitado')
+        self.assertContains(response, 'Progresso')
+        self.assertContains(response, 'Clique em um card para escolher o equipamento daquele item')
         self.assertContains(response, 'Cards de estoque')
         self.assertContains(response, 'data-select-equipamento')
         self.assertContains(response, 'id_itens_entrega')
@@ -219,7 +221,7 @@ class ChamadoModelTests(TestCase):
         detail = self.client.get(reverse('detalhe_chamado', args=[chamado.pk]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, 'Aprovação registrada')
-        self.assertContains(detail, 'Fluxo inteligente')
+        self.assertContains(detail, 'Estado atual')
         self.assertContains(detail, 'Aprovado para retirada')
 
     def test_termo_mostra_todos_os_itens_entregues(self):
@@ -321,3 +323,113 @@ class ChamadoModelTests(TestCase):
         self.assertContains(detail, 'Origem da solicitação')
         self.assertContains(detail, gestor.nome_completo)
         self.assertContains(detail, self.destinatario.nome_completo)
+
+    def test_api_chamados_retorna_lista_para_operacional(self):
+        tecnico = Usuario.objects.create_user(
+            matricula='3005',
+            password='senha-forte-123',
+            first_name='Tecnico',
+            last_name='API',
+            nivel_acesso=NivelAcesso.TECNICO,
+        )
+        chamado = Chamado.objects.create(
+            titulo='API de chamados',
+            descricao='Chamado usado para validar o endpoint da lista.',
+            solicitante=self.solicitante,
+            destinatario=self.destinatario,
+            responsavel=tecnico,
+            status=StatusChamado.EM_ATENDIMENTO,
+            fluxo_etapa=EtapaFluxoChamado.TRIAGEM,
+        )
+
+        self.client.force_login(tecnico)
+        response = self.client.get(reverse('api_chamados'))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['count'], 1)
+        self.assertEqual(payload['results'][0]['id'], chamado.pk)
+        self.assertEqual(payload['results'][0]['fluxo_etapa'], EtapaFluxoChamado.TRIAGEM)
+
+    def test_admin_pode_excluir_chamado_e_devolver_reservas(self):
+        admin = Usuario.objects.create_user(
+            matricula='3010',
+            password='senha-forte-123',
+            first_name='Admin',
+            last_name='Chamados',
+            nivel_acesso=NivelAcesso.ADMIN,
+        )
+        chamado = Chamado.objects.create(
+            titulo='Chamado para exclusao',
+            descricao='Chamado criado para validar a exclusao administrativa.',
+            solicitante=admin,
+            status=StatusChamado.FILA,
+        )
+        primeiro = Equipamento.objects.create(
+            id_patrimonio='PAT-4001',
+            tipo='mouse',
+            marca='Logitech',
+            modelo='M100',
+            status=StatusEquipamento.EM_ESTOQUE,
+            condicao='bom',
+            score_saude=95,
+        )
+        segundo = Equipamento.objects.create(
+            id_patrimonio='PAT-4002',
+            tipo='mouse',
+            marca='Dell',
+            modelo='MS111',
+            status=StatusEquipamento.EM_ESTOQUE,
+            condicao='bom',
+            score_saude=93,
+        )
+
+        criar_reserva_estoque(
+            chamado=chamado,
+            equipamento=primeiro,
+            solicitante=admin,
+        )
+        criar_reserva_estoque(
+            chamado=chamado,
+            equipamento=segundo,
+            solicitante=admin,
+        )
+
+        self.client.force_login(admin)
+        response = self.client.post(reverse('excluir_chamado', args=[chamado.pk]))
+
+        self.assertRedirects(response, reverse('chamados'))
+        self.assertFalse(Chamado.objects.filter(pk=chamado.pk).exists())
+        self.assertEqual(ReservaEstoque.objects.filter(chamado_id=chamado.pk).count(), 0)
+        self.assertFalse(
+            ReservaEstoque.objects.filter(
+                chamado_id=chamado.pk,
+                status__in=[StatusReservaEstoque.RESERVADA, StatusReservaEstoque.SEPARADA],
+            ).exists()
+        )
+
+        primeiro.refresh_from_db()
+        segundo.refresh_from_db()
+        self.assertEqual(primeiro.status, StatusEquipamento.EM_ESTOQUE)
+        self.assertEqual(segundo.status, StatusEquipamento.EM_ESTOQUE)
+
+    def test_nao_admin_nao_pode_excluir_chamado(self):
+        tecnico = Usuario.objects.create_user(
+            matricula='3011',
+            password='senha-forte-123',
+            first_name='Tecnico',
+            last_name='Bloqueado',
+            nivel_acesso=NivelAcesso.TECNICO,
+        )
+        chamado = Chamado.objects.create(
+            titulo='Chamado protegido',
+            descricao='Chamado criado para validar o bloqueio de exclusao.',
+            solicitante=self.solicitante,
+            status=StatusChamado.FILA,
+        )
+
+        self.client.force_login(tecnico)
+        response = self.client.post(reverse('excluir_chamado', args=[chamado.pk]))
+
+        self.assertRedirects(response, reverse('detalhe_chamado', args=[chamado.pk]))
+        self.assertTrue(Chamado.objects.filter(pk=chamado.pk).exists())

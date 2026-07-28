@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
 {% block title %}Estoque | {{ app_name }}{% endblock %}
 {% block body_class %}app-page estoque-page{% endblock %}
@@ -19,17 +19,286 @@
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-location-dot"></i> {{ total_sites }} sites</span>
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-map-location-dot"></i> {{ total_localizacoes }} localizações</span>
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-hourglass-half"></i> Aguardando {{ total_aguardando }}</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-bookmark"></i> Reservados {{ total_reservados }}</span>
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-triangle-exclamation"></i> {{ equipamentos_alerta_total }} alertas</span>
       </div>
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
-      <a class="btn btn-light btn-lg" href="{% url 'importar_equipamentos_csv' %}">
-        <i class="fa-solid fa-file-arrow-up me-1"></i>Importar CSV
-      </a>
+      <div class="d-flex gap-2 flex-wrap justify-content-end">
+        <a class="btn btn-light btn-lg" href="{% url 'chamados' %}">
+          <i class="fa-solid fa-ticket-simple me-1"></i>Chamados
+        </a>
+        <a class="btn btn-outline-light btn-lg" href="{% url 'painel_tecnico' %}">
+          <i class="fa-solid fa-screwdriver-wrench me-1"></i>Painel operacional
+        </a>
+        <a class="btn btn-outline-light btn-lg" href="{% url 'importar_equipamentos_csv' %}">
+          <i class="fa-solid fa-file-arrow-up me-1"></i>Importar CSV
+        </a>
+      </div>
       <span class="status-pill status-pill-dark">
         <span class="live-dot"></span> Atualização automática
       </span>
     </div>
+  </div>
+</section>
+
+<section class="mb-4" id="estoque-operacao">
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card app-card h-100 estoque-workspace-card">
+        <div class="card-body">
+          <div class="section-kicker mb-2">Operação do estoque</div>
+          <h2 class="h5 mb-3">Reserva rápida e em lote</h2>
+          {% if reserva_form.non_field_errors %}
+            <div class="alert alert-warning">{{ reserva_form.non_field_errors }}</div>
+          {% endif %}
+          <form
+            method="post"
+            class="vstack gap-3"
+            data-reserva-form
+            data-chamados-api-base="{% url 'api_chamados' %}"
+            data-equipamentos-api-url="{% url 'api_equipamentos' %}"
+          >
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="reservar">
+            <div>
+              <label class="form-label" for="{{ reserva_form.chamado.id_for_label }}">Chamado</label>
+              {{ reserva_form.chamado }}
+              {% for error in reserva_form.chamado.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div>
+              <label class="form-label" for="{{ reserva_form.item_solicitado.id_for_label }}">Item solicitado</label>
+              {{ reserva_form.item_solicitado }}
+              {% for error in reserva_form.item_solicitado.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div>
+              <label class="form-label" for="{{ reserva_form.equipamento.id_for_label }}">Equipamento</label>
+              {{ reserva_form.equipamento }}
+              {% for error in reserva_form.equipamento.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div>
+              <label class="form-label" for="{{ reserva_form.observacoes.id_for_label }}">Observações</label>
+              {{ reserva_form.observacoes }}
+              {% for error in reserva_form.observacoes.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="small text-muted" data-reserva-hint>
+              Escolha um chamado para carregar os itens e equipamentos compatíveis.
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-bookmark me-1"></i>Reservar ativo
+            </button>
+          </form>
+
+          <hr class="stock-section-divider my-4">
+
+          <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+            <div>
+              <div class="section-kicker mb-2">Selecao em lote</div>
+              <h2 class="h5 mb-1">Selecionar, revisar e reservar</h2>
+              <p class="text-muted mb-0">Busque, selecione por pagina ou adicione todos os resultados da busca para revisar antes do envio.</p>
+            </div>
+            <span class="badge badge-soft">{{ equipamentos_para_reserva_total }} em estoque</span>
+          </div>
+
+          {% if reserva_lote_form.non_field_errors %}
+            <div class="alert alert-warning">{{ reserva_lote_form.non_field_errors }}</div>
+          {% endif %}
+
+          <form
+            method="post"
+            class="vstack gap-3"
+            data-reserva-lote-form
+            data-equipamentos-api-url="{% url 'api_equipamentos' %}"
+          >
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="reservar_lote">
+            {{ reserva_lote_form.filtro_busca }}
+            <div>
+              <label class="form-label" for="{{ reserva_lote_form.chamado.id_for_label }}">Chamado</label>
+              {{ reserva_lote_form.chamado }}
+              {% for error in reserva_lote_form.chamado.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="stock-reserve-all-callout">
+              <div>
+                <strong>Selecao total do filtro atual</strong>
+                <p>Esse botao apenas adiciona os resultados encontrados na busca. A reserva acontece depois, quando voce revisar a lista selecionada.</p>
+              </div>
+              <button type="button" class="btn btn-outline-danger" data-reserva-lote-reservar-todos>
+                Selecionar todos os filtrados
+              </button>
+            </div>
+
+            <details class="stock-manual-picker" open>
+              <summary>
+                <span>Selecionar ativos manualmente</span>
+                <span class="stock-manual-picker-meta">Busca + seleção por página</span>
+              </summary>
+              <div class="stock-manual-picker-body">
+                <div class="reserve-picker-toolbar">
+                  <div class="input-group flex-grow-1">
+                    <input
+                      type="search"
+                      class="form-control"
+                      placeholder="Buscar por patrimônio, marca, modelo, site ou setor"
+                      data-reserva-lote-search
+                    >
+                    <button type="button" class="btn btn-outline-primary" data-reserva-lote-search-go>Buscar</button>
+                  </div>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary" data-reserva-lote-select-page>Selecionar página</button>
+                    <button type="button" class="btn btn-outline-secondary" data-reserva-lote-load-more>Carregar mais</button>
+                    <button type="button" class="btn btn-outline-secondary" data-reserva-lote-reset>Limpar tudo</button>
+                  </div>
+                </div>
+
+                <div class="reserve-picker-status">
+                  <div class="small text-muted" data-reserva-lote-status>Digite uma busca para carregar ativos em estoque.</div>
+                  <div class="small text-muted" data-reserva-lote-count>Selecione um ou mais equipamentos.</div>
+                </div>
+
+                <div class="bulk-equipment-box">
+                  <div class="bulk-equipment-grid" data-reserva-lote-results></div>
+                  <div class="bulk-equipment-empty text-muted" data-reserva-lote-empty>
+                    Use a busca para carregar ativos em estoque.
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <div class="reserve-selection-chips" data-reserva-lote-selected-list></div>
+            <div class="small text-muted">A selecao acima e a etapa de revisao. Quando estiver tudo certo, use o botao de reserva abaixo.</div>
+            <div data-reserva-lote-hidden-inputs>{{ reserva_lote_form.equipamentos }}</div>
+
+            <div>
+              <label class="form-label" for="{{ reserva_lote_form.observacoes.id_for_label }}">Observações</label>
+              {{ reserva_lote_form.observacoes }}
+              {% for error in reserva_lote_form.observacoes.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            {% for error in reserva_lote_form.equipamentos.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            <button type="submit" class="btn btn-outline-primary">
+              <i class="fa-solid fa-layer-group me-1"></i>Reservar selecionados
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card app-card h-100">
+        <div class="card-body">
+          <div class="stock-queue-intro mb-3">
+            <div>
+              <div class="section-kicker mb-2">Fila de separação</div>
+              <h2 class="h5 mb-1">Trabalhe uma reserva por vez</h2>
+              <p class="text-muted mb-0">Cada card mostra o chamado, o patrimônio e a ação recomendada para evitar troca errada na bancada.</p>
+            </div>
+            <div class="stock-queue-intro__hint">Conferir → Marcar separada → Liberar se necessário</div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+            <div>
+              <div class="section-kicker">Fila operacional</div>
+              <h2 class="h5 mb-0">Reservas ativas</h2>
+            </div>
+            <span class="badge badge-soft">{{ reservas_ativas_total }}</span>
+          </div>
+          <div class="stack-list">
+            {% for reserva in reservas_ativas %}
+              <article class="list-card stock-queue-card">
+                <div class="d-flex justify-content-between align-items-start gap-3 stock-queue-card__head">
+                  <div>
+                    <strong>#{{ reserva.chamado.pk }} · {{ reserva.chamado.titulo }}</strong>
+                    <div class="small text-muted">{{ reserva.equipamento.id_patrimonio }} · {{ reserva.equipamento.tipo_display }}</div>
+                    <div class="small text-muted">{{ reserva.chamado.destinatario_nome_completo }}</div>
+                  </div>
+                  <span class="status-pill {% if reserva.status == 'separada' %}status-pill-info{% else %}status-pill-warning{% endif %}">
+                    {{ reserva.get_status_display }}
+                  </span>
+                </div>
+                {% if reserva.item_solicitado %}
+                  <div class="small text-muted mt-2">Item: {{ reserva.item_solicitado.tipo_display }}</div>
+                {% endif %}
+                {% if reserva.observacoes %}
+                  <div class="small text-muted mt-2">{{ reserva.observacoes }}</div>
+                {% endif %}
+                <div class="d-flex gap-2 flex-wrap mt-3 stock-queue-card__actions">
+                  {% if reserva.status == 'reservada' %}
+                    <form method="post" class="mb-0">
+                      {% csrf_token %}
+                      <input type="hidden" name="acao" value="separar">
+                      <input type="hidden" name="reserva_id" value="{{ reserva.pk }}">
+                      <button type="submit" class="btn btn-sm btn-outline-info">Marcar separada</button>
+                    </form>
+                  {% endif %}
+                  <form method="post" class="mb-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="liberar">
+                    <input type="hidden" name="reserva_id" value="{{ reserva.pk }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Liberar reserva</button>
+                  </form>
+                </div>
+                <div class="stock-mini-flow mt-2">
+                  <span class="stock-mini-flow-step is-done">
+                    <strong>1</strong>
+                    Chamado
+                  </span>
+                  <span class="stock-mini-flow-step is-done">
+                    <strong>2</strong>
+                    Patrimônio
+                  </span>
+                  <span class="stock-mini-flow-step {% if reserva.status == 'separada' %}is-done{% else %}is-active{% endif %}">
+                    <strong>3</strong>
+                    Separação
+                  </span>
+                </div>
+              </article>
+            {% empty %}
+              <div class="text-muted">Nenhuma reserva ativa no momento.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="stock-workflow-guide mb-4">
+  <div class="stock-workflow-guide__copy">
+    <div class="section-kicker mb-2">Fluxo guiado do estoquista</div>
+    <h2 class="h5 mb-2">Separar equipamento fica mais simples quando a tela mostra a ordem certa.</h2>
+    <p>
+      Primeiro você escolhe o chamado, depois filtra os ativos e revisa a seleção. Só no fim a reserva entra na fila para separação.
+    </p>
+  </div>
+  <div class="stock-workflow-steps">
+    <article class="stock-workflow-card">
+      <div class="stock-workflow-card__head">
+        <span class="stock-workflow-card__index">1</span>
+        <div class="stock-workflow-card__title">Escolha o chamado</div>
+      </div>
+      <div class="stock-workflow-card__text">O sistema carrega apenas os itens e os equipamentos que fazem sentido para esse atendimento.</div>
+    </article>
+    <article class="stock-workflow-card">
+      <div class="stock-workflow-card__head">
+        <span class="stock-workflow-card__index">2</span>
+        <div class="stock-workflow-card__title">Filtre os ativos</div>
+      </div>
+      <div class="stock-workflow-card__text">Busque por patrimônio, marca, modelo, site ou setor para não ficar rolando lista sem contexto.</div>
+    </article>
+    <article class="stock-workflow-card">
+      <div class="stock-workflow-card__head">
+        <span class="stock-workflow-card__index">3</span>
+        <div class="stock-workflow-card__title">Revise a seleção</div>
+      </div>
+      <div class="stock-workflow-card__text">Os chips mostram exatamente o que vai entrar na reserva antes do envio final.</div>
+    </article>
+    <article class="stock-workflow-card">
+      <div class="stock-workflow-card__head">
+        <span class="stock-workflow-card__index">4</span>
+        <div class="stock-workflow-card__title">Marque separado</div>
+      </div>
+      <div class="stock-workflow-card__text">Na fila da direita você confere cada patrimônio e muda o status com menos risco de erro.</div>
+    </article>
   </div>
 </section>
 
@@ -103,52 +372,6 @@
         </div>
         <div class="label">Saúde abaixo do ideal</div>
         <div class="value" data-live-total="alertas">{{ equipamentos_alerta_total }}</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="mb-4">
-  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
-    <div>
-      <div class="section-kicker">Gráficos</div>
-      <h2 class="h5 mb-0">Leituras visuais do estoque</h2>
-    </div>
-    <span class="badge badge-soft">Top insights</span>
-  </div>
-  <div class="row g-4">
-    <div class="col-lg-5">
-      <div class="card app-card dashboard-chart-card dashboard-chart-card-teal h-100">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-            <div>
-              <div class="section-kicker">Status</div>
-              <h3 class="h6 mb-1">Equipamentos por situação</h3>
-              <p class="small text-muted mb-0">Distribuição geral do parque.</p>
-            </div>
-            <span class="badge badge-soft">{{ total_equipamentos }}</span>
-          </div>
-          <div class="dashboard-chart-wrap" id="estoque-status-chart-wrap">
-            <canvas id="estoque-status-chart" aria-label="Distribuição de equipamentos por status" role="img"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-7">
-      <div class="card app-card dashboard-chart-card dashboard-chart-card-violet h-100">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-            <div>
-              <div class="section-kicker">Tipos</div>
-              <h3 class="h6 mb-1">Top tipos em estoque</h3>
-              <p class="small text-muted mb-0">Itens disponíveis com maior presença.</p>
-            </div>
-            <span class="badge badge-soft">{{ total_em_estoque }}</span>
-          </div>
-          <div class="dashboard-chart-wrap" id="estoque-types-chart-wrap">
-            <canvas id="estoque-types-chart" aria-label="Principais tipos de equipamento em estoque" role="img"></canvas>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -305,4 +528,5 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="{% static 'js/dashboard-charts.js' %}"></script>
   <script src="{% static 'js/estoque-live.js' %}"></script>
+  <script src="{% static 'js/estoque-reservas.js' %}"></script>
 {% endblock %}

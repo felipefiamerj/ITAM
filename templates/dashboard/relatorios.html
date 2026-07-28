@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Relatórios | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-chart-column"></i> Relatórios e auditoria</div>
+      <h1 class="hero-title mb-2">Leituras executivas da operação.</h1>
+      <p class="hero-text mb-0">
+        Acompanhe chamados, equipamentos, reservas de estoque e a trilha de auditoria em uma visão mais gerencial.
+      </p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-ticket-simple"></i> {{ relatorios.chamados_total }} chamados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-boxes-stacked"></i> {{ relatorios.equipamentos_total }} ativos</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-bookmark"></i> {{ relatorios.reservas_ativas }} reservas</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-user-clock"></i> {{ relatorios.usuarios_pendentes }} pendentes</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+      <a class="btn btn-light btn-lg" href="{% url 'dashboard' %}">
+        <i class="fa-solid fa-gauge-high me-1"></i>Dashboard
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'chamados' %}">
+        <i class="fa-solid fa-ticket-simple me-1"></i>Chamados
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Painel executivo</div>
+      <h2 class="h6 mb-0">Indicadores principais</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualizado agora</span>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-ticket" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Total</span>
+        </div>
+        <div class="label">Chamados</div>
+        <div class="value">{{ relatorios.chamados_total }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Críticos</span>
+        </div>
+        <div class="label">Chamados críticos</div>
+        <div class="value">{{ relatorios.chamados_criticos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-spinner" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Abertos</span>
+        </div>
+        <div class="label">Em andamento</div>
+        <div class="value">{{ relatorios.chamados_abertos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Fechados</span>
+        </div>
+        <div class="label">Encerrados</div>
+        <div class="value">{{ relatorios.chamados_encerrados }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-violet h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-bookmark" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Reservas</span>
+        </div>
+        <div class="label">Ativas</div>
+        <div class="value">{{ relatorios.reservas_ativas }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Prazo</span>
+        </div>
+        <div class="label">Tempo médio</div>
+        <div class="value">{{ relatorios.tempo_medio_fechamento }}</div>
+        <div class="small text-white-50">horas para fechar</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-blue h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Chamados</div>
+              <h2 class="h5 mb-1">Chamados por status</h2>
+              <p class="small text-muted mb-0">Distribuição geral da fila e do histórico.</p>
+            </div>
+            <span class="badge badge-soft">{{ relatorios.chamados_total }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-status-chart-wrap">
+            <canvas id="dashboard-status-chart" aria-label="Chamados por status" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-amber h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Prioridade</div>
+              <h2 class="h5 mb-1">Chamados abertos por prioridade</h2>
+              <p class="small text-muted mb-0">Mostra o que precisa de ação primeiro.</p>
+            </div>
+            <span class="badge badge-soft">{{ relatorios.chamados_abertos }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-priority-chart-wrap">
+            <canvas id="dashboard-priority-chart" aria-label="Chamados por prioridade" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Auditoria</div>
+            <h2 class="h5 mb-0">Alterações recentes</h2>
+          </div>
+        </div>
+        <div class="stack-list">
+          {% for entry in atividade_recente %}
+            <article class="list-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ entry.object_repr }}</strong>
+                  <div class="small text-muted">
+                    {% if entry.actor %}
+                      {{ entry.actor.nome_completo }}
+                    {% else %}
+                      Sistema
+                    {% endif %}
+                    · {{ entry.content_type.model|title }}
+                  </div>
+                </div>
+                <span class="badge badge-soft">{{ entry.get_action_display }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ entry.timestamp|date:"d/m/Y H:i" }}</div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Sem alterações recentes registradas.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Atendimento</div>
+            <h2 class="h5 mb-0">Chamados recentes</h2>
+          </div>
+          <a href="{% url 'chamados' %}" class="small">Ver todos</a>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for chamado in chamados_recentes %}
+            <a class="list-group-item list-group-item-action" href="{% url 'detalhe_chamado' chamado.pk %}">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>#{{ chamado.pk }} · {{ chamado.titulo }}</strong>
+                  <div class="small text-muted">{{ chamado.destinatario_nome_completo }}</div>
+                  <div class="small text-muted">{{ chamado.fluxo_etapa_label }}</div>
+                </div>
+                <span class="status-pill status-pill-neutral">{{ chamado.get_status_display }}</span>
+              </div>
+            </a>
+          {% empty %}
+            <div class="text-muted">Nenhum chamado recente.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Governança</div>
+        <div class="list-card mb-3">
+          <strong>Usuários pendentes</strong>
+          <div class="small text-muted mt-2">{{ relatorios.usuarios_pendentes }} contas aguardando análise.</div>
+        </div>
+        <div class="list-card mb-3">
+          <strong>Tempo médio de fechamento</strong>
+          <div class="small text-muted mt-2">{{ relatorios.tempo_medio_fechamento }} horas na amostra recente.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Parque</div>
+        <div class="list-card mb-3">
+          <strong>Equipamentos em estoque</strong>
+          <div class="small text-muted mt-2">{{ relatorios.equipamentos_em_estoque }} disponíveis para uso.</div>
+        </div>
+        <div class="list-card mb-3">
+          <strong>Em manutenção</strong>
+          <div class="small text-muted mt-2">{{ relatorios.equipamentos_em_manutencao }} ativos em tratamento técnico.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Chamados</div>
+        <div class="list-card mb-3">
+          <strong>Aguardando aprovação</strong>
+          <div class="small text-muted mt-2">{{ relatorios.chamados_aguardando_aprovacao }} chamados nesta etapa.</div>
+        </div>
+        <div class="list-card mb-3">
+          <strong>Total de reservas</strong>
+          <div class="small text-muted mt-2">{{ relatorios.reservas_ativas }} reservas ativas no estoque.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ dashboard_charts|json_script:"dashboard-charts-data" }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'js/dashboard-charts.js' %}"></script>
+{% endblock %}

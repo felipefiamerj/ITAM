@@ -34,30 +34,82 @@
           <ul class="navbar-nav me-auto mb-2 mb-xl-0">
             {% if request.user.is_authenticated %}
               {% if request.user.is_solicitante %}
+                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Portal</a></li>
                 <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
-              {% else %}
+                <li class="nav-item">
+                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
+                    Notificações
+                    <span
+                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
+                      data-notification-badge
+                      data-notification-count="{{ notifications_unread_count|default:0 }}"
+                    >
+                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
+                    </span>
+                  </a>
+                </li>
+              {% elif request.user.is_admin %}
                 <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a></li>
-              <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
-              <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
-              <li class="nav-item"><a class="nav-link {% if current == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">Estoque</a></li>
-              <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
-              <li class="nav-item">
-                <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
-                  Notificações
-                  <span
-                    class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
-                    data-notification-badge
-                    data-notification-count="{{ notifications_unread_count|default:0 }}"
-                  >
-                    <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
-                  </span>
-                </a>
-              </li>
+                <li class="nav-item"><a class="nav-link {% if current == 'painel_tecnico' %}active{% endif %}" href="{% url 'painel_tecnico' %}">Painel técnico</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">Estoque</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'relatorios' %}active{% endif %}" href="{% url 'relatorios' %}">Relatórios</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
+                <li class="nav-item">
+                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
+                    Notificações
+                    <span
+                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
+                      data-notification-badge
+                      data-notification-count="{{ notifications_unread_count|default:0 }}"
+                    >
+                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
+                    </span>
+                  </a>
+                </li>
+              {% elif request.user.is_analista %}
+                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Estoque</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'relatorios' %}active{% endif %}" href="{% url 'relatorios' %}">Relatórios</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
+                <li class="nav-item">
+                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
+                    Notificações
+                    <span
+                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
+                      data-notification-badge
+                      data-notification-count="{{ notifications_unread_count|default:0 }}"
+                    >
+                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
+                    </span>
+                  </a>
+                </li>
+              {% else %}
+                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Painel</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">Estoque</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'relatorios' %}active{% endif %}" href="{% url 'relatorios' %}">Relatórios</a></li>
+                <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
+                <li class="nav-item">
+                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
+                    Notificações
+                    <span
+                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
+                      data-notification-badge
+                      data-notification-count="{{ notifications_unread_count|default:0 }}"
+                    >
+                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
+                    </span>
+                  </a>
+                </li>
               {% endif %}
             {% endif %}
           </ul>
 
-          <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+          <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end ms-xl-auto">
             {% if request.user.is_authenticated %}
               <a class="btn btn-sm btn-outline-light search-nav-button" href="{% url 'busca_global' %}">
                 <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
@@ -65,34 +117,67 @@
                   <kbd>Ctrl</kbd><kbd>K</kbd>
                 </span>
               </a>
-              <div class="nav-userbox">
-                <div class="small text-uppercase opacity-75">Usuário logado</div>
-                <div class="fw-semibold">{{ request.user.nome_completo }}</div>
-                <div class="nav-user-meta">
-                  <span class="status-pill status-pill-dark">{{ request.user.get_nivel_acesso_display }}</span>
-                  <span class="small">{{ request.user.matricula }}</span>
-                </div>
-              </div>
-              <a class="btn btn-sm btn-outline-light" href="{% url 'meu_perfil' %}">
-                <i class="fa-regular fa-user me-1"></i>Perfil
-              </a>
-              {% if request.user.is_admin %}
-                <a class="btn btn-sm btn-outline-light" href="{% url 'usuarios_pendentes' %}">
-                  <i class="fa-solid fa-user-clock me-1"></i>Aprovações
-                  {% if accounts_pending_count %}
-                    <span class="badge rounded-pill text-bg-light text-dark ms-1">{{ accounts_pending_count }}</span>
-                  {% endif %}
-                </a>
-                <a class="btn btn-sm btn-light" href="{% url 'lista_usuarios' %}">
-                  <i class="fa-solid fa-users-gear me-1"></i>Usuários
-                </a>
-              {% endif %}
-              <form action="{% url 'logout' %}" method="post" class="d-inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-light">
-                  <i class="fa-solid fa-arrow-right-from-bracket me-1"></i>Sair
+              <div class="dropdown nav-account-dropdown">
+                <button
+                  class="btn nav-account-toggle d-flex align-items-center gap-3"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  aria-label="Abrir menu da conta"
+                >
+                  {% include "includes/user_avatar.html" with user=request.user avatar_class="user-avatar--sm" %}
+                  <span class="nav-account-copy">
+                    <span class="nav-account-name">{{ request.user.nome_completo }}</span>
+                    <span class="nav-account-role">{{ request.user.get_nivel_acesso_display }}</span>
+                  </span>
+                  <i class="fa-solid fa-chevron-down nav-account-caret"></i>
                 </button>
-              </form>
+                <ul class="dropdown-menu dropdown-menu-end nav-account-menu">
+                  <li>
+                    <div class="nav-account-menu-profile">
+                      {% include "includes/user_avatar.html" with user=request.user avatar_class="user-avatar--sm" %}
+                      <div class="nav-account-menu-profile-copy">
+                        <div class="fw-semibold">{{ request.user.nome_completo }}</div>
+                        <div class="small text-muted">{{ request.user.get_nivel_acesso_display }} · {{ request.user.matricula }}</div>
+                      </div>
+                    </div>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <a class="dropdown-item" href="{% url 'meu_perfil' %}">
+                      <i class="fa-regular fa-user"></i>
+                      Perfil
+                    </a>
+                  </li>
+                  {% if request.user.is_admin %}
+                    <li>
+                      <a class="dropdown-item" href="{% url 'usuarios_pendentes' %}">
+                        <i class="fa-solid fa-user-clock"></i>
+                        Aprovações
+                        {% if accounts_pending_count %}
+                          <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis ms-auto">{{ accounts_pending_count }}</span>
+                        {% endif %}
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'lista_usuarios' %}">
+                        <i class="fa-solid fa-users-gear"></i>
+                        Usuários
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                  {% endif %}
+                  <li>
+                    <form action="{% url 'logout' %}" method="post" class="mb-0">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item nav-account-logout">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        Sair
+                      </button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
             {% else %}
               <a class="btn btn-sm btn-light" href="{% url 'login' %}">
                 <i class="fa-solid fa-right-to-bracket me-1"></i>Entrar

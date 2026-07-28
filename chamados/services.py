@@ -1,15 +1,20 @@
 import json
 import re
 import unicodedata
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
+from estoque.models import reservas_ativas_por_chamado
+from estoque.services import marcar_reserva_entregue
 from equipamentos.models import Equipamento, MovimentacaoEquipamento, StatusEquipamento, TipoEquipamento
 from equipamentos.services import aplicar_movimentacao_equipamento
+from notifications.services import notificar_time_operacional, notificar_usuarios
 
-from .models import ChamadoItemSolicitado, EtapaFluxoChamado, StatusChamado
+from .models import Chamado, ChamadoItemSolicitado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
 
 
 def _normalizar_texto(texto):
@@ -30,6 +35,124 @@ def _montar_lookup_tipos():
 
 
 _TIPO_EQUIPAMENTO_LOOKUP = _montar_lookup_tipos()
+
+
+def _usuarios_afetados_sla(chamado):
+    usuarios = [chamado.solicitante, chamado.destinatario, chamado.responsavel]
+    vistos = set()
+    resultado = []
+
+    for usuario in usuarios:
+        if not usuario or usuario.pk in vistos:
+            continue
+        vistos.add(usuario.pk)
+        resultado.append(usuario)
+
+    return resultado
+
+
+def _usuarios_externos_sla(chamado):
+    return [usuario for usuario in _usuarios_afetados_sla(chamado) if not usuario.is_operacional]
+
+
+def calcular_prazo_sla(chamado, base=None):
+    base = base or chamado.created_at or timezone.now()
+    minutos = chamado.sla_duracao_minutos
+    return base + timedelta(minutes=minutos)
+
+
+def calcular_momento_alerta_sla(chamado, base=None):
+    prazo = calcular_prazo_sla(chamado, base=base)
+    janela = max(30, int(chamado.sla_duracao_minutos * 0.25))
+    return prazo - timedelta(minutes=janela)
+
+
+def avaliar_sla_chamado(chamado, now=None):
+    now = now or timezone.now()
+    prazo = calcular_prazo_sla(chamado)
+    alerta = calcular_momento_alerta_sla(chamado)
+
+    if chamado.status == StatusChamado.ENCERRADO:
+        estado = 'encerrado'
+    elif chamado.sla_nivel == SLANivel.ESCALADO or now >= prazo:
+        estado = SLANivel.ESCALADO
+    elif chamado.sla_nivel == SLANivel.ALERTA or now >= alerta:
+        estado = SLANivel.ALERTA
+    else:
+        estado = SLANivel.NORMAL
+
+    return {
+        'estado': estado,
+        'prazo_em': prazo,
+        'alerta_em': alerta,
+        'em_atraso': now >= prazo,
+        'minutos_restantes': int((prazo - now).total_seconds() // 60),
+    }
+
+
+def _notificar_sla(chamado, *, nivel, now):
+    link = reverse('detalhe_chamado', kwargs={'pk': chamado.pk})
+    if nivel == SLANivel.ALERTA:
+        titulo = f'SLA em atenção: chamado #{chamado.pk}'
+        mensagem = (
+            f'O chamado #{chamado.pk} - {chamado.titulo} entrou na janela de atenção do SLA. '
+            f'Prazo estimado: {chamado.sla_prazo_em.strftime("%d/%m/%Y %H:%M")}.'
+        )
+    else:
+        titulo = f'SLA escalonado: chamado #{chamado.pk}'
+        mensagem = (
+            f'O chamado #{chamado.pk} - {chamado.titulo} ultrapassou o SLA em '
+            f'{max(1, int((now - chamado.sla_prazo_em).total_seconds() // 60))} minuto(s).'
+        )
+
+    externos = _usuarios_externos_sla(chamado)
+    if externos:
+        notificar_usuarios(externos, titulo, mensagem, link=link)
+    notificar_time_operacional(titulo, mensagem, link=link)
+
+
+def verificar_sla_chamados(now=None):
+    now = now or timezone.now()
+    chamados = (
+        Chamado.objects.exclude(status=StatusChamado.ENCERRADO)
+        .select_related('solicitante', 'destinatario', 'responsavel')
+        .order_by('created_at')
+    )
+
+    alertados = 0
+    escalados = 0
+
+    for chamado in chamados.iterator():
+        avaliacao = avaliar_sla_chamado(chamado, now=now)
+        estado = avaliacao['estado']
+
+        if estado == SLANivel.ESCALADO and chamado.sla_nivel != SLANivel.ESCALADO:
+            chamado.sla_nivel = SLANivel.ESCALADO
+            if not chamado.sla_alertado_em:
+                chamado.sla_alertado_em = now
+            chamado.sla_escalado_em = now
+            if chamado.prioridade != PrioridadeChamado.CRITICA:
+                chamado.prioridade = PrioridadeChamado.CRITICA
+                update_fields = ['sla_nivel', 'sla_alertado_em', 'sla_escalado_em', 'prioridade', 'updated_at']
+            else:
+                update_fields = ['sla_nivel', 'sla_alertado_em', 'sla_escalado_em', 'updated_at']
+            chamado.save(update_fields=update_fields)
+            _notificar_sla(chamado, nivel=SLANivel.ESCALADO, now=now)
+            escalados += 1
+            continue
+
+        if estado == SLANivel.ALERTA and chamado.sla_nivel == SLANivel.NORMAL:
+            chamado.sla_nivel = SLANivel.ALERTA
+            if not chamado.sla_alertado_em:
+                chamado.sla_alertado_em = now
+            chamado.save(update_fields=['sla_nivel', 'sla_alertado_em', 'updated_at'])
+            _notificar_sla(chamado, nivel=SLANivel.ALERTA, now=now)
+            alertados += 1
+
+    return {
+        'alertados': alertados,
+        'escalados': escalados,
+    }
 
 
 def _resolver_tipo_item(texto):
@@ -143,8 +266,11 @@ def _normalizar_selecoes_entrega(selecoes):
 
 @transaction.atomic
 def registrar_entrega_chamado(*, chamado, equipamento, realizado_por, observacoes='', concluir_chamado=True):
-    if equipamento.status != StatusEquipamento.EM_ESTOQUE:
+    reserva = reservas_ativas_por_chamado(chamado).filter(equipamento=equipamento).first()
+    if equipamento.status not in {StatusEquipamento.EM_ESTOQUE, StatusEquipamento.RESERVADO}:
         raise ValidationError('Selecione um equipamento disponível em estoque.')
+    if equipamento.status == StatusEquipamento.RESERVADO and not reserva:
+        raise ValidationError('Este equipamento reservado não pertence a este chamado.')
 
     destinatario = chamado.usuario_destinatario
     descricao = f'Entrega vinculada ao chamado #{chamado.pk} - {chamado.titulo}'
@@ -165,6 +291,8 @@ def registrar_entrega_chamado(*, chamado, equipamento, realizado_por, observacoe
     )
 
     aplicar_movimentacao_equipamento(equipamento, movimentacao)
+    if reserva:
+        marcar_reserva_entregue(reserva=reserva, usuario=realizado_por)
 
     chamado.equipamento = equipamento
     chamado.responsavel = realizado_por
@@ -187,6 +315,33 @@ def registrar_entrega_chamado(*, chamado, equipamento, realizado_por, observacoe
 
     chamado.save()
     return movimentacao
+
+
+@transaction.atomic
+def excluir_chamado_administrativo(*, chamado, usuario, motivo=''):
+    if not getattr(usuario, 'is_admin', False):
+        raise ValidationError('Somente administradores podem excluir chamados.')
+
+    if chamado.itens_solicitados.filter(equipamento_entregue__isnull=False).exists():
+        raise ValidationError('Este chamado possui itens entregues e nao pode ser excluido.')
+
+    reservas_ativas = list(reservas_ativas_por_chamado(chamado).select_related('equipamento').order_by('id'))
+    observacoes = motivo or 'Exclusao administrativa do chamado.'
+
+    for reserva in reservas_ativas:
+        movimentacao = MovimentacaoEquipamento.objects.create(
+            equipamento=reserva.equipamento,
+            tipo='liberacao_reserva',
+            descricao=f'Liberacao administrativa antes da exclusao do chamado #{chamado.pk} - {chamado.titulo}',
+            realizado_por=usuario,
+            chamado=chamado,
+            observacoes=observacoes,
+        )
+        aplicar_movimentacao_equipamento(reserva.equipamento, movimentacao)
+
+    total_reservas = len(reservas_ativas)
+    chamado.delete()
+    return total_reservas
 
 
 @transaction.atomic
@@ -215,8 +370,14 @@ def registrar_entregas_chamado(*, chamado, selecoes_itens, realizado_por, observ
         equipamento = Equipamento.objects.select_related('responsavel').filter(pk=equipamento_id).first()
         if not equipamento:
             raise ValidationError('Selecione um equipamento valido.')
-        if equipamento.status != StatusEquipamento.EM_ESTOQUE:
+        reserva = reservas_ativas_por_chamado(chamado).filter(
+            item_solicitado_id=item.id,
+            equipamento=equipamento,
+        ).first()
+        if equipamento.status not in {StatusEquipamento.EM_ESTOQUE, StatusEquipamento.RESERVADO}:
             raise ValidationError(f'O equipamento {equipamento.id_patrimonio} nao esta disponivel em estoque.')
+        if equipamento.status == StatusEquipamento.RESERVADO and not reserva:
+            raise ValidationError(f'O equipamento {equipamento.id_patrimonio} reservado nao pertence a este chamado.')
         if equipamento.id in equipamentos_usados:
             raise ValidationError('O mesmo equipamento nao pode ser selecionado para mais de um item.')
         equipamentos_usados.add(equipamento.id)
@@ -241,6 +402,8 @@ def registrar_entregas_chamado(*, chamado, selecoes_itens, realizado_por, observ
 
             aplicar_movimentacao_equipamento(equipamento, movimentacao)
             movimentos_criados.append(movimentacao)
+            if reserva:
+                marcar_reserva_entregue(reserva=reserva, usuario=realizado_por)
 
         item.equipamento_entregue = equipamento
         item.entregue_por = realizado_por

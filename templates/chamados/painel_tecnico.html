@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Painel operacional | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-screwdriver-wrench"></i> Painel operacional</div>
+      <h1 class="hero-title mb-2">Fila de execução e entrega em um único lugar.</h1>
+      <p class="hero-text mb-0">
+        Acompanhe os chamados recebidos, o que está aguardando estoque, o que depende de aprovação e o que já pode ser entregue.
+      </p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-ticket-simple"></i> {{ painel_total }} em aberto</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-user-check"></i> {{ painel_assumidos_por_mim }} meus</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-triangle-exclamation"></i> {{ painel_criticos }} críticos</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-box-open"></i> {{ painel_prontos }} prontos</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+      <a class="btn btn-light btn-lg" href="{% url 'chamados' %}">
+        <i class="fa-solid fa-list me-1"></i>Lista completa
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'estoque' %}">
+        <i class="fa-solid fa-warehouse me-1"></i>Estoque
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'criar_chamado' %}">
+        <i class="fa-solid fa-circle-plus me-1"></i>Novo chamado
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Operação</div>
+      <h2 class="h6 mb-0">Resumo da fila</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualizado agora</span>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-inbox" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Recebidos</span>
+        </div>
+        <div class="label">Chamados novos</div>
+        <div class="value">{{ painel_lanes.0.count }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-warehouse" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Estoque</span>
+        </div>
+        <div class="label">Aguardando estoque</div>
+        <div class="value">{{ painel_lanes.1.count }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-violet h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Aprovação</span>
+        </div>
+        <div class="label">Pendente do colaborador</div>
+        <div class="value">{{ painel_aguardando_aprovacao }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-box-open" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Entrega</span>
+        </div>
+        <div class="label">Prontos para entregar</div>
+        <div class="value">{{ painel_prontos }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-amber h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Fluxo</div>
+              <h2 class="h5 mb-1">Chamados por etapa</h2>
+              <p class="small text-muted mb-0">Visão compacta da sua fila operacional.</p>
+            </div>
+            <span class="badge badge-soft">{{ painel_total }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-flow-chart-wrap">
+            <canvas id="dashboard-flow-chart" aria-label="Chamados por etapa" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card app-card h-100">
+        <div class="card-body">
+          <div class="section-kicker mb-2">Execução</div>
+          <h2 class="h5 mb-3">Próximas ações por chamado</h2>
+          <div class="ticket-card-grid">
+            {% for lane in painel_lanes %}
+              <article class="ticket-card ticket-card-{{ lane.key }}">
+                <div class="ticket-card-head">
+                  <div>
+                    <div class="ticket-card-kicker">{{ lane.label }}</div>
+                    <h3 class="ticket-card-title mb-0">{{ lane.count }} chamado{{ lane.count|pluralize }}</h3>
+                  </div>
+                  <span class="status-pill status-pill-dark">{{ lane.count }}</span>
+                </div>
+                <p class="ticket-card-description mb-0">{{ lane.description }}</p>
+                <div class="ticket-card-progress" aria-hidden="true">
+                  <span class="is-active w-100"></span>
+                </div>
+                <div class="ticket-card-footer">
+                  <div class="ticket-card-footer-meta">
+                    <div class="small text-muted">Itens visíveis</div>
+                    <strong>{{ lane.items|length }}</strong>
+                  </div>
+                  <a class="btn btn-outline-primary btn-sm" href="{% url 'chamados' %}?status=">Ver lista</a>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-4 mb-4">
+  {% for lane in painel_lanes %}
+    <div class="col-xl-3 col-lg-6">
+      <div class="card app-card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">{{ lane.label }}</div>
+              <h2 class="h5 mb-0">{{ lane.count }} chamado{{ lane.count|pluralize }}</h2>
+            </div>
+            <span class="badge badge-soft">{{ lane.count }}</span>
+          </div>
+          <p class="small text-muted mb-3">{{ lane.description }}</p>
+          <div class="stack-list">
+            {% for entry in lane.items %}
+              {% with chamado=entry.chamado acoes=entry.acoes %}
+                <article class="list-card">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <strong><a href="{% url 'detalhe_chamado' chamado.pk %}">#{{ chamado.pk }} · {{ chamado.titulo }}</a></strong>
+                      <div class="small text-muted">{{ chamado.destinatario_nome_completo }}</div>
+                      <div class="small text-muted">{{ chamado.fluxo_etapa_label }} · {{ chamado.get_prioridade_display }}</div>
+                    </div>
+                    <span class="badge badge-soft">{{ chamado.get_status_display }}</span>
+                  </div>
+                  <div class="small text-muted mt-2">Atualizado em {{ chamado.updated_at|date:"d/m/Y H:i" }}</div>
+                  <div class="d-flex flex-wrap gap-2 mt-3">
+                    {% if acoes.pode_assumir %}
+                      <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="assumir">
+                        <button class="btn btn-sm btn-primary" type="submit">Assumir</button>
+                      </form>
+                    {% endif %}
+                    {% if acoes.pode_marcar_sem_estoque %}
+                      <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="sem_estoque">
+                        <button class="btn btn-sm btn-outline-warning" type="submit">Sem estoque</button>
+                      </form>
+                    {% endif %}
+                    {% if acoes.pode_enviar_para_aprovacao %}
+                      <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="enviar_aprovacao">
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Aprovar</button>
+                      </form>
+                    {% endif %}
+                    {% if acoes.pode_aprovar_retirada %}
+                      <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="aprovar_retirada">
+                        <button class="btn btn-sm btn-success" type="submit">Liberar</button>
+                      </form>
+                    {% endif %}
+                    {% if acoes.pode_marcar_separacao %}
+                      <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="separar">
+                        <button class="btn btn-sm btn-outline-info" type="submit">Separar</button>
+                      </form>
+                    {% endif %}
+                    {% if acoes.pode_marcar_pronto %}
+                      <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="pronto">
+                        <button class="btn btn-sm btn-outline-success" type="submit">Pronto</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </article>
+              {% endwith %}
+            {% empty %}
+              <div class="text-muted">Nenhum chamado nesta etapa.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Histórico</div>
+            <h2 class="h5 mb-0">Chamados recentes</h2>
+          </div>
+          <a href="{% url 'chamados' %}" class="small">Ver fila completa</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Chamado</th>
+                <th>Fluxo</th>
+                <th>Colaborador</th>
+                <th>Responsável</th>
+                <th>Atualizado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for chamado in chamados_recentes %}
+                <tr>
+                  <td><a href="{% url 'detalhe_chamado' chamado.pk %}">#{{ chamado.pk }} · {{ chamado.titulo }}</a></td>
+                  <td>{{ chamado.fluxo_etapa_label }}</td>
+                  <td>{{ chamado.destinatario_nome_completo }}</td>
+                  <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+                  <td>{{ chamado.updated_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-muted py-3">Nenhum chamado recente.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Resumo</div>
+        <div class="list-card mb-3">
+          <strong>Quando assumir</strong>
+          <div class="small text-muted mt-2">Use os botões do cartão para assumir, liberar ou avançar o fluxo sem sair do painel.</div>
+        </div>
+        <div class="list-card mb-3">
+          <strong>Quando registrar entrega</strong>
+          <div class="small text-muted mt-2">Abra o chamado para escolher o equipamento correto e concluir a entrega final.</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-outline-primary" href="{% url 'estoque' %}">Ir para estoque</a>
+          <a class="btn btn-outline-secondary" href="{% url 'relatorios' %}">Ver relatórios</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ dashboard_charts|json_script:"dashboard-charts-data" }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'js/dashboard-charts.js' %}"></script>
+{% endblock %}

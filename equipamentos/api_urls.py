@@ -8,7 +8,10 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from itam.api_auth import api_auth_required
+
 from .models import Equipamento
+from .search import aplicar_filtro_busca_equipamentos
 from .telemetria import processar_pacote_telemetria
 
 
@@ -59,13 +62,43 @@ def _serializar_evento(evento):
     }
 
 
+@api_auth_required
 @require_GET
 def equipamentos_api(request):
     _exigir_operacional(request)
 
-    equipamentos = Equipamento.objects.select_related('responsavel').order_by('id_patrimonio')[:200]
+    qs = Equipamento.objects.select_related('responsavel').order_by('id_patrimonio')
+
+    q = request.GET.get('q', '').strip()
+    status = request.GET.get('status', '').strip()
+    tipo = request.GET.get('tipo', '').strip()
+    site = request.GET.get('site', '').strip()
+    try:
+        limit = int(request.GET.get('limit', '200'))
+    except ValueError:
+        limit = 200
+    try:
+        offset = int(request.GET.get('offset', '0'))
+    except ValueError:
+        offset = 0
+
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
+    qs = aplicar_filtro_busca_equipamentos(qs, q)
+    if status:
+        qs = qs.filter(status=status)
+    if tipo:
+        qs = qs.filter(tipo=tipo)
+    if site:
+        qs = qs.filter(site__icontains=site)
+
+    total = qs.count()
+    equipamentos = qs[offset: offset + limit]
+    next_offset = offset + len(equipamentos)
     data = [
         {
+            'pk': equipamento.pk,
             'id_patrimonio': equipamento.id_patrimonio,
             'tipo': equipamento.tipo,
             'tipo_display': equipamento.tipo_display,
@@ -82,15 +115,26 @@ def equipamentos_api(request):
         }
         for equipamento in equipamentos
     ]
-    return JsonResponse({'results': data})
+    return JsonResponse(
+        {
+            'count': total,
+            'offset': offset,
+            'limit': limit,
+            'next_offset': next_offset if next_offset < total else None,
+            'has_more': next_offset < total,
+            'results': data,
+        }
+    )
 
 
+@api_auth_required
 @require_GET
 def equipamento_api(request, id_patrimonio):
     _exigir_operacional(request)
 
     equipamento = get_object_or_404(Equipamento.objects.select_related('responsavel'), id_patrimonio=id_patrimonio)
     data = {
+        'pk': equipamento.pk,
         'id_patrimonio': equipamento.id_patrimonio,
         'tipo': equipamento.tipo,
         'tipo_display': equipamento.tipo_display,
@@ -139,6 +183,7 @@ def telemetria_ingest_api(request):
     )
 
 
+@api_auth_required
 @require_GET
 def telemetria_equipamento_api(request, id_patrimonio):
     _exigir_operacional(request)

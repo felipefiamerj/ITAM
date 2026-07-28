@@ -1,26 +1,34 @@
-﻿from django.contrib import messages
+from contextlib import suppress
+from urllib.parse import urljoin
+
+from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode, urlsafe_base64_encode
 
-from equipamentos.models import Equipamento
 from chamados.models import Chamado
-from notifications.services import notificar_admins, notificar_time_operacional, notificar_usuario
+from equipamentos.models import Equipamento
+from notifications.services import notificar_admins, notificar_usuario
 
 from .forms import (
     LoginForm,
     SolicitacaoAcessoForm,
+    SolicitacaoRecuperacaoSenhaForm,
     TrocaSenhaInicialForm,
     UsuarioApprovalForm,
     UsuarioCreateForm,
     UsuarioUpdateForm,
 )
 from .models import NivelAcesso, Usuario
+from .tokens import account_activation_token, password_recovery_token
 
 
 def _safe_next_url(request, next_url):
@@ -33,8 +41,43 @@ def _safe_next_url(request, next_url):
     return None
 
 
+def _site_name():
+    return getattr(settings, 'APP_NAME', 'ITAM System')
+
+
+def _absolute_url(request, relative_path):
+    site_url = (getattr(settings, 'SITE_URL', '') or '').strip()
+    if site_url:
+        return urljoin(site_url.rstrip('/') + '/', relative_path.lstrip('/'))
+    return request.build_absolute_uri(relative_path)
+
+
+def _activation_link(request, usuario):
+    uidb64 = urlsafe_base64_encode(force_bytes(usuario.pk))
+    token = account_activation_token.make_token(usuario)
+    return _absolute_url(request, reverse('ativar_conta', kwargs={'uidb64': uidb64, 'token': token}))
+
+
+def _recovery_link(request, usuario):
+    uidb64 = urlsafe_base64_encode(force_bytes(usuario.pk))
+    token = password_recovery_token.make_token(usuario)
+    return _absolute_url(request, reverse('redefinir_senha', kwargs={'uidb64': uidb64, 'token': token}))
+
+
+def _usuario_por_uidb64(uidb64):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+    try:
+        return Usuario.objects.get(pk=uid)
+    except Usuario.DoesNotExist:
+        return None
+
+
 def _home_url_name(user):
-    return 'chamados' if user.is_solicitante else 'dashboard'
+    return 'dashboard'
 
 
 def _redirect_after_login(request, usuario):
@@ -140,6 +183,87 @@ def login_view(request):
     )
 
 
+def recuperar_senha(request):
+    if request.user.is_authenticated:
+        return redirect(_home_url_name(request.user))
+
+    form = SolicitacaoRecuperacaoSenhaForm(request.POST or None)
+    if form.is_valid():
+        usuario = form.get_usuario()
+        if usuario and usuario.email:
+            link_recuperacao = _recovery_link(request, usuario)
+            assunto = f'Recuperação de senha no {_site_name()}'
+            mensagem = f'''Olá {usuario.first_name or usuario.matricula},
+
+Recebemos uma solicitação para redefinir a senha da sua conta no {_site_name()}.
+
+Para criar uma nova senha, acesse o link abaixo:
+{link_recuperacao}
+
+Se você não solicitou essa alteração, ignore esta mensagem.
+
+Atenciosamente,
+{_site_name()}
+            '''
+            with suppress(Exception):
+                send_mail(
+                    assunto,
+                    mensagem,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [usuario.email],
+                    fail_silently=False,
+                )
+
+        messages.success(
+            request,
+            'Se houver uma conta ativa com esse identificador e e-mail cadastrado, você receberá instruções para redefinir a senha.',
+        )
+        return redirect('login')
+
+    return render(
+        request,
+        'accounts/recuperar_senha.html',
+        {
+            'form': form,
+        },
+    )
+
+
+def redefinir_senha(request, uidb64, token):
+    usuario = _usuario_por_uidb64(uidb64)
+    if not usuario or not password_recovery_token.check_token(usuario, token):
+        messages.error(request, 'O link de recuperação é inválido ou expirou. Solicite um novo acesso.')
+        return redirect('login')
+
+    if request.method == 'POST':
+        form = TrocaSenhaInicialForm(usuario, request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            usuario.exigir_troca_senha = False
+            usuario.save(update_fields=['exigir_troca_senha', 'updated_at'])
+            messages.success(request, 'Senha redefinida com sucesso. Você já pode entrar no sistema.')
+            notificar_usuario(
+                usuario,
+                'Senha redefinida',
+                'Sua senha foi atualizada com sucesso no ITAM System.',
+                link=reverse('login'),
+            )
+            return redirect('login')
+    else:
+        form = TrocaSenhaInicialForm(usuario)
+
+    return render(
+        request,
+        'accounts/trocar_senha_inicial.html',
+        {
+            'form': form,
+            'usuario': usuario,
+            'modo_ativacao': False,
+            'modo_recuperacao': True,
+        },
+    )
+
+
 @login_required
 def logout_view(request):
     if request.method == 'POST':
@@ -229,47 +353,50 @@ def aprovar_usuario(request, pk):
         usuario.aprovado_em = timezone.now()
         usuario.save()
 
-        # Obter a senha gerada
         senha_temporaria = getattr(form, 'generated_password', '')
         eh_auto_gerada = getattr(form, 'generated_password_is_auto', False)
-        
-        # Enviar email com o link de primeiro acesso se houver endereço cadastrado
+        link_primeiro_acesso = _activation_link(request, usuario)
+        app_name = _site_name()
+
+        email_enviado = False
         if usuario.email:
-            from django.core.mail import send_mail
+            assunto = f'Acesso aprovado no {app_name}'
+            mensagem = f'''Olá {usuario.first_name or usuario.matricula},
 
-            assunto = 'Acesso aprovado no ITAM System'
-            mensagem = f'''
-Olá {usuario.first_name},
+Sua solicitação de acesso ao {app_name} foi aprovada.
 
-Sua solicitação de acesso ao ITAM System foi aprovada!
+Para criar sua senha de primeiro acesso, abra o link abaixo:
+{link_primeiro_acesso}
 
-Para criar sua senha de primeiro acesso, acesse:
-{request.build_absolute_uri(reverse('login'))}
-
-Se você ainda não recebeu a senha temporária de contingência, procure o administrador do sistema.
+Esse link é pessoal e deve ser usado apenas uma vez. Se ele expirar, procure o administrador para gerar um novo acesso.
 
 Atenciosamente,
-ITAM System
+{app_name}
             '''
 
             try:
                 send_mail(
                     assunto,
                     mensagem,
-                    'noreply@itam.local',
+                    settings.DEFAULT_FROM_EMAIL,
                     [usuario.email],
                     fail_silently=False,
                 )
                 email_enviado = True
             except Exception:
                 email_enviado = False
-        else:
-            email_enviado = False
 
         notificar_usuario(
             usuario,
             'Acesso aprovado',
-            f'Seu acesso ao ITAM System foi liberado. {"" if email_enviado else "Procure o administrador para obter a senha temporária."}',
+            (
+                f'Seu acesso ao {app_name} foi liberado. '
+                + (
+                    'Verifique seu e-mail para criar a senha inicial.'
+                    if email_enviado
+                    else 'Procure o administrador para obter a senha temporária.'
+                )
+            ),
             link=reverse('login'),
         )
         notificar_admins(
@@ -279,12 +406,18 @@ ITAM System
         )
 
         senha_info = 'gerada automaticamente' if eh_auto_gerada else 'definida pelo administrador'
-        mensagem_sucesso = f'Conta de {usuario.nome_completo} aprovada. Senha temporária {senha_info}: {senha_temporaria}. '
         if email_enviado:
-            mensagem_sucesso += f' Link de primeiro acesso enviado para {usuario.email}.'
+            mensagem_sucesso = (
+                f'Conta de {usuario.nome_completo} aprovada. '
+                f'Um link de primeiro acesso foi enviado para {usuario.email}.'
+            )
         else:
-            mensagem_sucesso += 'O usuário deverá trocá-la no primeiro acesso.'
-        
+            mensagem_sucesso = (
+                f'Conta de {usuario.nome_completo} aprovada. '
+                f'Senha temporária {senha_info}: {senha_temporaria}. '
+                'Compartilhe a senha de forma segura com o usuário.'
+            )
+
         messages.success(request, mensagem_sucesso)
         return redirect('usuarios_pendentes')
 
@@ -292,6 +425,72 @@ ITAM System
         request,
         'accounts/aprovar_usuario.html',
         {'form': form, 'usuario': usuario},
+    )
+
+
+def ativar_conta(request, uidb64, token):
+    usuario = _usuario_por_uidb64(uidb64)
+    if not usuario or not account_activation_token.check_token(usuario, token):
+        messages.error(
+            request,
+            'O link de primeiro acesso é inválido ou expirou. Solicite um novo link ao administrador.',
+        )
+        return redirect('login')
+
+    if request.method == 'POST':
+        form = TrocaSenhaInicialForm(usuario, request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            usuario.ativo = True
+            usuario.solicitacao_pendente = False
+            usuario.exigir_troca_senha = False
+            if not usuario.aprovado_em:
+                usuario.aprovado_em = timezone.now()
+            usuario.save(update_fields=['ativo', 'solicitacao_pendente', 'exigir_troca_senha', 'aprovado_em', 'updated_at'])
+            messages.success(request, 'Acesso ativado com sucesso. Agora você já pode entrar no sistema.')
+            return redirect('login')
+    else:
+        form = TrocaSenhaInicialForm(usuario)
+
+    return render(
+        request,
+        'accounts/trocar_senha_inicial.html',
+        {
+            'form': form,
+            'usuario': usuario,
+            'modo_ativacao': True,
+            'modo_recuperacao': False,
+        },
+    )
+
+
+@login_required
+def trocar_senha_inicial(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    if not request.user.exigir_troca_senha:
+        return redirect(_home_url_name(request.user))
+
+    form = TrocaSenhaInicialForm(request.user, request.POST or None)
+    if form.is_valid():
+        usuario = form.save()
+        usuario.exigir_troca_senha = False
+        usuario.save(update_fields=['exigir_troca_senha', 'updated_at'])
+        update_session_auth_hash(request, usuario)
+        next_url = _safe_next_url(request, request.session.pop('post_password_change_next', None))
+        messages.success(request, 'Senha alterada com sucesso. Seu acesso está liberado.')
+        return redirect(next_url or _home_url_name(usuario))
+
+    return render(
+        request,
+        'accounts/trocar_senha_inicial.html',
+        {
+            'form': form,
+            'usuario': request.user,
+            'modo_ativacao': False,
+            'modo_recuperacao': False,
+        },
     )
 
 
@@ -318,7 +517,7 @@ def reprovar_usuario(request, pk):
     notificar_usuario(
         usuario,
         'Solicitação analisada',
-        f'Sua solicitação de acesso ao ITAM System não foi aprovada. Motivo: {motivo}',
+        f'Sua solicitação de acesso ao {_site_name()} não foi aprovada. Motivo: {motivo}',
         link=reverse('login'),
     )
     messages.success(request, f'Solicitação de {usuario.nome_completo} foi reprovada.')
@@ -382,34 +581,6 @@ def editar_usuario(request, pk):
 
 
 @login_required
-def trocar_senha_inicial(request):
-    if not request.user.is_authenticated:
-        return redirect('login')
-
-    if not request.user.exigir_troca_senha:
-        return redirect(_home_url_name(request.user))
-
-    form = TrocaSenhaInicialForm(request.user, request.POST or None)
-    if form.is_valid():
-        usuario = form.save()
-        usuario.exigir_troca_senha = False
-        usuario.save(update_fields=['exigir_troca_senha', 'updated_at'])
-        update_session_auth_hash(request, usuario)
-        next_url = _safe_next_url(request, request.session.pop('post_password_change_next', None))
-        messages.success(request, 'Senha alterada com sucesso. Seu acesso está liberado.')
-        return redirect(next_url or _home_url_name(usuario))
-
-    return render(
-        request,
-        'accounts/trocar_senha_inicial.html',
-        {
-            'form': form,
-            'usuario': request.user,
-        },
-    )
-
-
-@login_required
 def perfil_usuario(request, pk=None):
     usuario = get_object_or_404(Usuario.objects.select_related('gestor', 'aprovado_por'), pk=pk) if pk else request.user
 
@@ -432,6 +603,3 @@ def perfil_usuario(request, pk=None):
             'historico': historico,
         },
     )
-
-
-

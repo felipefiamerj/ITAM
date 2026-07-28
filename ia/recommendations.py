@@ -9,6 +9,7 @@ from accounts.models import Usuario
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, StatusChamado
 from equipamentos.models import Equipamento, StatusEquipamento
 
+from .config import IA_MODE_DESCRIPTION, IA_MODE_DETAIL, IA_MODE_KEY, IA_MODE_LABEL
 from .monitoring import resumo_monitoramento
 
 
@@ -414,8 +415,7 @@ def build_operational_copilot(user):
     if user.is_admin:
         pendentes = Usuario.objects.filter(solicitacao_pendente=True).select_related('gestor', 'aprovado_por')
         usuarios_pendentes = pendentes.count()
-        for usuario in pendentes.order_by('created_at')[:10]:
-            recommendations.append(_recommendacao_governanca(usuario))
+        recommendations.extend(_recommendacao_governanca(usuario) for usuario in pendentes.order_by('created_at')[:10])
 
     recommendations.sort(
         key=lambda item: (
@@ -520,6 +520,10 @@ def build_operational_copilot(user):
     }
 
     return {
+        'ia_mode_key': IA_MODE_KEY,
+        'ia_mode_label': IA_MODE_LABEL,
+        'ia_mode_description': IA_MODE_DESCRIPTION,
+        'ia_mode_detail': IA_MODE_DETAIL,
         'index_operacional': operational_index,
         'state_label': state_label,
         'state_caption': state_caption,

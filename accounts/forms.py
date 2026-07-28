@@ -4,6 +4,7 @@ import string
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import NivelAcesso, Usuario
@@ -396,5 +397,38 @@ class TrocaSenhaInicialForm(SetPasswordForm):
         self.fields['new_password1'].help_text = 'Escolha uma senha forte e fácil de lembrar apenas para você.'
         self.fields['new_password2'].help_text = 'Repita a senha para confirmar.'
         _apply_bootstrap(self)
+
+
+class SolicitacaoRecuperacaoSenhaForm(forms.Form):
+    identificador = forms.CharField(
+        label='Identificador ou e-mail',
+        max_length=150,
+        widget=forms.TextInput(
+            attrs={
+                'placeholder': 'Matrícula, RG, CPF ou e-mail',
+                'autocomplete': 'username',
+                'autofocus': True,
+            }
+        ),
+        help_text='Se o cadastro existir e tiver e-mail, você receberá um link seguro para redefinir a senha.',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_bootstrap(self)
+
+    def clean_identificador(self):
+        identificador = ' '.join((self.cleaned_data.get('identificador') or '').split())
+        if len(identificador) < 3:
+            raise forms.ValidationError('Informe um identificador válido.')
+        return identificador
+
+    def get_usuario(self):
+        identificador = self.cleaned_data.get('identificador', '')
+        return (
+            Usuario.objects.filter(Q(matricula__iexact=identificador) | Q(email__iexact=identificador))
+            .filter(ativo=True, solicitacao_pendente=False)
+            .first()
+        )
 
 

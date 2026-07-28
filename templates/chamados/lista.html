@@ -17,6 +17,7 @@
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-user-shield me-1"></i>{{ resumo_chamados.aguardando_aprovacao }} aguardando aprovação</span>
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-spinner me-1"></i>{{ resumo_chamados.em_andamento }} em andamento</span>
         <span class="status-pill status-pill-dark"><i class="fa-solid fa-circle-check me-1"></i>{{ resumo_chamados.encerrados }} encerrados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-stopwatch me-1"></i>{{ resumo_chamados.sla_alerta|add:resumo_chamados.sla_escalado }} em risco</span>
       </div>
     </div>
     <a class="btn btn-light btn-lg" href="{% url 'criar_chamado' %}">
@@ -120,6 +121,14 @@
           {% for value, label in status_choices %}
             <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label">SLA</label>
+        <select class="form-select" name="sla">
+          <option value="">Todos</option>
+          <option value="alerta"{% if sla == 'alerta' %} selected{% endif %}>Em alerta</option>
+          <option value="escalado"{% if sla == 'escalado' %} selected{% endif %}>Escalonados</option>
         </select>
       </div>
       <div class="col-lg-2 align-self-end">

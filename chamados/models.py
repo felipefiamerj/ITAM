@@ -1,7 +1,10 @@
-﻿from django.conf import settings
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from auditlog.registry import auditlog
 from equipamentos.models import TipoEquipamento
 
 
@@ -101,6 +104,20 @@ class ServicoChamado(models.TextChoices):
     OUTRO = 'outro', 'Outro'
 
 
+class SLANivel(models.TextChoices):
+    NORMAL = 'normal', 'Dentro do prazo'
+    ALERTA = 'alerta', 'Em alerta'
+    ESCALADO = 'escalado', 'Escalonado'
+
+
+SLA_PRAZOS_MINUTOS = {
+    PrioridadeChamado.BAIXA: 48 * 60,
+    PrioridadeChamado.MEDIA: 24 * 60,
+    PrioridadeChamado.ALTA: 8 * 60,
+    PrioridadeChamado.CRITICA: 4 * 60,
+}
+
+
 class Chamado(models.Model):
     titulo = models.CharField(max_length=150)
     descricao = models.TextField()
@@ -171,6 +188,9 @@ class Chamado(models.Model):
     aprovado_em = models.DateTimeField(null=True, blank=True)
     solucao = models.TextField(blank=True)
     data_fechamento = models.DateTimeField(null=True, blank=True)
+    sla_nivel = models.CharField(max_length=20, choices=SLANivel.choices, default=SLANivel.NORMAL, db_index=True)
+    sla_alertado_em = models.DateTimeField(null=True, blank=True)
+    sla_escalado_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -195,6 +215,75 @@ class Chamado(models.Model):
     def tempo_aberto(self):
         referencia = self.data_fechamento or timezone.now()
         return referencia - self.created_at
+
+    @property
+    def sla_duracao_minutos(self):
+        return SLA_PRAZOS_MINUTOS.get(self.prioridade, 24 * 60)
+
+    @property
+    def sla_prazo_em(self):
+        base = self.created_at or timezone.now()
+        return base + timedelta(minutes=self.sla_duracao_minutos)
+
+    @property
+    def sla_momento_alerta(self):
+        janela = max(30, int(self.sla_duracao_minutos * 0.25))
+        return self.sla_prazo_em - timedelta(minutes=janela)
+
+    @property
+    def sla_estado_atual(self):
+        if self.status == StatusChamado.ENCERRADO:
+            return 'encerrado'
+
+        agora = timezone.now()
+        if self.sla_nivel == SLANivel.ESCALADO or agora >= self.sla_prazo_em:
+            return SLANivel.ESCALADO
+        if self.sla_nivel == SLANivel.ALERTA or agora >= self.sla_momento_alerta:
+            return SLANivel.ALERTA
+        return SLANivel.NORMAL
+
+    @property
+    def sla_status_label(self):
+        mapa = {
+            'encerrado': 'Encerrado',
+            SLANivel.NORMAL: 'Dentro do prazo',
+            SLANivel.ALERTA: 'Em alerta',
+            SLANivel.ESCALADO: 'Escalonado',
+        }
+        return mapa.get(self.sla_estado_atual, 'Dentro do prazo')
+
+    @property
+    def sla_status_tone(self):
+        mapa = {
+            'encerrado': 'success',
+            SLANivel.NORMAL: 'success',
+            SLANivel.ALERTA: 'warning',
+            SLANivel.ESCALADO: 'danger',
+        }
+        return mapa.get(self.sla_estado_atual, 'secondary')
+
+    @property
+    def sla_restante_label(self):
+        if self.status == StatusChamado.ENCERRADO:
+            return 'Chamado encerrado'
+
+        delta = self.sla_prazo_em - timezone.now()
+        total_minutos = int(delta.total_seconds() // 60)
+        horas = abs(total_minutos) // 60
+        minutos = abs(total_minutos) % 60
+
+        if total_minutos >= 0:
+            if horas:
+                return f'{horas}h {minutos:02d}m restantes'
+            return f'{minutos}m restantes'
+
+        if horas:
+            return f'Atrasado há {horas}h {minutos:02d}m'
+        return f'Atrasado há {minutos}m'
+
+    @property
+    def sla_em_atraso(self):
+        return self.status != StatusChamado.ENCERRADO and timezone.now() >= self.sla_prazo_em
 
     @property
     def itens_solicitados_resumo(self):
@@ -355,3 +444,5 @@ class ChamadoItemSolicitado(models.Model):
             return '-'
         return self.equipamento_entregue.id_patrimonio
 
+auditlog.register(Chamado, exclude_fields=['solucao'])
+auditlog.register(ChamadoItemSolicitado)

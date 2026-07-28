@@ -4,7 +4,7 @@
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
     <div class="d-flex align-items-center gap-3">
-      <div class="profile-avatar">{{ usuario.matricula|slice:":2"|upper }}</div>
+      {% include "includes/user_avatar.html" with user=usuario avatar_class="user-avatar--lg" %}
       <div>
         <div class="hero-kicker"><i class="fa-regular fa-id-badge"></i> Perfil do usuário</div>
         <h1 class="hero-title mb-1">{{ usuario.nome_completo }}</h1>

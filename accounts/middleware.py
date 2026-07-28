@@ -26,11 +26,9 @@ class ForcePasswordChangeMiddleware:
             reverse('trocar_senha_inicial'),
         }
 
-        if path.startswith(static_url) or path.startswith(media_url):
+        if path.startswith((static_url, media_url)):
             return False
         if path in allowed_paths:
             return False
-        if path.rstrip('/').endswith('logout'):
-            return False
 
-        return True
+        return not path.rstrip('/').endswith('logout')

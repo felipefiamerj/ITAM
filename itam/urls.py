@@ -14,10 +14,13 @@ urlpatterns = [
     path('estoque/', include('estoque.urls')),
     path('ia/', include('ia.urls')),
     path('notifications/', include('notifications.urls')),
+    path('api/contas/', include('accounts.api_urls')),
+    path('api/chamados/', include('chamados.api_urls')),
     path('api/', include('dashboard.api_urls')),
     path('api/', include('equipamentos.api_urls')),
     path('api/estoque/', include('estoque.api_urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
+]
 
 admin.site.site_header = f'{settings.APP_NAME} - Admin'
 admin.site.site_title = f'{settings.APP_NAME} Admin'

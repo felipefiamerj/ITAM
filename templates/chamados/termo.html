@@ -139,6 +139,12 @@
       min-height: 22px;
       word-break: break-word;
     }
+    .field-span-2 {
+      grid-column: span 2;
+    }
+    .field-span-3 {
+      grid-column: span 3;
+    }
     .services {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -271,6 +277,7 @@
 <body>
   <div class="toolbar">
     <a class="button secondary" href="{% url 'detalhe_chamado' chamado.pk %}">Voltar</a>
+    <a class="button secondary" href="{% url 'termo_chamado_pdf' chamado.pk %}" target="_blank" rel="noopener">Baixar PDF</a>
     <button class="button" type="button" onclick="window.print()">Imprimir termo</button>
   </div>
 
@@ -330,7 +337,7 @@
       <section class="panel">
         <h2 class="section-title">Dados do colaborador</h2>
         <div class="grid-3">
-          <div class="field" style="grid-column: span 2;">
+          <div class="field field-span-2">
             <div class="label">Nome</div>
             <div class="value">{{ chamado.destinatario_nome_completo }}</div>
           </div>
@@ -350,7 +357,7 @@
             <div class="label">Matrícula</div>
             <div class="value">{{ chamado.destinatario_matricula }}</div>
           </div>
-          <div class="field" style="grid-column: span 3;">
+          <div class="field field-span-3">
             <div class="label">Gestor</div>
             <div class="value">{% if chamado.usuario_destinatario.gestor %}{{ chamado.usuario_destinatario.gestor.nome_completo }}{% else %}-{% endif %}</div>
           </div>

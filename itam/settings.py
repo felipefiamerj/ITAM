@@ -225,6 +225,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'equipamentos.verificar_monitoramento',
         'schedule': crontab(minute='*/5'),
     },
+    'itam-verificar-sla-chamados': {
+        'task': 'chamados.verificar_sla_chamados',
+        'schedule': crontab(minute='*/5'),
+    },
 }
 
 if REDIS_URL:
@@ -279,3 +283,5 @@ ITAM_ESTOQUE_ALERTA_MINIMO = config('ITAM_ESTOQUE_ALERTA_MINIMO', default=5, cas
 ITAM_PREVISAO_DIAS = config('ITAM_PREVISAO_DIAS', default=30, cast=int)
 ITAM_HEARTBEAT_STALE_MINUTES = config('ITAM_HEARTBEAT_STALE_MINUTES', default=10, cast=int)
 ITAM_MONITORING_ALERT_COOLDOWN_MINUTES = config('ITAM_MONITORING_ALERT_COOLDOWN_MINUTES', default=30, cast=int)
+ITAM_API_SHARED_KEY = config('ITAM_API_SHARED_KEY', default='')
+ITAM_API_SERVICE_MATRICULA = config('ITAM_API_SERVICE_MATRICULA', default='')

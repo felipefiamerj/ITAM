@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from equipamentos.models import CondicaoEquipamento, Equipamento, StatusEquipamento, StatusMonitoramento
+from .config import IA_MODE_DESCRIPTION, IA_MODE_DETAIL, IA_MODE_KEY, IA_MODE_LABEL
 
 
 def calcular_score(equipamento):
@@ -61,6 +62,10 @@ def resumo_monitoramento():
     monitorados = qs.filter(monitoramento_ativo=True)
     limite = timezone.now() - timedelta(minutes=getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10))
     return {
+        'ia_mode_key': IA_MODE_KEY,
+        'ia_mode_label': IA_MODE_LABEL,
+        'ia_mode_description': IA_MODE_DESCRIPTION,
+        'ia_mode_detail': IA_MODE_DETAIL,
         'total': qs.count(),
         'saudaveis': qs.filter(score_saude__gte=80).count(),
         'alerta': qs.filter(score_saude__gte=60, score_saude__lt=80).count(),

@@ -7,6 +7,8 @@
     <h1 class="auth-title">
       {% if modo_ativacao %}
         Ative seu acesso
+      {% elif modo_recuperacao %}
+        Redefina sua senha
       {% else %}
         Troque sua senha temporária
       {% endif %}
@@ -14,6 +16,8 @@
     <p class="auth-text">
       {% if modo_ativacao %}
         Seu acesso foi aprovado. Crie agora uma senha pessoal para entrar no sistema.
+      {% elif modo_recuperacao %}
+        Sua senha atual precisa ser redefinida. Crie uma nova senha para retomar o acesso com segurança.
       {% else %}
         Para sua segurança, você precisa alterar a senha temporária fornecida pelo administrador antes de continuar.
       {% endif %}
@@ -26,6 +30,8 @@
         <strong>
           {% if modo_ativacao %}
             Acesso liberado com segurança.
+          {% elif modo_recuperacao %}
+            Link de recuperação confirmado.
           {% else %}
             Segurança em primeiro lugar.
           {% endif %}
@@ -33,6 +39,8 @@
         <p class="mb-0">
           {% if modo_ativacao %}
             Depois de criar sua senha, você será redirecionado para o login.
+          {% elif modo_recuperacao %}
+            Depois de salvar, você poderá entrar novamente no sistema com a nova senha.
           {% else %}
             Use uma senha exclusiva e de preferência com letras, números e símbolos.
           {% endif %}
@@ -45,7 +53,15 @@
     <article class="auth-card">
       <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
         <div>
-          <div class="section-kicker">Atualização de acesso</div>
+          <div class="section-kicker">
+            {% if modo_ativacao %}
+              Ativação de acesso
+            {% elif modo_recuperacao %}
+              Recuperação de senha
+            {% else %}
+              Atualização de acesso
+            {% endif %}
+          </div>
           <h2 class="auth-card-title mb-1">
             Olá,
             {% if usuario.first_name %}
@@ -66,6 +82,8 @@
           <i class="fa-solid fa-lock me-2"></i>
           {% if modo_ativacao %}
             Ativar acesso
+          {% elif modo_recuperacao %}
+            Redefinir senha
           {% else %}
             Alterar senha
           {% endif %}
@@ -76,6 +94,8 @@
         <i class="fa-solid fa-info-circle"></i>
         {% if modo_ativacao %}
           Após salvar, você poderá entrar com a nova senha no login.
+        {% elif modo_recuperacao %}
+          Após salvar, o acesso será liberado imediatamente com a nova senha.
         {% else %}
           Após a troca, você será redirecionado ao painel com o acesso liberado.
         {% endif %}

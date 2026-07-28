@@ -1,0 +1,53 @@
+[23/Jul/2026 10:38:05] "GET / HTTP/1.1" 302 0
+[23/Jul/2026 10:38:05,662] - Broken pipe from ('127.0.0.1', 61717)
+[23/Jul/2026 10:38:05] "GET /accounts/login/ HTTP/1.1" 200 11803
+[23/Jul/2026 10:38:05,738] - Broken pipe from ('127.0.0.1', 61718)
+[23/Jul/2026 10:38:47] "GET / HTTP/1.1" 302 0
+[23/Jul/2026 10:38:47] "GET /dashboard/ HTTP/1.1" 302 0
+[23/Jul/2026 10:38:47] "GET /accounts/login/?next=/dashboard/ HTTP/1.1" 200 11803
+[23/Jul/2026 10:38:47] "GET /static/css/app.css HTTP/1.1" 304 0
+[23/Jul/2026 10:39:04] "GET / HTTP/1.1" 302 0
+[23/Jul/2026 10:39:04] "GET /dashboard/ HTTP/1.1" 302 0
+[23/Jul/2026 10:39:04] "GET /accounts/login/?next=/dashboard/ HTTP/1.1" 200 11803
+[23/Jul/2026 10:39:04] "GET /static/css/app.css HTTP/1.1" 200 126685
+Not Found: /favicon.ico
+[23/Jul/2026 10:39:05] "GET /favicon.ico HTTP/1.1" 404 3657
+[23/Jul/2026 10:39:17] "POST /accounts/login/?next=/dashboard/ HTTP/1.1" 200 12039
+[23/Jul/2026 10:39:25] "POST /accounts/login/?next=/dashboard/ HTTP/1.1" 302 0
+[23/Jul/2026 10:39:26] "GET /dashboard/ HTTP/1.1" 200 37545
+[23/Jul/2026 10:39:26] "GET /static/js/app.js HTTP/1.1" 200 7822
+[23/Jul/2026 10:39:26] "GET /static/js/dashboard-charts.js HTTP/1.1" 200 7996
+[23/Jul/2026 10:39:26] "GET /media/usuarios/file.jpg HTTP/1.1" 200 42461
+Not Found: /ws/notifications/
+[23/Jul/2026 10:39:26] "GET /ws/notifications/ HTTP/1.1" 404 3675
+Not Found: /ws/notifications/
+[23/Jul/2026 10:39:31] "GET /ws/notifications/ HTTP/1.1" 404 3675
+[23/Jul/2026 10:39:35] "POST /accounts/logout/ HTTP/1.1" 302 0
+[23/Jul/2026 10:39:35] "GET /accounts/login/ HTTP/1.1" 200 11803
+[23/Jul/2026 10:39:43] "POST /accounts/login/ HTTP/1.1" 302 0
+[23/Jul/2026 10:39:43] "GET /dashboard/ HTTP/1.1" 200 37519
+Not Found: /ws/notifications/
+[23/Jul/2026 10:39:43] "GET /ws/notifications/ HTTP/1.1" 404 3675
+Not Found: /ws/notifications/
+[23/Jul/2026 10:39:49] "GET /ws/notifications/ HTTP/1.1" 404 3675
+Not Found: /ws/notifications/
+[23/Jul/2026 10:39:54] "GET /ws/notifications/ HTTP/1.1" 404 3675
+Not Found: /ws/notifications/
+[23/Jul/2026 10:39:59] "GET /ws/notifications/ HTTP/1.1" 404 3675
+[23/Jul/2026 10:40:04] "GET /chamados/painel/ HTTP/1.1" 200 24429
+Not Found: /ws/notifications/
+[23/Jul/2026 10:40:04] "GET /ws/notifications/ HTTP/1.1" 404 3675
+Not Found: /ws/notifications/
+[23/Jul/2026 10:40:09] "GET /ws/notifications/ HTTP/1.1" 404 3675
+[23/Jul/2026 10:40:10] "GET /equipamentos/ HTTP/1.1" 200 20690
+Not Found: /ws/notifications/
+[23/Jul/2026 10:40:10] "GET /ws/notifications/ HTTP/1.1" 404 3675
+[23/Jul/2026 10:40:12] "GET /chamados/ HTTP/1.1" 200 23689
+Not Found: /ws/notifications/
+[23/Jul/2026 10:40:12] "GET /ws/notifications/ HTTP/1.1" 404 3675
+[23/Jul/2026 10:40:16] "GET /dashboard/ HTTP/1.1" 200 37348
+[23/Jul/2026 10:40:16] "GET /estoque/ HTTP/1.1" 200 835308
+Not Found: /ws/notifications/
+[23/Jul/2026 10:40:16] "GET /ws/notifications/ HTTP/1.1" 404 3675
+[23/Jul/2026 10:40:21] "POST /accounts/logout/ HTTP/1.1" 302 0
+[23/Jul/2026 10:40:21] "GET /accounts/login/ HTTP/1.1" 200 11803

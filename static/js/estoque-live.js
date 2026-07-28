@@ -21,6 +21,31 @@
     return Math.max(4, Math.round((Number(value || 0) / Number(total)) * 100));
   }
 
+  function formatSyncLabel(updatedAt) {
+    if (!(updatedAt instanceof Date) || Number.isNaN(updatedAt.getTime())) {
+      return 'agora';
+    }
+
+    const elapsedMs = Math.max(0, Date.now() - updatedAt.getTime());
+    const elapsedSeconds = Math.round(elapsedMs / 1000);
+    if (elapsedSeconds < 30) {
+      return 'agora';
+    }
+
+    const elapsedMinutes = Math.round(elapsedSeconds / 60);
+    if (elapsedMinutes < 60) {
+      return `há ${elapsedMinutes} min`;
+    }
+
+    const elapsedHours = Math.round(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+      return `há ${elapsedHours} h`;
+    }
+
+    const elapsedDays = Math.round(elapsedHours / 24);
+    return `há ${elapsedDays} d`;
+  }
+
   function updateCounters(data) {
     const totals = data.totais || {};
     document.querySelectorAll('[data-live-total]').forEach((element) => {
@@ -30,12 +55,18 @@
       }
     });
 
-    const updatedAt = data.updated_at || 'agora';
+    const updatedAtRaw = data.updated_at_iso || data.updated_at;
+    const updatedAt = updatedAtRaw ? new Date(updatedAtRaw) : null;
+    const updatedAtLabel = formatSyncLabel(updatedAt);
+    const updatedAtTitle = data.updated_at_display || data.updated_at || '';
     const updatedTargets = ['estoque-updated-at', 'estoque-updated-at-inline'];
     updatedTargets.forEach((id) => {
       const element = document.getElementById(id);
       if (element) {
-        element.textContent = updatedAt;
+        element.textContent = updatedAtLabel;
+        if (updatedAtTitle) {
+          element.setAttribute('title', `Última sincronização: ${updatedAtTitle}`);
+        }
       }
     });
   }

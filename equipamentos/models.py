@@ -35,6 +35,7 @@ class StatusEquipamento(models.TextChoices):
     EM_ESTOQUE = 'em_estoque', 'Em estoque'
     EM_USO = 'em_uso', 'Em uso'
     EM_MANUTENCAO = 'em_manutencao', 'Em manutenção'
+    RESERVADO = 'reservado', 'Reservado'
     DESCARTADO = 'descartado', 'Descartado'
     AGUARDANDO_APROVACAO = 'aguardando', 'Aguardando aprovação'
 
@@ -223,23 +224,23 @@ class Equipamento(models.Model):
         self.qr_code.save(f'qr_{self.id_patrimonio}.png', ContentFile(buffer.getvalue()), save=False)
 
     def get_historico(self):
-        historico = []
-        for movimento in self.movimentacoes.select_related('realizado_por').order_by('-created_at'):
-            historico.append(
-                {
-                    'tipo': movimento.get_tipo_display(),
-                    'descricao': movimento.descricao,
-                    'usuario': str(movimento.realizado_por) if movimento.realizado_por else '-',
-                    'data': movimento.created_at,
-                    'icon': movimento.get_icon(),
-                }
-            )
-        return historico
+        return [
+            {
+                'tipo': movimento.get_tipo_display(),
+                'descricao': movimento.descricao,
+                'usuario': str(movimento.realizado_por) if movimento.realizado_por else '-',
+                'data': movimento.created_at,
+                'icon': movimento.get_icon(),
+            }
+            for movimento in self.movimentacoes.select_related('realizado_por').order_by('-created_at')
+        ]
 
 
 class MovimentacaoEquipamento(models.Model):
     TIPOS = [
         ('entrada', 'Entrada em estoque'),
+        ('reserva', 'Reserva de estoque'),
+        ('liberacao_reserva', 'Liberação de reserva'),
         ('saida', 'Saída para usuário'),
         ('devolucao', 'Devolução ao estoque'),
         ('manutencao', 'Envio para manutenção'),

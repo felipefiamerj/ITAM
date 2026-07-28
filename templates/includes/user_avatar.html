@@ -1,0 +1,9 @@
+{% with initials=user.matricula|slice:":2"|upper %}
+  {% if user and user.foto %}
+    <span class="user-avatar {{ avatar_class|default:'' }}">
+      <img src="{{ user.foto.url }}" alt="Foto de {{ user.nome_completo }}" class="user-avatar-image" loading="lazy">
+    </span>
+  {% else %}
+    <span class="user-avatar user-avatar-fallback {{ avatar_class|default:'' }}">{{ initials }}</span>
+  {% endif %}
+{% endwith %}

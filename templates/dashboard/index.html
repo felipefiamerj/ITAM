@@ -20,6 +20,12 @@
       <a href="{% url 'equipamentos' %}" class="btn btn-light">
         <i class="fa-solid fa-boxes-stacked me-1"></i>Equipamentos
       </a>
+      <a href="{% url 'painel_tecnico' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-screwdriver-wrench me-1"></i>Painel operacional
+      </a>
+      <a href="{% url 'estoque' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-warehouse me-1"></i>Estoque
+      </a>
       <a href="{% url 'busca_global' %}" class="btn btn-outline-light">
         <i class="fa-solid fa-magnifying-glass me-1"></i>Busca global
       </a>
@@ -37,6 +43,80 @@
     </div>
   </div>
 </section>
+
+{% if dashboard_focus_action %}
+<section class="mb-4">
+  <div class="dashboard-focus-shell" data-focus-tone="{{ dashboard_focus_action.tone }}">
+    <div class="dashboard-focus-tabs">
+      {% for action in dashboard_actions|slice:":3" %}
+        <a
+          class="dashboard-focus-tab{% if action.key == dashboard_focus_action.key %} is-active{% endif %}"
+          href="{{ action.url }}"
+        >
+          <i class="fa-solid {{ action.icon }}" aria-hidden="true"></i>
+          <span>{{ action.label }}</span>
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="dashboard-focus-panel">
+      <div class="dashboard-focus-topline">
+        <div>
+          <div class="dashboard-focus-eyebrow">
+            <i class="fa-solid {{ dashboard_focus_action.icon }}" aria-hidden="true"></i>
+            Ação imediata
+          </div>
+          <h2 class="h3 mb-2">{{ dashboard_focus_action.label }}</h2>
+          <p class="dashboard-focus-text">{{ dashboard_focus_action.description }}</p>
+        </div>
+        <div class="dashboard-focus-live">
+          <span class="live-dot"></span>
+          <span>Prioridade atual</span>
+        </div>
+      </div>
+
+      <div class="dashboard-focus-metric-grid">
+        <div class="dashboard-focus-metric">
+          <span>Pendências deste foco</span>
+          <strong>{{ dashboard_focus_action.count }}</strong>
+        </div>
+        <div class="dashboard-focus-metric">
+          <span>Total monitorado</span>
+          <strong>{{ dashboard_focus_total }}</strong>
+        </div>
+      </div>
+
+      <div class="dashboard-focus-progress-block">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+          <span class="dashboard-focus-eyebrow mb-0">Peso no painel</span>
+          <strong>{% widthratio dashboard_focus_action.count dashboard_focus_total_safe 100 %}%</strong>
+        </div>
+        <div class="dashboard-focus-progress">
+          <div
+            class="progress-bar"
+            role="progressbar"
+            style="width: {% widthratio dashboard_focus_action.count dashboard_focus_total_safe 100 %}%"
+            aria-valuenow="{% widthratio dashboard_focus_action.count dashboard_focus_total_safe 100 %}"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          ></div>
+        </div>
+      </div>
+
+      <div class="dashboard-focus-actions">
+        <div class="dashboard-focus-note mb-0">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          <span>O painel destaca automaticamente a primeira fila com pendência para acelerar a decisão operacional.</span>
+        </div>
+        <a class="btn btn-light" href="{{ dashboard_focus_action.url }}">
+          <i class="fa-solid fa-arrow-up-right-from-square me-1" aria-hidden="true"></i>Abrir agora
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 
 <section class="dashboard-stats mb-4">
   <div class="dashboard-stats-head">
@@ -108,6 +188,17 @@
       </div>
       <div class="label">Chamados críticos</div>
       <div class="value">{{ chamados_criticos }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-xl-3">
+    <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+      <div class="dashboard-stat-head">
+        <span class="dashboard-stat-icon"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+        <span class="dashboard-stat-tag">SLA</span>
+      </div>
+      <div class="label">Em risco</div>
+      <div class="value">{{ chamados_sla_risco }}</div>
+      <div class="small text-white-50">{{ chamados_sla_alerta }} em alerta · {{ chamados_sla_escalado }} escalados</div>
     </div>
   </div>
   <div class="col-md-4 col-xl-3">
@@ -433,5 +524,4 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="{% static 'js/dashboard-charts.js' %}"></script>
 {% endblock %}
-
 
