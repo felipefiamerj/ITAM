@@ -19,7 +19,11 @@ GIF_1X1 = (
 )
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', ITAM_ADMIN_EMAILS=[])
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    ITAM_ADMIN_EMAILS=[],
+    SITE_URL='https://itam.example.com',
+)
 class AccountActivationFlowTests(TestCase):
     def setUp(self):
         self.admin = Usuario.objects.create_superuser(
@@ -63,7 +67,7 @@ class AccountActivationFlowTests(TestCase):
         self.assertRedirects(response, reverse('usuarios_pendentes'))
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('accounts/ativar/', mail.outbox[0].body)
-        self.assertNotIn('127.0.0.1', mail.outbox[0].body)
+        self.assertIn('https://itam.example.com/accounts/ativar/', mail.outbox[0].body)
 
         self.pending.refresh_from_db()
         self.assertTrue(self.pending.ativo)
