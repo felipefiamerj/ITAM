@@ -1,11 +1,12 @@
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
-from django.db.models import Q
+
+from itam.api_auth import api_auth_required
 
 from .models import Usuario
-from itam.api_auth import api_auth_required
 
 
 def _serialize_usuario(usuario):

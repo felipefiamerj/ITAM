@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Chamado, ChamadoItemSolicitado
+from .models import Chamado, ChamadoFluxoEvento, ChamadoItemSolicitado, TermoAceiteDigital
 
 
 @admin.register(Chamado)
@@ -70,3 +70,56 @@ class ChamadoItemSolicitadoAdmin(admin.ModelAdmin):
     @admin.display(description='Tipo')
     def tipo_display_admin(self, obj):
         return obj.tipo_display
+
+
+@admin.register(ChamadoFluxoEvento)
+class ChamadoFluxoEventoAdmin(admin.ModelAdmin):
+    list_display = [
+        'chamado',
+        'etapa_anterior',
+        'etapa_nova',
+        'status_anterior',
+        'status_novo',
+        'usuario',
+        'sla_alertado_em',
+        'sla_escalado_em',
+        'criado_em',
+    ]
+    list_filter = ['etapa_nova', 'status_novo', 'sla_alertado_em', 'sla_escalado_em', 'criado_em']
+    search_fields = ['chamado__titulo', 'chamado__solicitante__matricula', 'chamado__destinatario__matricula', 'observacao']
+    raw_id_fields = ['chamado', 'usuario']
+    readonly_fields = [
+        'chamado',
+        'etapa_anterior',
+        'etapa_nova',
+        'status_anterior',
+        'status_novo',
+        'usuario',
+        'observacao',
+        'sla_alertado_em',
+        'sla_escalado_em',
+        'criado_em',
+    ]
+    date_hierarchy = 'criado_em'
+
+
+@admin.register(TermoAceiteDigital)
+class TermoAceiteDigitalAdmin(admin.ModelAdmin):
+    list_display = ['chamado', 'status', 'nome_assinante', 'matricula_assinante', 'expires_at', 'enviado_em', 'assinado_em', 'documento_hash_curto']
+    list_filter = ['status', 'email_enviado', 'expires_at', 'enviado_em', 'assinado_em', 'created_at']
+    search_fields = ['chamado__titulo', 'nome_assinante', 'matricula_assinante', 'documento_hash']
+    raw_id_fields = ['chamado', 'assinado_por', 'enviado_por']
+    readonly_fields = [
+        'token',
+        'documento_hash',
+        'assinatura_data_url',
+        'envio_total',
+        'email_enviado',
+        'email_destino',
+        'ip_assinatura',
+        'user_agent',
+        'enviado_em',
+        'assinado_em',
+        'created_at',
+        'updated_at',
+    ]

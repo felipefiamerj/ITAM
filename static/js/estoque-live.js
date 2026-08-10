@@ -96,13 +96,13 @@
             </div>
             <div class="location-bars mt-3">
               <div class="location-bar">
-                <span class="location-bar-fill location-bar-fill-uso" style="width:${getBarWidth(item.em_uso, total)}%"></span>
+                <span class="location-bar-fill location-bar-fill-uso" data-progress-value="${getBarWidth(item.em_uso, total)}"></span>
               </div>
               <div class="location-bar">
-                <span class="location-bar-fill location-bar-fill-estoque" style="width:${getBarWidth(item.em_estoque, total)}%"></span>
+                <span class="location-bar-fill location-bar-fill-estoque" data-progress-value="${getBarWidth(item.em_estoque, total)}"></span>
               </div>
               <div class="location-bar">
-                <span class="location-bar-fill location-bar-fill-manutencao" style="width:${getBarWidth(item.em_manutencao, total)}%"></span>
+                <span class="location-bar-fill location-bar-fill-manutencao" data-progress-value="${getBarWidth(item.em_manutencao, total)}"></span>
               </div>
             </div>
             <div class="small text-muted mt-2">
@@ -112,6 +112,7 @@
         `;
       })
       .join('');
+    window.ItamUI?.applyProgressValues(container);
   }
 
   function renderLocations(items) {

@@ -7,6 +7,16 @@ from chamados.models import Chamado
 from .models import Equipamento, MovimentacaoEquipamento, TipoEquipamento
 
 
+def _aplicar_estilo_campos(form):
+    for field in form.fields.values():
+        if isinstance(field.widget, forms.Select):
+            field.widget.attrs['class'] = 'form-select'
+        elif isinstance(field.widget, forms.Textarea):
+            field.widget.attrs['class'] = 'form-control'
+        else:
+            field.widget.attrs.setdefault('class', 'form-control')
+
+
 class EquipamentoForm(forms.ModelForm):
     class Meta:
         model = Equipamento
@@ -43,16 +53,7 @@ class EquipamentoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['responsavel'].queryset = Usuario.objects.filter(ativo=True).order_by('first_name', 'last_name')
-        self._style_fields()
-
-    def _style_fields(self):
-        for field in self.fields.values():
-            if isinstance(field.widget, forms.Select):
-                field.widget.attrs['class'] = 'form-select'
-            elif isinstance(field.widget, forms.Textarea):
-                field.widget.attrs['class'] = 'form-control'
-            else:
-                field.widget.attrs.setdefault('class', 'form-control')
+        _aplicar_estilo_campos(self)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -82,16 +83,7 @@ class MovimentacaoEquipamentoForm(forms.ModelForm):
         self.fields['usuario_anterior'].queryset = Usuario.objects.filter(ativo=True).order_by('first_name', 'last_name')
         self.fields['usuario_novo'].queryset = Usuario.objects.filter(ativo=True).order_by('first_name', 'last_name')
         self.fields['chamado'].queryset = Chamado.objects.select_related('equipamento').order_by('-created_at')
-        self._style_fields()
-
-    def _style_fields(self):
-        for field in self.fields.values():
-            if isinstance(field.widget, forms.Select):
-                field.widget.attrs['class'] = 'form-select'
-            elif isinstance(field.widget, forms.Textarea):
-                field.widget.attrs['class'] = 'form-control'
-            else:
-                field.widget.attrs.setdefault('class', 'form-control')
+        _aplicar_estilo_campos(self)
 
     def clean(self):
         cleaned_data = super().clean()

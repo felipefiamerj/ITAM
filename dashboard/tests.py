@@ -1,17 +1,43 @@
+import shutil
+import tempfile
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
-import shutil
-import tempfile
-
-from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.core.management import CommandError, call_command
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import NivelAcesso, Usuario
 from chamados.models import Chamado, StatusChamado
 from equipamentos.models import EntradaLote, Equipamento, StatusEquipamento
+from itam.settings import _database_config_from_url, config
+
+
+class SettingsParsingTests(SimpleTestCase):
+    def test_database_url_postgresql(self):
+        config = _database_config_from_url('postgresql://itam:senha@db.local:5432/itam?sslmode=require')
+
+        self.assertEqual(config['ENGINE'], 'django.db.backends.postgresql')
+        self.assertEqual(config['NAME'], 'itam')
+        self.assertEqual(config['USER'], 'itam')
+        self.assertEqual(config['PASSWORD'], 'senha')
+        self.assertEqual(config['HOST'], 'db.local')
+        self.assertEqual(config['PORT'], '5432')
+        self.assertEqual(config['OPTIONS']['sslmode'], 'require')
+
+    def test_database_url_sqlite_relativo(self):
+        config = _database_config_from_url('sqlite:///db.sqlite3')
+
+        self.assertEqual(config['ENGINE'], 'django.db.backends.sqlite3')
+        self.assertTrue(str(config['NAME']).endswith('db.sqlite3'))
+
+    def test_bool_config_ignora_env_invalido_e_usa_dotenv(self):
+        with (
+            patch.dict('os.environ', {'DEBUG': 'release'}),
+            patch.dict('itam.settings.DOTENV_VALUES', {'DEBUG': 'True'}, clear=True),
+        ):
+            self.assertIs(config('DEBUG', default=False, cast=bool), True)
 
 
 class BuscaGlobalTests(TestCase):
@@ -145,7 +171,7 @@ class BuscaGlobalTests(TestCase):
         response = self.client.get(reverse('dashboard'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Painel operacional')
+        self.assertContains(response, 'Fila operacional')
         self.assertContains(response, 'Fila de execução e entrega em um único lugar.')
         self.assertContains(response, 'Lista completa')
         self.assertIsNotNone(response.context[-1].get('painel_total'))
@@ -266,6 +292,39 @@ class BuscaGlobalTests(TestCase):
         self.assertEqual(payload['relatorios']['equipamentos_alerta'], 1)
         self.assertTrue(payload['atividade_recente'] is not None)
 
+    def test_openapi_schema_disponivel_para_usuario_autenticado(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('api_schema'))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['openapi'], '3.1.0')
+        self.assertIn('/api/equipamentos/', payload['paths'])
+        self.assertIn('ApiKeyAuth', payload['components']['securitySchemes'])
+
+    def test_base_usa_assets_locais_sem_cdn(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '/static/vendor/bootstrap/5.3.3/css/bootstrap.min.css')
+        self.assertContains(response, '/static/vendor/fontawesome/6.5.2/css/all.min.css')
+        self.assertContains(response, '/static/vendor/google-fonts/inter-sora/inter-sora.css')
+        self.assertNotContains(response, 'https://cdn.jsdelivr.net')
+        self.assertNotContains(response, 'https://cdnjs.cloudflare.com')
+        self.assertNotContains(response, 'https://fonts.googleapis.com')
+
+    def test_healthcheck_publico_confirma_dependencias_basicas(self):
+        response = self.client.get(reverse('health'))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertTrue(payload['checks']['database']['ok'])
+        self.assertTrue(payload['checks']['cache']['ok'])
+
     def test_busca_global_api_limita_solicitante_ao_modulo_de_chamados(self):
         self._criar_equipamento('PAT-LIMIT-01')
         Chamado.objects.create(
@@ -305,3 +364,46 @@ class BuscaGlobalTests(TestCase):
 
         self.assertIn('Ambiente pronto para instalacao.', saida.getvalue())
         cliente.ping.assert_called_once()
+
+    @patch('dashboard.management.commands.verificar_instalacao.redis.from_url')
+    @override_settings(
+        DJANGO_ENV='production',
+        DEBUG=False,
+        SECRET_KEY='django-insecure-short',
+        REDIS_URL='redis://127.0.0.1:6379/0',
+        ALLOWED_HOSTS=['itam.example.com'],
+        SITE_URL='https://itam.example.com',
+        SECURE_SSL_REDIRECT=True,
+        SECURE_HSTS_SECONDS=31536000,
+        SESSION_COOKIE_SECURE=True,
+        CSRF_COOKIE_SECURE=True,
+    )
+    def test_verificar_instalacao_rejeita_secret_key_fraca_em_producao(self, mock_from_url):
+        cliente = MagicMock()
+        cliente.ping.return_value = True
+        mock_from_url.return_value = cliente
+
+        with self.assertRaisesMessage(CommandError, 'SECRET_KEY precisa ser longa'):
+            call_command('verificar_instalacao', stdout=StringIO())
+
+    @patch('dashboard.management.commands.verificar_instalacao.redis.from_url')
+    @override_settings(
+        DJANGO_ENV='production',
+        DEBUG=False,
+        SECRET_KEY='FIAME-production-check-secret-with-more-than-fifty-characters',
+        REDIS_URL='redis://127.0.0.1:6379/0',
+        ALLOWED_HOSTS=['itam.example.com'],
+        SITE_URL='https://itam.example.com',
+        SECURE_SSL_REDIRECT=True,
+        SECURE_HSTS_SECONDS=31536000,
+        SESSION_COOKIE_SECURE=True,
+        CSRF_COOKIE_SECURE=True,
+        EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend',
+    )
+    def test_verificar_instalacao_rejeita_email_console_em_producao(self, mock_from_url):
+        cliente = MagicMock()
+        cliente.ping.return_value = True
+        mock_from_url.return_value = cliente
+
+        with self.assertRaisesMessage(CommandError, 'EMAIL_BACKEND esta em console'):
+            call_command('verificar_instalacao', stdout=StringIO())

@@ -1,0 +1,144 @@
+<div class="row g-4 mb-4">
+  <div class="col-xl-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Distribuição por site</div>
+            <h2 class="h5 mb-0">Mapa do parque</h2>
+          </div>
+          <div class="small text-muted">Atualizado em <span id="estoque-updated-at-inline">agora</span></div>
+        </div>
+        <div id="estoque-sites-list" class="stock-stack app-scroll-area app-scroll-area-lg" role="region" aria-label="Distribuição de equipamentos por site">
+          {% for item in resumo_por_site %}
+            <article class="location-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ item.site|default:"Sem site" }}</strong>
+                  <div class="small text-muted">{{ item.total }} equipamentos</div>
+                </div>
+                <span class="badge badge-soft">{{ item.total }}</span>
+              </div>
+              <div class="location-bars mt-3" aria-hidden="true">
+                <div class="location-bar">
+                  <span class="location-bar-fill location-bar-fill-uso" data-progress-value="{% widthratio item.em_uso item.total 100 %}"></span>
+                </div>
+                <div class="location-bar">
+                  <span class="location-bar-fill location-bar-fill-estoque" data-progress-value="{% widthratio item.em_estoque item.total 100 %}"></span>
+                </div>
+                <div class="location-bar">
+                  <span class="location-bar-fill location-bar-fill-manutencao" data-progress-value="{% widthratio item.em_manutencao item.total 100 %}"></span>
+                </div>
+              </div>
+              <div class="small text-muted mt-2">
+                Em uso {{ item.em_uso }} · Em estoque {{ item.em_estoque }} · Manutenção {{ item.em_manutencao }} · Descartados {{ item.descartado }}
+              </div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Sem dados de localização ainda.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Últimos lotes</div>
+        <div id="estoque-lotes-list" class="stack-list app-scroll-area app-scroll-area-md" role="region" aria-label="Últimos lotes importados">
+          {% for lote in lotes %}
+            <article class="list-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ lote.descricao|default:"-" }}</strong>
+                  <div class="small text-muted">{{ lote.created_at|date:"d/m/Y H:i" }}</div>
+                </div>
+                <span class="badge badge-soft">{{ lote.get_status_display }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ lote.itens_importados }}/{{ lote.total_itens }} importados</div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Nenhum lote cadastrado.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Localizações</div>
+            <h2 class="h5 mb-0">Detalhe por região</h2>
+          </div>
+          <span class="badge badge-soft">Top {{ resumo_por_localizacao|length }}</span>
+        </div>
+        <div class="table-responsive app-scroll-area app-scroll-area-lg" role="region" aria-label="Detalhe do estoque por localização">
+          <table class="table table-sm align-middle mb-0">
+            <caption class="visually-hidden">Resumo de equipamentos por localização</caption>
+            <thead>
+              <tr>
+                <th scope="col">Localização</th>
+                <th scope="col">Total</th>
+                <th scope="col">Em uso</th>
+                <th scope="col">Em estoque</th>
+                <th scope="col">Manut.</th>
+              </tr>
+            </thead>
+            <tbody id="estoque-localizacoes-list">
+              {% for item in resumo_por_localizacao %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{{ item.site|default:"Sem site" }}</div>
+                    <div class="small text-muted">{{ item.setor|default:"Sem setor" }} · {{ item.andar_sala|default:"Sem andar/sala" }}</div>
+                  </td>
+                  <td>{{ item.total }}</td>
+                  <td>{{ item.em_uso }}</td>
+                  <td>{{ item.em_estoque }}</td>
+                  <td>{{ item.em_manutencao }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-muted">Sem localizações registradas.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Alertas</div>
+            <h2 class="h5 mb-0">Itens com score baixo</h2>
+          </div>
+          <span class="badge badge-soft">{{ equipamentos_alerta_total }}</span>
+        </div>
+        <div id="estoque-alertas-list" class="stack-list app-scroll-area app-scroll-area-md" role="region" aria-label="Equipamentos com alerta de saúde">
+          {% for equipamento in equipamentos_alerta %}
+            <article class="list-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong><a href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a></strong>
+                  <div class="small text-muted">{{ equipamento.tipo_display }} · {{ equipamento.localizacao_resumida }}</div>
+                </div>
+                <span class="badge badge-soft">{{ equipamento.score_saude|floatformat:0 }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ equipamento.get_status_display }}</div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Nenhum alerta de saúde no momento.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,73 @@
+{% if dashboard_focus_action %}
+  <section class="mb-4" aria-labelledby="dashboard-focus-title">
+    <div class="dashboard-focus-shell" data-focus-tone="{{ dashboard_focus_action.tone }}">
+      <div class="dashboard-focus-tabs" aria-label="Ações prioritárias do dashboard">
+        {% for action in dashboard_actions|slice:":3" %}
+          <a
+            class="dashboard-focus-tab{% if action.key == dashboard_focus_action.key %} is-active{% endif %}"
+            href="{{ action.url }}"
+            {% if action.key == dashboard_focus_action.key %}aria-current="true"{% endif %}
+          >
+            <i class="fa-solid {{ action.icon }}" aria-hidden="true"></i>
+            <span>{{ action.label }}</span>
+          </a>
+        {% endfor %}
+      </div>
+
+      <div class="dashboard-focus-panel">
+        <div class="dashboard-focus-topline">
+          <div>
+            <div class="dashboard-focus-eyebrow">
+              <i class="fa-solid {{ dashboard_focus_action.icon }}" aria-hidden="true"></i>
+              Ação imediata
+            </div>
+            <h2 id="dashboard-focus-title" class="h3 mb-2">{{ dashboard_focus_action.label }}</h2>
+            <p class="dashboard-focus-text">{{ dashboard_focus_action.description }}</p>
+          </div>
+          <div class="dashboard-focus-live" aria-live="polite">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span>Prioridade atual</span>
+          </div>
+        </div>
+
+        <div class="dashboard-focus-metric-grid">
+          <div class="dashboard-focus-metric">
+            <span>Pendências deste foco</span>
+            <strong>{{ dashboard_focus_action.count }}</strong>
+          </div>
+          <div class="dashboard-focus-metric">
+            <span>Total monitorado</span>
+            <strong>{{ dashboard_focus_total }}</strong>
+          </div>
+        </div>
+
+        <div class="dashboard-focus-progress-block">
+          <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <span class="dashboard-focus-eyebrow mb-0">Peso no painel</span>
+            <strong>{% widthratio dashboard_focus_action.count dashboard_focus_total_safe 100 %}%</strong>
+          </div>
+          <div class="dashboard-focus-progress">
+            <div
+              class="progress-bar"
+              role="progressbar"
+              aria-label="Peso de {{ dashboard_focus_action.label }} no painel"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              data-progress-value="{% widthratio dashboard_focus_action.count dashboard_focus_total_safe 100 %}"
+            ></div>
+          </div>
+        </div>
+
+        <div class="dashboard-focus-actions">
+          <div class="dashboard-focus-note mb-0">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <span>O painel destaca automaticamente a primeira fila com pendência para acelerar a decisão operacional.</span>
+          </div>
+          <a class="btn btn-light" href="{{ dashboard_focus_action.url }}">
+            <i class="fa-solid fa-arrow-up-right-from-square me-1" aria-hidden="true"></i>Abrir agora
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endif %}

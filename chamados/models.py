@@ -1,10 +1,12 @@
+import uuid
 from datetime import timedelta
 
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_save, pre_save
 from django.utils import timezone
 
-from auditlog.registry import auditlog
 from equipamentos.models import TipoEquipamento
 
 
@@ -108,6 +110,16 @@ class SLANivel(models.TextChoices):
     NORMAL = 'normal', 'Dentro do prazo'
     ALERTA = 'alerta', 'Em alerta'
     ESCALADO = 'escalado', 'Escalonado'
+
+
+class StatusTermoAceite(models.TextChoices):
+    PENDENTE = 'pendente', 'Pendente'
+    ASSINADO = 'assinado', 'Assinado'
+
+
+def termo_aceite_expires_at():
+    dias = max(1, int(getattr(settings, 'ITAM_TERMO_ASSINATURA_VALIDADE_DIAS', 7) or 7))
+    return timezone.now() + timedelta(days=dias)
 
 
 SLA_PRAZOS_MINUTOS = {
@@ -287,16 +299,32 @@ class Chamado(models.Model):
 
     @property
     def itens_solicitados_resumo(self):
-        itens = list(self.itens_solicitados.all().order_by('id'))
-        if not itens:
+        grupos = self._itens_solicitados_agrupados()
+        if not grupos:
             if self.tipo_equipamento_solicitado:
                 return self.get_tipo_equipamento_solicitado_display()
             return '-'
 
-        labels = [item.tipo_display for item in itens]
+        labels = [
+            f"{grupo['label']} x{grupo['quantidade']}" if grupo['quantidade'] != 1 else grupo['label']
+            for grupo in grupos
+        ]
         if len(labels) <= 3:
             return ', '.join(labels)
         return f'{", ".join(labels[:3])} +{len(labels) - 3}'
+
+    def _itens_solicitados_agrupados(self):
+        grupos = {}
+        for item in self.itens_solicitados.all().order_by('id'):
+            key = (item.tipo_equipamento, item.tipo_outro, item.observacao)
+            if key not in grupos:
+                grupos[key] = {
+                    'label': item.tipo_display,
+                    'quantidade': 0,
+                    'observacao': item.observacao,
+                }
+            grupos[key]['quantidade'] += item.quantidade or 1
+        return list(grupos.values())
 
     def fechar(self):
         return self.encerrar()
@@ -325,10 +353,10 @@ class Chamado(models.Model):
 
     def itens_solicitados_texto_formatado(self):
         linhas = []
-        for item in self.itens_solicitados.all().order_by('id'):
-            linha = f'{item.tipo_display}; {item.quantidade}'
-            if item.observacao:
-                linha = f'{linha}; {item.observacao}'
+        for grupo in self._itens_solicitados_agrupados():
+            linha = f"{grupo['label']}; {grupo['quantidade']}"
+            if grupo['observacao']:
+                linha = f"{linha}; {grupo['observacao']}"
             linhas.append(linha)
         return '\n'.join(linhas)
 
@@ -395,6 +423,126 @@ class Chamado(models.Model):
         return self.aprovado_por.nome_completo
 
 
+class ChamadoFluxoEvento(models.Model):
+    chamado = models.ForeignKey(
+        Chamado,
+        on_delete=models.CASCADE,
+        related_name='fluxo_eventos',
+        verbose_name='Chamado',
+    )
+    etapa_anterior = models.CharField('Etapa anterior', max_length=40, choices=EtapaFluxoChamado.choices, blank=True, default='')
+    etapa_nova = models.CharField('Nova etapa', max_length=40, choices=EtapaFluxoChamado.choices)
+    status_anterior = models.CharField('Status anterior', max_length=30, choices=StatusChamado.choices, blank=True, default='')
+    status_novo = models.CharField('Novo status', max_length=30, choices=StatusChamado.choices)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='eventos_fluxo_chamados',
+        verbose_name='Usuario da acao',
+    )
+    observacao = models.CharField('Observacao', max_length=160, blank=True)
+    sla_alertado_em = models.DateTimeField('SLA da etapa alertado em', null=True, blank=True)
+    sla_escalado_em = models.DateTimeField('SLA da etapa escalado em', null=True, blank=True)
+    criado_em = models.DateTimeField('Criado em', default=timezone.now, db_index=True)
+
+    class Meta:
+        verbose_name = 'Evento de fluxo do chamado'
+        verbose_name_plural = 'Eventos de fluxo dos chamados'
+        ordering = ['criado_em', 'id']
+        indexes = [
+            models.Index(fields=['chamado', 'criado_em']),
+            models.Index(fields=['etapa_nova', 'criado_em']),
+        ]
+
+    def __str__(self):
+        return f'Chamado #{self.chamado_id}: {self.etapa_anterior_label} -> {self.etapa_nova_label}'
+
+    @property
+    def etapa_anterior_label(self):
+        if not self.etapa_anterior:
+            return 'Inicio'
+        return dict(EtapaFluxoChamado.choices).get(self.etapa_anterior, self.etapa_anterior)
+
+    @property
+    def etapa_nova_label(self):
+        return dict(EtapaFluxoChamado.choices).get(self.etapa_nova, self.etapa_nova)
+
+    @property
+    def status_anterior_label(self):
+        if not self.status_anterior:
+            return '-'
+        return dict(StatusChamado.choices).get(self.status_anterior, self.status_anterior)
+
+    @property
+    def status_novo_label(self):
+        return dict(StatusChamado.choices).get(self.status_novo, self.status_novo)
+
+
+def _usuario_evento_fluxo(instance):
+    usuario = getattr(instance, '_fluxo_evento_usuario', None)
+    if usuario and getattr(usuario, 'is_authenticated', True):
+        return usuario
+    return None
+
+
+def _observacao_evento_fluxo(instance):
+    return (getattr(instance, '_fluxo_evento_observacao', '') or '')[:160]
+
+
+def _limpar_contexto_evento_fluxo(instance):
+    for attr in ('_fluxo_estado_anterior', '_fluxo_evento_usuario', '_fluxo_evento_observacao'):
+        if hasattr(instance, attr):
+            delattr(instance, attr)
+
+
+def _snapshot_fluxo(instance):
+    return {
+        'status': instance.status or '',
+        'fluxo_etapa': instance.fluxo_etapa or '',
+    }
+
+
+def _criar_evento_fluxo_chamado(instance, anterior):
+    atual = _snapshot_fluxo(instance)
+    if anterior and anterior == atual:
+        return
+    ChamadoFluxoEvento.objects.create(
+        chamado=instance,
+        etapa_anterior=(anterior or {}).get('fluxo_etapa', ''),
+        etapa_nova=atual['fluxo_etapa'],
+        status_anterior=(anterior or {}).get('status', ''),
+        status_novo=atual['status'],
+        usuario=_usuario_evento_fluxo(instance),
+        observacao=_observacao_evento_fluxo(instance),
+    )
+
+
+def _preparar_snapshot_fluxo(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._fluxo_estado_anterior = None
+        return
+    anterior = sender.objects.filter(pk=instance.pk).values('status', 'fluxo_etapa').first()
+    instance._fluxo_estado_anterior = {
+        'status': (anterior or {}).get('status', ''),
+        'fluxo_etapa': (anterior or {}).get('fluxo_etapa', ''),
+    }
+
+
+def _registrar_evento_fluxo(sender, instance, created, **kwargs):
+    try:
+        anterior = None if created else getattr(instance, '_fluxo_estado_anterior', None)
+        if created or anterior:
+            _criar_evento_fluxo_chamado(instance, anterior)
+    finally:
+        _limpar_contexto_evento_fluxo(instance)
+
+
+pre_save.connect(_preparar_snapshot_fluxo, sender=Chamado, dispatch_uid='chamados_preparar_snapshot_fluxo')
+post_save.connect(_registrar_evento_fluxo, sender=Chamado, dispatch_uid='chamados_registrar_evento_fluxo')
+
+
 class ChamadoItemSolicitado(models.Model):
     chamado = models.ForeignKey(Chamado, on_delete=models.CASCADE, related_name='itens_solicitados')
     tipo_equipamento = models.CharField(max_length=30, choices=TipoEquipamento.choices)
@@ -444,5 +592,110 @@ class ChamadoItemSolicitado(models.Model):
             return '-'
         return self.equipamento_entregue.id_patrimonio
 
+
+class TermoAceiteDigital(models.Model):
+    chamado = models.OneToOneField(
+        Chamado,
+        on_delete=models.CASCADE,
+        related_name='aceite_digital',
+        verbose_name='Chamado',
+    )
+    token = models.UUIDField('Token publico', default=uuid.uuid4, unique=True, db_index=True, editable=False)
+    status = models.CharField(
+        'Status',
+        max_length=20,
+        choices=StatusTermoAceite.choices,
+        default=StatusTermoAceite.PENDENTE,
+        db_index=True,
+    )
+    nome_assinante = models.CharField('Nome do assinante', max_length=150, blank=True)
+    matricula_assinante = models.CharField('Matricula do assinante', max_length=20, blank=True)
+    assinatura_data_url = models.TextField('Assinatura capturada', blank=True)
+    documento_hash = models.CharField('Hash SHA-256 do termo', max_length=64, blank=True, db_index=True)
+    expires_at = models.DateTimeField('Expira em', default=termo_aceite_expires_at, db_index=True)
+    enviado_em = models.DateTimeField('Enviado em', null=True, blank=True)
+    enviado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='termos_enviados',
+        verbose_name='Enviado por',
+    )
+    envio_total = models.PositiveIntegerField('Total de envios', default=0)
+    email_enviado = models.BooleanField('E-mail enviado', default=False)
+    email_destino = models.EmailField('E-mail de destino', blank=True, default='')
+    ip_assinatura = models.GenericIPAddressField('IP da assinatura', null=True, blank=True)
+    user_agent = models.CharField('User agent', max_length=255, blank=True)
+    assinado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='termos_assinados',
+        verbose_name='Assinado por',
+    )
+    assinado_em = models.DateTimeField('Assinado em', null=True, blank=True)
+    created_at = models.DateTimeField('Criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('Atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Aceite digital de termo'
+        verbose_name_plural = 'Aceites digitais de termos'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Termo #{self.chamado_id} - {self.get_status_display()}'
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at and not self.is_assinado:
+            self.expires_at = termo_aceite_expires_at()
+        super().save(*args, **kwargs)
+
+    @property
+    def is_assinado(self):
+        return self.status == StatusTermoAceite.ASSINADO
+
+    @property
+    def is_expirado(self):
+        return not self.is_assinado and bool(self.expires_at and timezone.now() > self.expires_at)
+
+    @property
+    def pode_assinar(self):
+        return not self.is_assinado and not self.is_expirado
+
+    @property
+    def status_operacional_label(self):
+        if self.is_assinado:
+            return 'Assinado'
+        if self.is_expirado:
+            return 'Expirado'
+        return 'Pendente'
+
+    @property
+    def documento_hash_curto(self):
+        if not self.documento_hash:
+            return '-'
+        return self.documento_hash[:12]
+
+    @property
+    def assinado_em_label(self):
+        if not self.assinado_em:
+            return '-'
+        return timezone.localtime(self.assinado_em).strftime('%d/%m/%Y %H:%M')
+
+    @property
+    def expires_at_label(self):
+        if not self.expires_at:
+            return '-'
+        return timezone.localtime(self.expires_at).strftime('%d/%m/%Y %H:%M')
+
+    @property
+    def enviado_em_label(self):
+        if not self.enviado_em:
+            return '-'
+        return timezone.localtime(self.enviado_em).strftime('%d/%m/%Y %H:%M')
+
 auditlog.register(Chamado, exclude_fields=['solucao'])
 auditlog.register(ChamadoItemSolicitado)
+auditlog.register(TermoAceiteDigital, exclude_fields=['assinatura_data_url'])

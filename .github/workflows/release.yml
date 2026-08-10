@@ -1,0 +1,100 @@
+name: Release Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release label
+        required: true
+        default: manual
+
+jobs:
+  build:
+    name: Build production artifact
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: itam_release
+          POSTGRES_USER: itam
+          POSTGRES_PASSWORD: itam
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itam -d itam_release"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_ENV: production
+      SECRET_KEY: FIAME-release-artifact-check-secret-with-more-than-fifty-characters
+      DEBUG: "False"
+      ALLOWED_HOSTS: itam.example.com
+      SITE_URL: https://itam.example.com
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: itam_release
+      DB_USER: itam
+      DB_PASSWORD: itam
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      REDIS_URL: redis://127.0.0.1:6379/0
+      CACHE_URL: redis://127.0.0.1:6379/1
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: smtp.example.com
+      EMAIL_HOST_USER: ci@example.com
+      EMAIL_HOST_PASSWORD: ci-placeholder
+      SECURE_SSL_REDIRECT: "True"
+      SECURE_HSTS_SECONDS: "31536000"
+      SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+      SECURE_HSTS_PRELOAD: "True"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Validate production settings
+        run: |
+          python manage.py check --deploy
+          python manage.py verificar_instalacao
+
+      - name: Check migrations
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Collect static assets
+        run: python manage.py collectstatic --noinput
+
+      - name: Build archives
+        run: |
+          git archive --format=zip --output itam-system-${{ inputs.version }}-source.zip HEAD
+          zip -r itam-system-${{ inputs.version }}-staticfiles.zip staticfiles
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: itam-system-${{ inputs.version }}
+          path: |
+            itam-system-${{ inputs.version }}-source.zip
+            itam-system-${{ inputs.version }}-staticfiles.zip

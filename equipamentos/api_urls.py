@@ -7,6 +7,7 @@ from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+from django_ratelimit.decorators import ratelimit
 
 from itam.api_auth import api_auth_required
 
@@ -158,6 +159,7 @@ def equipamento_api(request, id_patrimonio):
 
 
 @csrf_exempt
+@ratelimit(key='ip', rate='60/m', method='POST', block=True)
 @require_POST
 def telemetria_ingest_api(request):
     try:

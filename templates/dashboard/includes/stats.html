@@ -1,0 +1,106 @@
+<section class="dashboard-stats mb-4" aria-labelledby="dashboard-stats-title">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Painel ao vivo</div>
+      <h2 id="dashboard-stats-title" class="h6 mb-0">Indicadores principais</h2>
+    </div>
+    <div class="dashboard-stats-live" data-dashboard-live-indicator aria-live="polite">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span data-dashboard-live-text>Atualizado agora</span>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Inventário</span>
+        </div>
+        <div class="label">Total de equipamentos</div>
+        <div class="value">{{ total_equipamentos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Operação</span>
+        </div>
+        <div class="label">Em uso</div>
+        <div class="value">{{ equipamentos_em_uso }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-warehouse" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Estoque</span>
+        </div>
+        <div class="label">Em estoque</div>
+        <div class="value">{{ equipamentos_em_estoque }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Técnico</span>
+        </div>
+        <div class="label">Em manutenção</div>
+        <div class="value">{{ equipamentos_em_manutencao }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-rose h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-headset" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Suporte</span>
+        </div>
+        <div class="label">Chamados ativos</div>
+        <div class="value">{{ chamados_abertos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Prioridade</span>
+        </div>
+        <div class="label">Chamados críticos</div>
+        <div class="value">{{ chamados_criticos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">SLA</span>
+        </div>
+        <div class="label">Em risco</div>
+        <div class="value">{{ chamados_sla_risco }}</div>
+        <div class="small text-white-50">{{ chamados_sla_alerta }} em alerta · {{ chamados_sla_escalado }} escalados</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-violet h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-user-clock" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Governança</span>
+        </div>
+        <div class="label">Aprovações pendentes</div>
+        <div class="value">{{ usuarios_pendentes }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-teal h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">IA</span>
+        </div>
+        <div class="label">Alertas IA</div>
+        <div class="value">{{ equipamentos_alerta }}</div>
+      </div>
+    </div>
+  </div>
+</section>

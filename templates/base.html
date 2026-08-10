@@ -5,12 +5,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link href="{% static 'vendor/google-fonts/inter-sora/inter-sora.css' %}" rel="stylesheet" integrity="sha384-3hpYlQ6WYozj1BuQdxhXLdb0ZnX+UAtpirfAZyRiL5K/8H9GSE0a6dhZd4Ydq7Sh">
+  <link href="{% static 'vendor/fontawesome/6.5.2/css/all.min.css' %}" rel="stylesheet" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI">
+  <link href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.min.css' %}" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v={{ static_version }}">
 </head>
 <body
   class="{% block body_class %}app-page{% endblock %}"
@@ -20,11 +18,15 @@
   data-user-id="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}"
   data-notifications-ws-path="/ws/notifications/"
 >
-  <nav class="navbar navbar-expand-xl app-navbar navbar-dark">
+  <a class="skip-link" href="#main-content">Pular para o conteúdo principal</a>
+
+  <nav class="navbar navbar-expand-xl app-navbar navbar-dark" aria-label="Navegação principal">
     <div class="container-fluid app-shell-frame">
-      <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
-        <span class="brand-mark">{{ app_short_name|default:"ITAM" }}</span>
-        <span>{{ app_name }}</span>
+      <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'dashboard' %}">
+        <span class="brand-mark" aria-hidden="true">
+          <img class="brand-mark-img" src="{% static 'img/fiame-mark.svg' %}" alt="">
+        </span>
+        <span class="brand-name">{{ app_name }}</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Alternar navegação">
         <span class="navbar-toggler-icon"></span>
@@ -33,79 +35,23 @@
         {% with current=request.resolver_match.url_name %}
           <ul class="navbar-nav me-auto mb-2 mb-xl-0">
             {% if request.user.is_authenticated %}
-              {% if request.user.is_solicitante %}
-                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Portal</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
+              {% for item in navigation_items %}
                 <li class="nav-item">
-                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
-                    Notificações
-                    <span
-                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
-                      data-notification-badge
-                      data-notification-count="{{ notifications_unread_count|default:0 }}"
-                    >
-                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
-                    </span>
-                  </a>
+                  <a class="nav-link {% if current in item.active_routes %}active{% endif %}" href="{% url item.url_name %}">{{ item.label }}</a>
                 </li>
-              {% elif request.user.is_admin %}
-                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'painel_tecnico' %}active{% endif %}" href="{% url 'painel_tecnico' %}">Painel técnico</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">Estoque</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'relatorios' %}active{% endif %}" href="{% url 'relatorios' %}">Relatórios</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
-                <li class="nav-item">
-                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
-                    Notificações
-                    <span
-                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
-                      data-notification-badge
-                      data-notification-count="{{ notifications_unread_count|default:0 }}"
-                    >
-                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
-                    </span>
-                  </a>
-                </li>
-              {% elif request.user.is_analista %}
-                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Estoque</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'relatorios' %}active{% endif %}" href="{% url 'relatorios' %}">Relatórios</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
-                <li class="nav-item">
-                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
-                    Notificações
-                    <span
-                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
-                      data-notification-badge
-                      data-notification-count="{{ notifications_unread_count|default:0 }}"
-                    >
-                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
-                    </span>
-                  </a>
-                </li>
-              {% else %}
-                <li class="nav-item"><a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Painel</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'equipamentos' or current == 'detalhe_equipamento' or current == 'editar_equipamento' or current == 'criar_equipamento' %}active{% endif %}" href="{% url 'equipamentos' %}">Equipamentos</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'chamados' or current == 'detalhe_chamado' or current == 'editar_chamado' or current == 'criar_chamado' %}active{% endif %}" href="{% url 'chamados' %}">Chamados</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">Estoque</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'relatorios' %}active{% endif %}" href="{% url 'relatorios' %}">Relatórios</a></li>
-                <li class="nav-item"><a class="nav-link {% if current == 'ia' or current == 'ia_monitoramento' or current == 'ia_monitoring' %}active{% endif %}" href="{% url 'ia' %}">Copiloto IA</a></li>
-                <li class="nav-item">
-                  <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
-                    Notificações
-                    <span
-                      class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
-                      data-notification-badge
-                      data-notification-count="{{ notifications_unread_count|default:0 }}"
-                    >
-                      <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
-                    </span>
-                  </a>
-                </li>
-              {% endif %}
+              {% endfor %}
+              <li class="nav-item">
+                <a class="nav-link {% if current == 'notifications' %}active{% endif %}" href="{% url 'notifications' %}">
+                  Notificações
+                  <span
+                    class="badge rounded-pill text-bg-light text-dark ms-1 {% if not notifications_unread_count %}d-none{% endif %}"
+                    data-notification-badge
+                    data-notification-count="{{ notifications_unread_count|default:0 }}"
+                  >
+                    <span data-notification-badge-value>{{ notifications_unread_count|default:0 }}</span>
+                  </span>
+                </a>
+              </li>
             {% endif %}
           </ul>
 
@@ -189,7 +135,7 @@
     </div>
   </nav>
 
-  <main class="container-fluid app-shell-frame py-4 app-shell">
+  <main id="main-content" class="container-fluid app-shell-frame py-4 app-shell" tabindex="-1">
     {% if messages %}
       <div class="mb-4 message-stack">
         {% for message in messages %}
@@ -210,7 +156,7 @@
 
   <div class="notification-toast-stack" aria-live="polite" aria-atomic="true" data-notification-toast-stack></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{% static 'vendor/bootstrap/5.3.3/js/bootstrap.bundle.min.js' %}" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"></script>
   <script src="{% static 'js/app.js' %}"></script>
   {% block extra_scripts %}{% endblock %}
 </body>

@@ -6,6 +6,7 @@ from .views import (
     editar_equipamento,
     importar_equipamentos_csv_view,
     lista_equipamentos,
+    qr_equipamento_publico,
     registrar_movimentacao,
 )
 
@@ -13,6 +14,7 @@ urlpatterns = [
     path('', lista_equipamentos, name='equipamentos'),
     path('novo/', criar_equipamento, name='criar_equipamento'),
     path('importar/', importar_equipamentos_csv_view, name='importar_equipamentos_csv'),
+    path('qr/<str:id_patrimonio>/', qr_equipamento_publico, name='qr_equipamento_publico'),
     path('<str:id_patrimonio>/', detalhe_equipamento, name='detalhe_equipamento'),
     path('<str:id_patrimonio>/editar/', editar_equipamento, name='editar_equipamento'),
     path('<str:id_patrimonio>/movimentar/', registrar_movimentacao, name='registrar_movimentacao'),

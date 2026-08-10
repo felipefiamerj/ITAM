@@ -7,9 +7,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Usuario
-from chamados.models import Chamado
-from chamados.models import EtapaFluxoChamado, PrioridadeChamado, StatusChamado
-from equipamentos.models import Equipamento, StatusEquipamento
+from chamados.models import Chamado, ChamadoItemSolicitado, EtapaFluxoChamado, PrioridadeChamado, StatusChamado
+from equipamentos.models import Equipamento, StatusEquipamento, TipoEquipamento
+
+from .predictions import build_predictive_insights
 
 
 class CopilotoOperacionalTests(TestCase):
@@ -103,7 +104,7 @@ class CopilotoOperacionalTests(TestCase):
         response = self.client.get(reverse('ia'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Copiloto operacional')
+        self.assertContains(response, 'Copiloto de IA')
         self.assertContains(response, 'Recomendações por frente')
         self.assertContains(response, 'Ações priorizadas')
 
@@ -114,6 +115,51 @@ class CopilotoOperacionalTests(TestCase):
         self.assertTrue(any(item['source_key'] == 'governanca' for item in contexto['recomendacoes']))
         self.assertIn('recomendacoes_por_origem', contexto['copilot_charts'])
         self.assertIn('recomendacoes_por_horizonte', contexto['copilot_charts'])
+        self.assertIn('predictive_insights', contexto)
+        self.assertContains(response, 'Demanda e risco de SLA')
+
+    def test_previsoes_usam_historico_estoque_e_sla(self):
+        chamado_demanda = Chamado.objects.create(
+            titulo='Mouse para equipe',
+            descricao='Demanda historica para previsao de estoque.',
+            solicitante=self.viewer,
+            prioridade=PrioridadeChamado.MEDIA,
+            status=StatusChamado.ENCERRADO,
+        )
+        item = ChamadoItemSolicitado.objects.create(
+            chamado=chamado_demanda,
+            tipo_equipamento=TipoEquipamento.MOUSE,
+            quantidade=8,
+        )
+        ChamadoItemSolicitado.objects.filter(pk=item.pk).update(created_at=timezone.now() - timedelta(days=10))
+
+        self._criar_equipamento(
+            'MOUSE-STOCK-01',
+            tipo=TipoEquipamento.MOUSE,
+            status=StatusEquipamento.EM_ESTOQUE,
+        )
+
+        chamado_sla = Chamado.objects.create(
+            titulo='Notebook parado',
+            descricao='Chamado critico antigo para risco de SLA.',
+            solicitante=self.viewer,
+            prioridade=PrioridadeChamado.CRITICA,
+            status=StatusChamado.FILA,
+            fluxo_etapa=EtapaFluxoChamado.AGUARDANDO_ESTOQUE,
+        )
+        Chamado.objects.filter(pk=chamado_sla.pk).update(created_at=timezone.now() - timedelta(hours=5))
+
+        insights = build_predictive_insights(forecast_days=30, history_days=30)
+
+        mouse_forecast = next(item for item in insights['demand_forecast'] if item['tipo'] == TipoEquipamento.MOUSE)
+        self.assertEqual(mouse_forecast['previsao_periodo'], 8)
+        self.assertEqual(mouse_forecast['em_estoque'], 1)
+        self.assertGreaterEqual(mouse_forecast['risk_score'], 85)
+
+        self.assertEqual(insights['sla_risk'][0]['id'], chamado_sla.pk)
+        self.assertGreaterEqual(insights['sla_risk'][0]['risk_score'], 95)
+        self.assertEqual(insights['metrics']['rupture_risk'], 1)
+        self.assertEqual(insights['metrics']['sla_critical'], 1)
 
     def test_copiloto_redireciona_solicitante(self):
         self.client.force_login(self.viewer)

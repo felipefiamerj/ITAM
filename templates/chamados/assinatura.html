@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Assinatura digital | Chamado #{{ chamado.pk }}{% endblock %}
+
+{% block content %}
+  <section class="hero-surface mb-4" aria-labelledby="signature-title">
+    <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+      <div>
+        <div class="hero-kicker">
+          <i class="fa-solid fa-file-signature" aria-hidden="true"></i>
+          Termo de responsabilidade
+        </div>
+        <h1 id="signature-title" class="hero-title mb-2">Assinatura digital</h1>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="status-pill status-pill-dark">Chamado #{{ chamado.pk }}</span>
+          <span class="status-pill status-pill-dark">{{ chamado.destinatario_nome_completo }}</span>
+          {% if aceite_digital.is_assinado %}
+            <span class="status-pill status-pill-dark">Assinado em {{ aceite_digital.assinado_em_label }}</span>
+          {% elif aceite_digital.is_expirado %}
+            <span class="status-pill status-pill-dark">Expirado em {{ aceite_digital.expires_at_label }}</span>
+          {% else %}
+            <span class="status-pill status-pill-dark">Valido ate {{ aceite_digital.expires_at_label }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if request.user.is_authenticated %}
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+          <a class="btn btn-outline-light btn-lg" href="{% url 'termo_chamado_pdf' chamado.pk %}" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i>PDF
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="row g-4 justify-content-center">
+    <div class="col-xl-8">
+      <div class="card app-card signature-workspace">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+            <div>
+              <div class="section-kicker mb-2">Aceite</div>
+              <h2 class="h5 mb-1">Chamado #{{ chamado.pk }} - {{ chamado.titulo }}</h2>
+              <p class="text-muted mb-0">Colaborador: {{ chamado.destinatario_nome_completo }} · Matrícula: {{ chamado.destinatario_matricula }}</p>
+            </div>
+            {% if aceite_digital.is_assinado %}
+              <span class="status-pill status-pill-success">Assinado</span>
+            {% elif aceite_digital.is_expirado %}
+              <span class="status-pill status-pill-warning">Link expirado</span>
+            {% else %}
+              <span class="status-pill status-pill-warning">Aguardando assinatura</span>
+            {% endif %}
+          </div>
+
+          <div class="signature-summary-grid mb-4">
+            <div class="signature-summary-item">
+              <span>Serviço</span>
+              <strong>{{ chamado.get_servico_realizado_display|default:"-" }}</strong>
+            </div>
+            <div class="signature-summary-item">
+              <span>Status</span>
+              <strong>{{ chamado.get_status_display }}</strong>
+            </div>
+            <div class="signature-summary-item">
+              <span>Responsável</span>
+              <strong>{{ chamado.responsavel.nome_completo|default:"-" }}</strong>
+            </div>
+            <div class="signature-summary-item">
+              <span>Validade</span>
+              <strong>{{ aceite_digital.expires_at_label }}</strong>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <div class="section-kicker mb-2">Itens</div>
+            {% if itens_solicitados %}
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Qtd</th>
+                      <th>Equipamento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in itens_solicitados %}
+                      <tr>
+                        <td>{{ item.tipo_display }}</td>
+                        <td>{{ item.quantidade }}</td>
+                        <td>
+                          {% if item.equipamento_entregue %}
+                            {{ item.equipamento_entregue.id_patrimonio }}
+                          {% else %}
+                            -
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">Nenhum item foi registrado neste chamado.</p>
+            {% endif %}
+          </div>
+
+          {% if aceite_digital.is_assinado %}
+            <div class="ticket-callout ticket-callout-success mb-4">
+              <div class="ticket-callout-title">Termo assinado</div>
+              <p class="ticket-callout-text mb-2">
+                {{ aceite_digital.nome_assinante }} assinou em {{ aceite_digital.assinado_em_label }}.
+              </p>
+              <div class="small text-muted text-break">Hash SHA-256: {{ aceite_digital.documento_hash }}</div>
+            </div>
+            {% if aceite_digital.assinatura_data_url %}
+              <div class="signature-preview-box">
+                <img src="{{ aceite_digital.assinatura_data_url }}" alt="Assinatura digital capturada">
+              </div>
+            {% endif %}
+          {% elif aceite_digital.is_expirado %}
+            <div class="ticket-callout ticket-callout-warning mb-0">
+              <div class="ticket-callout-title">Link expirado</div>
+              <p class="ticket-callout-text mb-2">
+                Este link venceu em {{ aceite_digital.expires_at_label }} e nao aceita novas assinaturas.
+              </p>
+              <p class="text-muted mb-0">Solicite ao time de Tecnologia o envio de um novo link seguro.</p>
+            </div>
+          {% else %}
+            <form method="post" class="signature-form" data-signature-form>
+              {% csrf_token %}
+              {{ form.assinatura_data_url }}
+              {% if form.non_field_errors %}
+                <div class="alert alert-warning py-2">{{ form.non_field_errors }}</div>
+              {% endif %}
+              {% for error in form.assinatura_data_url.errors %}
+                <div class="alert alert-warning py-2">{{ error }}</div>
+              {% endfor %}
+
+              <div class="signature-pad-shell mb-4" data-signature-pad>
+                <div class="signature-pad-head">
+                  <div>
+                    <div class="section-kicker mb-1">Assinatura</div>
+                    <h3 class="h6 mb-0">Assinatura do colaborador</h3>
+                  </div>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" data-signature-clear>
+                    <i class="fa-solid fa-eraser me-1" aria-hidden="true"></i>Limpar
+                  </button>
+                </div>
+                <canvas class="signature-pad-canvas" data-signature-canvas aria-label="Campo de assinatura" tabindex="0"></canvas>
+              </div>
+
+              <div class="form-check mb-4">
+                {{ form.aceite_termos }}
+                <label class="form-check-label" for="{{ form.aceite_termos.id_for_label }}">
+                  {{ form.aceite_termos.label }}
+                </label>
+              </div>
+              {% for error in form.aceite_termos.errors %}
+                <div class="text-danger small mb-3">{{ error }}</div>
+              {% endfor %}
+
+              <button class="btn btn-primary btn-lg" type="submit">
+                <i class="fa-solid fa-check me-1" aria-hidden="true"></i>Concluir assinatura
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {% if aceite_digital.pode_assinar %}
+    <script src="{% static 'js/assinatura-termo.js' %}"></script>
+  {% endif %}
+{% endblock %}

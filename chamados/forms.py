@@ -1,4 +1,6 @@
-﻿import json
+﻿import base64
+import binascii
+import json
 from collections import defaultdict
 from types import SimpleNamespace
 
@@ -7,26 +9,39 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from accounts.models import NivelAcesso, Usuario
-from estoque.models import reservas_ativas_por_chamado
 from equipamentos.models import Equipamento, StatusEquipamento, TipoEquipamento
+from estoque.models import reservas_ativas_por_chamado
 
+from .delivery import normalizar_selecoes_entrega
 from .models import Chamado, ChamadoItemSolicitado
-
 
 TIPOS_EQUIPAMENTOS_SELECIONAVEIS = [
     (valor, label)
     for valor, label in TipoEquipamento.choices
 ]
 
+ASSINATURA_DATA_URL_PREFIX = 'data:image/png;base64,'
+ASSINATURA_DATA_URL_MAX_LENGTH = 240000
+
 _TIPO_EQUIPAMENTO_LABELS = dict(TipoEquipamento.choices)
+
+
+def _formatar_linha_item_solicitado(label, quantidade=1, observacao=''):
+    linha = label
+    if quantidade != 1:
+        linha = f'{linha}; {quantidade}'
+    if observacao:
+        linha = f'{linha}; {observacao}'
+    return linha
+
 
 REQUEST_TEMPLATE_DEFINITIONS = [
     {
         'key': 'workplace',
-        'eyebrow': 'Solicitacao',
-        'title': 'Solicitacao de Equipamento',
-        'highlight': 'Workplace as a Service',
-        'description': 'Fluxo para onboarding, troca ou entrega de notebook, desktop, monitor e kit de trabalho.',
+        'eyebrow': 'Equipamentos de trabalho',
+        'title': 'Monte seu kit de trabalho',
+        'highlight': 'Notebook, desktop e acessórios',
+        'description': 'Para onboarding, troca ou entrega de notebook, desktop, monitor e itens de trabalho.',
         'icon': 'fa-laptop',
         'tone': 'blue',
         'tipos': [
@@ -51,10 +66,10 @@ REQUEST_TEMPLATE_DEFINITIONS = [
     },
     {
         'key': 'perifericos',
-        'eyebrow': 'Solicitacao',
-        'title': 'Solicitacao de Equipamento',
-        'highlight': 'Perifericos',
-        'description': 'Fluxo mais enxuto para itens de apoio como teclado, mouse, fone, dockstation e adaptadores.',
+        'eyebrow': 'Acessórios',
+        'title': 'Peça periféricos',
+        'highlight': 'Mouse, teclado e conexões',
+        'description': 'Para itens de apoio como teclado, mouse, fone, dockstation e adaptadores.',
         'icon': 'fa-computer-mouse',
         'tone': 'teal',
         'tipos': [
@@ -69,8 +84,8 @@ REQUEST_TEMPLATE_DEFINITIONS = [
     },
     {
         'key': 'padrao',
-        'eyebrow': 'Geral',
-        'title': 'Chamado padrao',
+        'eyebrow': 'Outra solicitação',
+        'title': 'Abra um chamado',
         'highlight': 'Fluxo livre',
         'description': 'Use quando a demanda não se encaixar em nenhum dos fluxos guiados.',
         'icon': 'fa-circle-plus',
@@ -79,10 +94,7 @@ REQUEST_TEMPLATE_DEFINITIONS = [
     },
 ]
 
-# Mantemos os templates internos para compatibilidade, mas exibimos apenas o fluxo principal no catalogo inicial.
-REQUEST_TEMPLATE_CARDS = [
-    REQUEST_TEMPLATE_DEFINITIONS[0],
-]
+REQUEST_TEMPLATE_CARDS = tuple(REQUEST_TEMPLATE_DEFINITIONS)
 
 for template in REQUEST_TEMPLATE_DEFINITIONS:
     tipos_labels = [_TIPO_EQUIPAMENTO_LABELS.get(tipo, tipo) for tipo in template['tipos']]
@@ -157,7 +169,7 @@ class ChamadoCreateForm(BaseChamadoForm):
         label='Outros itens',
         required=False,
         widget=forms.Textarea(attrs={'rows': 4}),
-        help_text='Use apenas se precisar complementar com itens que não aparecem na lista acima. Uma linha por item.',
+        help_text='Use para complementar ou informar quantidades, por exemplo: Mouse x3. Uma linha por item.',
     )
 
     class Meta:
@@ -206,7 +218,7 @@ class ChamadoUpdateForm(BaseChamadoForm):
         label='Outros itens',
         required=False,
         widget=forms.Textarea(attrs={'rows': 4}),
-        help_text='Use apenas se precisar complementar com itens que não aparecem na lista acima. Uma linha por item.',
+        help_text='Use para complementar ou informar quantidades, por exemplo: Mouse x3. Uma linha por item.',
     )
 
     class Meta:
@@ -233,18 +245,32 @@ class ChamadoUpdateForm(BaseChamadoForm):
         if self.instance and self.instance.pk:
             itens_selecionados = []
             outros_linhas = []
+            grupos = {}
 
             for item in self.instance.itens_solicitados.all().order_by('id'):
-                if item.tipo_equipamento != TipoEquipamento.OUTRO:
+                key = (item.tipo_equipamento, item.tipo_outro, item.observacao)
+                if key not in grupos:
+                    grupos[key] = {
+                        'item': item,
+                        'quantidade': 0,
+                    }
+                grupos[key]['quantidade'] += item.quantidade or 1
+
+            for grupo in grupos.values():
+                item = grupo['item']
+                quantidade = grupo['quantidade']
+                if item.tipo_equipamento != TipoEquipamento.OUTRO and not item.observacao:
                     itens_selecionados.append(item.tipo_equipamento)
+                    quantidade_extra = quantidade - 1
+                    if quantidade_extra > 0:
+                        outros_linhas.append(
+                            _formatar_linha_item_solicitado(item.tipo_display, quantidade_extra)
+                        )
                     continue
 
-                linha = item.tipo_display
-                if item.quantidade != 1:
-                    linha = f'{linha}; {item.quantidade}'
-                if item.observacao:
-                    linha = f'{linha}; {item.observacao}'
-                outros_linhas.append(linha)
+                outros_linhas.append(
+                    _formatar_linha_item_solicitado(item.tipo_display, quantidade, item.observacao)
+                )
 
             if not itens_selecionados and self.instance.tipo_equipamento_solicitado:
                 itens_selecionados = [self.instance.tipo_equipamento_solicitado]
@@ -343,37 +369,13 @@ class EntregaEquipamentoChamadoForm(forms.Form):
                 field.widget.attrs.setdefault('class', 'form-control')
 
     def clean_itens_entrega(self):
-        return self._normalizar_selecoes_raw(self.cleaned_data.get('itens_entrega', ''))
-
-    def _normalizar_selecoes_raw(self, selecoes):
-        if selecoes in (None, '', {}):
-            return {}
-
-        if isinstance(selecoes, str):
-            try:
-                selecoes = json.loads(selecoes)
-            except json.JSONDecodeError as exc:
-                raise ValidationError('Seleções de equipamentos inválidas.') from exc
-
-        if not isinstance(selecoes, dict):
-            raise ValidationError('Seleções de equipamentos inválidas.')
-
-        normalizadas = {}
-        for item_id_raw, equipamento_id_raw in selecoes.items():
-            try:
-                item_id = int(item_id_raw)
-                equipamento_id = int(equipamento_id_raw)
-            except (TypeError, ValueError) as exc:
-                raise ValidationError('Seleções de equipamentos inválidas.') from exc
-            normalizadas[item_id] = equipamento_id
-
-        return normalizadas
+        return normalizar_selecoes_entrega(self.cleaned_data.get('itens_entrega', ''))
 
     def _carregar_selecoes_iniciais(self):
         if self.is_bound:
             raw = self.data.get(self.add_prefix('itens_entrega'), self.data.get('itens_entrega', ''))
             try:
-                return self._normalizar_selecoes_raw(raw)
+                return normalizar_selecoes_entrega(raw)
             except ValidationError:
                 return {}
 
@@ -467,4 +469,34 @@ class EntregaEquipamentoChamadoForm(forms.Form):
             )
 
         return grupos
+
+
+class AssinaturaTermoForm(forms.Form):
+    assinatura_data_url = forms.CharField(required=True, widget=forms.HiddenInput())
+    aceite_termos = forms.BooleanField(
+        label='Confirmo que li e aceito o termo de responsabilidade.',
+        required=True,
+        error_messages={'required': 'Confirme o aceite do termo para concluir.'},
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['aceite_termos'].widget.attrs['class'] = 'form-check-input'
+
+    def clean_assinatura_data_url(self):
+        data_url = (self.cleaned_data.get('assinatura_data_url') or '').strip()
+        if not data_url:
+            raise ValidationError('Assine no campo indicado antes de concluir.')
+        if len(data_url) > ASSINATURA_DATA_URL_MAX_LENGTH:
+            raise ValidationError('A assinatura ficou grande demais. Limpe o campo e assine novamente.')
+        if not data_url.startswith(ASSINATURA_DATA_URL_PREFIX):
+            raise ValidationError('Formato de assinatura invalido.')
+
+        encoded = data_url[len(ASSINATURA_DATA_URL_PREFIX):]
+        try:
+            base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValidationError('Formato de assinatura invalido.') from exc
+
+        return data_url
 

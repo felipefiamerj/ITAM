@@ -1,0 +1,44 @@
+<section class="hero-surface mb-4" aria-labelledby="dashboard-page-title">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap position-relative">
+    <div>
+      <div class="hero-kicker">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+        Visão executiva
+      </div>
+      <h1 id="dashboard-page-title" class="hero-title mb-2">Operação centralizada para ativos, chamados e governança.</h1>
+      <p class="hero-text mb-0">
+        Aqui você acompanha o parque, as solicitações pendentes, os chamados críticos e os pontos que pedem ação imediata do time.
+      </p>
+      <div class="hero-chip-row" aria-label="Áreas monitoradas">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-box" aria-hidden="true"></i> Inventário</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-headset" aria-hidden="true"></i> Suporte</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-user-shield" aria-hidden="true"></i> Aprovações</span>
+      </div>
+    </div>
+    <div class="dashboard-hero-actions d-flex gap-2 flex-wrap" role="group" aria-label="Ações rápidas do dashboard">
+      <a href="{% url 'equipamentos' %}" class="btn btn-light">
+        <i class="fa-solid fa-boxes-stacked me-1" aria-hidden="true"></i>Equipamentos
+      </a>
+      <a href="{% url 'painel_tecnico' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-screwdriver-wrench me-1" aria-hidden="true"></i>Fila operacional
+      </a>
+      <a href="{% url 'estoque' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-warehouse me-1" aria-hidden="true"></i>Estoque
+      </a>
+      <a href="{% url 'busca_global' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-magnifying-glass me-1" aria-hidden="true"></i>Busca global
+      </a>
+      <a href="{% url 'chamados' %}" class="btn btn-outline-light">
+        <i class="fa-solid fa-ticket-simple me-1" aria-hidden="true"></i>Chamados
+      </a>
+      {% if request.user.is_admin %}
+        <a href="{% url 'usuarios_pendentes' %}" class="btn btn-outline-light">
+          <i class="fa-solid fa-user-clock me-1" aria-hidden="true"></i>Aprovações
+          {% if usuarios_pendentes %}
+            <span class="badge rounded-pill text-bg-light text-dark ms-1">{{ usuarios_pendentes }}</span>
+          {% endif %}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>

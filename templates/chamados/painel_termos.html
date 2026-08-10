@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Termos digitais | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-file-signature"></i> Termos digitais</div>
+      <h1 class="hero-title mb-2">Controle de assinaturas pendentes.</h1>
+      <p class="hero-text mb-0">Acompanhe termos vencidos, enviados e sem envio para cobrar o aceite do colaborador sem abrir chamado por chamado.</p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-list-check me-1"></i>{{ resumo_termos.total }} termos</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-clock me-1"></i>{{ resumo_termos.pendentes }} pendentes</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ resumo_termos.expirados }} expirados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-circle-check me-1"></i>{{ resumo_termos.assinados }} assinados</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+      <a class="btn btn-light btn-lg" href="{% url 'painel_tecnico' %}">
+        <i class="fa-solid fa-screwdriver-wrench me-1"></i>Fila operacional
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'chamados' %}">
+        <i class="fa-solid fa-ticket-simple me-1"></i>Chamados
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'compliance_termos_chamados' %}">
+        <i class="fa-solid fa-chart-line me-1"></i>Compliance
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Assinaturas</div>
+      <h2 class="h6 mb-0">Resumo operacional</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualizado agora</span>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Pendentes</span>
+        </div>
+        <div class="label">Aguardando aceite</div>
+        <div class="value">{{ resumo_termos.pendentes }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Expirados</span>
+        </div>
+        <div class="label">Precisam novo link</div>
+        <div class="value">{{ resumo_termos.expirados }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Enviados</span>
+        </div>
+        <div class="label">Link ativo enviado</div>
+        <div class="value">{{ resumo_termos.enviados }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Assinados</span>
+        </div>
+        <div class="label">Com evidencia</div>
+        <div class="value">{{ resumo_termos.assinados }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-3" method="get">
+      <div class="col-lg-5">
+        <label class="form-label" for="termos-q">Buscar</label>
+        <input id="termos-q" class="form-control" type="text" name="q" value="{{ q }}" placeholder="Chamado, titulo, colaborador ou matricula">
+      </div>
+      <div class="col-lg-3">
+        <label class="form-label" for="termos-situacao">Situacao</label>
+        <select id="termos-situacao" class="form-select" name="situacao">
+          {% for value, label in situacoes_termo %}
+            <option value="{{ value }}"{% if situacao == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-3">
+        <label class="form-label" for="termos-responsavel">Responsavel</label>
+        <select id="termos-responsavel" class="form-select" name="responsavel">
+          <option value="">Todos</option>
+          <option value="meus"{% if responsavel == 'meus' %} selected{% endif %}>Meus chamados</option>
+          {% for usuario in responsaveis %}
+            <option value="{{ usuario.pk }}"{% if responsavel == usuario.pk|stringformat:"s" %} selected{% endif %}>{{ usuario.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-1 align-self-end">
+        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<form method="post" data-termos-bulk-form>
+  {% csrf_token %}
+  <input type="hidden" name="q" value="{{ q }}">
+  <input type="hidden" name="situacao" value="{{ situacao }}">
+  <input type="hidden" name="responsavel" value="{{ responsavel }}">
+
+  <div class="card app-card">
+    <div class="card-body border-bottom">
+      <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div>
+          <div class="section-kicker">Cobranca</div>
+          <h2 class="h5 mb-0">{{ page_obj.paginator.count }} termo{{ page_obj.paginator.count|pluralize }} na busca</h2>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-primary" type="submit" name="acao" value="selecionados">
+            <i class="fa-solid fa-paper-plane me-1" aria-hidden="true"></i>Cobrar selecionados
+          </button>
+          <button class="btn btn-outline-primary" type="submit" name="acao" value="filtrados">
+            <i class="fa-solid fa-bullhorn me-1" aria-hidden="true"></i>Cobrar filtrados
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive app-scroll-area app-scroll-area-lg">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th class="text-center">
+              <input class="form-check-input" type="checkbox" data-termos-select-all aria-label="Selecionar todos os termos visiveis">
+            </th>
+            <th>Chamado</th>
+            <th>Colaborador</th>
+            <th>Status</th>
+            <th>Validade</th>
+            <th>Ultimo envio</th>
+            <th>Responsavel</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for aceite in termos %}
+            {% with chamado=aceite.chamado %}
+              <tr>
+                <td class="text-center">
+                  <input class="form-check-input" type="checkbox" name="aceites" value="{{ aceite.pk }}" data-termos-row-check aria-label="Selecionar termo do chamado #{{ chamado.pk }}"{% if aceite.is_assinado %} disabled{% endif %}>
+                </td>
+                <td>
+                  <a class="fw-semibold" href="{% url 'detalhe_chamado' chamado.pk %}">#{{ chamado.pk }} · {{ chamado.titulo }}</a>
+                  <div class="small text-muted">{{ chamado.created_at|date:"d/m/Y H:i" }}</div>
+                </td>
+                <td>
+                  <div class="fw-semibold">{{ chamado.destinatario_nome_completo }}</div>
+                  <div class="small text-muted">{{ chamado.destinatario_matricula }}</div>
+                </td>
+                <td>
+                  {% if aceite.is_assinado %}
+                    <span class="status-pill status-pill-success">Assinado</span>
+                  {% elif aceite.is_expirado %}
+                    <span class="status-pill status-pill-warning">Expirado</span>
+                  {% elif aceite.enviado_em %}
+                    <span class="status-pill status-pill-info">Enviado</span>
+                  {% else %}
+                    <span class="status-pill status-pill-neutral">Sem envio</span>
+                  {% endif %}
+                  <div class="small text-muted mt-2">Envios: {{ aceite.envio_total }}</div>
+                </td>
+                <td>{{ aceite.expires_at_label }}</td>
+                <td>
+                  {{ aceite.enviado_em_label }}
+                  {% if aceite.email_destino %}
+                    <div class="small text-muted">{{ aceite.email_destino }}</div>
+                  {% endif %}
+                </td>
+                <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+                <td class="text-end">
+                  <div class="d-flex justify-content-end gap-2 flex-wrap">
+                    {% if aceite.pode_assinar %}
+                      <a class="btn btn-sm btn-outline-primary" href="{% url 'assinar_termo_chamado' aceite.token %}" target="_blank" rel="noopener">Assinar</a>
+                    {% endif %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'termo_chamado' chamado.pk %}" target="_blank" rel="noopener">Termo</a>
+                  </div>
+                </td>
+              </tr>
+            {% endwith %}
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-center py-4 text-muted">Nenhum termo encontrado.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+
+{% if page_obj.has_other_pages %}
+  <nav class="mt-4" aria-label="Paginacao de termos">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Anterior</a></li>
+      {% endif %}
+      <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Proxima</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const selectAll = document.querySelector('[data-termos-select-all]');
+      const checks = Array.from(document.querySelectorAll('[data-termos-row-check]:not(:disabled)'));
+      if (!selectAll) return;
+      selectAll.addEventListener('change', () => {
+        checks.forEach((check) => {
+          check.checked = selectAll.checked;
+        });
+      });
+    })();
+  </script>
+{% endblock %}

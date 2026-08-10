@@ -13,7 +13,6 @@ from accounts.models import Usuario
 
 from .models import CondicaoEquipamento, EntradaLote, Equipamento, StatusEquipamento, TipoEquipamento
 
-
 BATCH_SIZE = 1000
 MAX_ERROR_LINES = 200
 

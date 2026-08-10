@@ -3,37 +3,37 @@
 {% block content %}
 <div class="auth-grid">
   <section class="auth-hero panel-surface">
-    <div class="eyebrow">Centro de operações {{ app_short_name|default:"ITAM" }}</div>
+    <div class="eyebrow">Centro de operações {{ app_short_name|default:"FIAME" }}</div>
     <h1 class="auth-title">Gestão inteligente de ativos de TI</h1>
     <p class="auth-text">
       Controle completo sobre equipamentos, chamados técnicos, estoque e permissões em uma única plataforma enterprise.
     </p>
  
     <div class="auth-chip-row">
-      <span class="status-pill"><i class="fa-solid fa-laptop"></i> Equipamentos</span>
-      <span class="status-pill"><i class="fa-solid fa-ticket"></i> Chamados</span>
-      <span class="status-pill"><i class="fa-solid fa-box"></i> Estoque</span>
-      <span class="status-pill"><i class="fa-solid fa-sparkles"></i> IA</span>
+      <span class="status-pill"><i class="fa-solid fa-laptop" aria-hidden="true"></i> Equipamentos</span>
+      <span class="status-pill"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Chamados</span>
+      <span class="status-pill"><i class="fa-solid fa-box" aria-hidden="true"></i> Estoque</span>
+      <span class="status-pill"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> IA</span>
     </div>
  
     <div class="auth-metrics">
       <article class="mini-card">
-        <span class="mini-label"><i class="fa-solid fa-laptop me-1"></i> Equipamentos</span>
+        <span class="mini-label"><i class="fa-solid fa-laptop me-1" aria-hidden="true"></i> Equipamentos</span>
         <strong>Catálogo completo</strong>
         <p>Rastreie todos os ativos, localizações, estados e responsáveis em tempo real.</p>
       </article>
       <article class="mini-card">
-        <span class="mini-label"><i class="fa-solid fa-headset me-1"></i> Chamados</span>
+        <span class="mini-label"><i class="fa-solid fa-headset me-1" aria-hidden="true"></i> Chamados</span>
         <strong>Suporte integrado</strong>
         <p>Crie, acompanhe e resolva tickets com histórico completo e rastreabilidade.</p>
       </article>
       <article class="mini-card">
-        <span class="mini-label"><i class="fa-solid fa-chart-line me-1"></i> Relatórios</span>
+        <span class="mini-label"><i class="fa-solid fa-chart-line me-1" aria-hidden="true"></i> Relatórios</span>
         <strong>Análise de dados</strong>
         <p>Dashboards intuitivos com métricas de equipamentos, chamados e operações.</p>
       </article>
       <article class="mini-card">
-        <span class="mini-label"><i class="fa-solid fa-user-shield me-1"></i> Governança</span>
+        <span class="mini-label"><i class="fa-solid fa-user-shield me-1" aria-hidden="true"></i> Governança</span>
         <strong>Controle de acesso</strong>
         <p>Permissões por perfil com rastreamento de todas as ações no sistema.</p>
       </article>
@@ -41,7 +41,7 @@
  
     <div class="auth-callout">
       <div class="auth-callout-icon">
-        <i class="fa-solid fa-shield-halved"></i>
+        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
       </div>
       <div>
         <strong>Enterprise Security</strong>
@@ -81,12 +81,12 @@
         <input type="hidden" name="form_type" value="login">
         {% include "includes/form.html" with form=form %}
         <button type="submit" class="btn btn-primary btn-lg w-100">
-          <i class="fa-solid fa-right-to-bracket me-2"></i>Entrar
+          <i class="fa-solid fa-right-to-bracket me-2" aria-hidden="true"></i>Entrar
         </button>
       </form>
  
       <div class="auth-card-note">
-        <i class="fa-solid fa-info-circle"></i>
+        <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
         Depois da aprovação, você receberá um link de primeiro acesso por e-mail para criar sua senha inicial.
       </div>
 
@@ -99,19 +99,19 @@
 
       <div class="auth-feature-grid">
         <div>
-          <i class="fa-solid fa-check-circle me-2 text-success"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success" aria-hidden="true"></i>
           <span>Controle centralizado</span>
         </div>
         <div>
-          <i class="fa-solid fa-check-circle me-2 text-success"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success" aria-hidden="true"></i>
           <span>Auditoria completa</span>
         </div>
         <div>
-          <i class="fa-solid fa-check-circle me-2 text-success"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success" aria-hidden="true"></i>
           <span>Sem burocracia</span>
         </div>
         <div>
-          <i class="fa-solid fa-check-circle me-2 text-success"></i>
+          <i class="fa-solid fa-check-circle me-2 text-success" aria-hidden="true"></i>
           <span>Rápido e seguro</span>
         </div>
       </div>
@@ -132,30 +132,30 @@
         <input type="hidden" name="form_type" value="solicitante">
         {% include "includes/form.html" with form=request_form %}
         <button type="submit" class="btn btn-outline-primary btn-lg w-100">
-          <i class="fa-solid fa-user-plus me-2"></i>Solicitar acesso
+          <i class="fa-solid fa-user-plus me-2" aria-hidden="true"></i>Solicitar acesso
         </button>
       </form>
  
       <div class="auth-card-note">
-        <i class="fa-solid fa-circle-info"></i>
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
         Sua solicitação será analisada pelo administrador. Você receberá um link de primeiro acesso por email.
       </div>
  
       <div class="auth-feature-grid">
         <div>
-          <i class="fa-solid fa-envelope me-2 text-info"></i>
+          <i class="fa-solid fa-envelope me-2 text-info" aria-hidden="true"></i>
           <span>Notificação por email</span>
         </div>
         <div>
-          <i class="fa-solid fa-clock me-2 text-info"></i>
+          <i class="fa-solid fa-clock me-2 text-info" aria-hidden="true"></i>
           <span>Aprovação rápida</span>
         </div>
         <div>
-          <i class="fa-solid fa-shield-halved me-2 text-info"></i>
+          <i class="fa-solid fa-shield-halved me-2 text-info" aria-hidden="true"></i>
           <span>Senha segura</span>
         </div>
         <div>
-          <i class="fa-solid fa-headset me-2 text-info"></i>
+          <i class="fa-solid fa-headset me-2 text-info" aria-hidden="true"></i>
           <span>Suporte disponível</span>
         </div>
       </div>

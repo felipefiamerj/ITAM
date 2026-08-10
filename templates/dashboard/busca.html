@@ -61,7 +61,7 @@
             <div class="small text-muted mt-2">Os resultados são atualizados em tempo real enquanto você digita.</div>
           </form>
 
-          <div class="search-results" data-search-results-body>
+          <div class="search-results app-scroll-area app-scroll-area-lg" data-search-results-body>
             {% if groups %}
               {% for group in groups %}
                 <section class="search-group-card">
@@ -76,7 +76,7 @@
                         <a href="{{ group.see_all_url }}" class="small">{{ group.see_all_label }}</a>
                       </div>
                     </div>
-                    <div class="stack-list">
+                    <div class="stack-list app-scroll-area app-scroll-area-md">
                       {% for item in group.items %}
                         <a href="{{ item.url }}" class="search-result-card">
                           <div class="search-result-icon">
@@ -112,7 +112,7 @@
       <div class="card app-card mb-4">
         <div class="card-body">
           <div class="section-kicker mb-2">Ações rápidas</div>
-          <div class="search-action-grid" data-search-actions-body>
+          <div class="search-action-grid app-scroll-area app-scroll-area-md" data-search-actions-body>
             {% for action in quick_actions %}
               <a class="search-action-card" href="{{ action.url }}">
                 <div class="search-action-icon">

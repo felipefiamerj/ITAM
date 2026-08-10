@@ -1,0 +1,74 @@
+<section class="dashboard-stats mb-4" aria-labelledby="stock-stats-title">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Painel ao vivo</div>
+      <h2 id="stock-stats-title" class="h6 mb-0">Resumo do estoque</h2>
+    </div>
+    <div class="dashboard-stats-live" aria-live="polite">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span>Atualização automática</span>
+    </div>
+  </div>
+  <div class="row g-3" data-estoque-live data-api-url="{% url 'api_estoque_resumo' %}">
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Total</span>
+        </div>
+        <div class="label">Total de equipamentos</div>
+        <div class="value" data-live-total="total_equipamentos">{{ total_equipamentos }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Em uso</span>
+        </div>
+        <div class="label">Ativos em operação</div>
+        <div class="value" data-live-total="em_uso">{{ total_em_uso }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-warehouse" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Estoque</span>
+        </div>
+        <div class="label">Prontos para alocação</div>
+        <div class="value" data-live-total="em_estoque">{{ total_em_estoque }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Manut.</span>
+        </div>
+        <div class="label">Fluxo técnico</div>
+        <div class="value" data-live-total="em_manutencao">{{ equipamentos_em_manutencao }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-slate h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Descart.</span>
+        </div>
+        <div class="label">Itens baixados</div>
+        <div class="value" data-live-total="descartados">{{ total_descartados }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-xl-2">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Alerta IA</span>
+        </div>
+        <div class="label">Saúde abaixo do ideal</div>
+        <div class="value" data-live-total="alertas">{{ equipamentos_alerta_total }}</div>
+      </div>
+    </div>
+  </div>
+</section>

@@ -14,8 +14,9 @@ function Get-PythonExe {
   }
 
   $venvCandidates = @(
-    (Join-Path $repoRoot '.venv310\Scripts\python.exe'),
-    (Join-Path $repoRoot '.venv\Scripts\python.exe')
+    (Join-Path $repoRoot '.venv312\Scripts\python.exe'),
+    (Join-Path $repoRoot '.venv\Scripts\python.exe'),
+    (Join-Path $repoRoot '.venv313\Scripts\python.exe')
   )
 
   foreach ($candidate in $venvCandidates) {
@@ -24,9 +25,9 @@ function Get-PythonExe {
     }
   }
 
-  $defaultVenv = Join-Path $repoRoot '.venv'
+  $defaultVenv = Join-Path $repoRoot '.venv312'
   if (-not (Test-Path $defaultVenv)) {
-    python -m venv $defaultVenv
+    py -3.12 -m venv $defaultVenv
   }
 
   $createdPython = Join-Path $defaultVenv 'Scripts\python.exe'

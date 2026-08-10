@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, 'release/**']
+  pull_request:
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: itam_ci
+          POSTGRES_USER: itam
+          POSTGRES_PASSWORD: itam
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itam -d itam_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_ENV: development
+      SECRET_KEY: ci-secret-key-with-more-than-fifty-characters-for-django
+      DEBUG: "False"
+      ALLOWED_HOSTS: 127.0.0.1,localhost,testserver
+      SITE_URL: http://127.0.0.1:8000
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: itam_ci
+      DB_USER: itam
+      DB_PASSWORD: itam
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      REDIS_URL: redis://127.0.0.1:6379/0
+      CACHE_URL: redis://127.0.0.1:6379/1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Django check
+        run: python manage.py check
+
+      - name: Migrate
+        run: python manage.py migrate --noinput
+
+      - name: Check migrations
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Verify installation
+        run: python manage.py verificar_instalacao
+
+      - name: Test
+        run: python manage.py test --keepdb
+
+      - name: Deployment check
+        env:
+          DJANGO_ENV: production
+          DEBUG: "False"
+          ALLOWED_HOSTS: itam.example.com
+          SITE_URL: https://itam.example.com
+          SECURE_SSL_REDIRECT: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy

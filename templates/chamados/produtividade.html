@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Indicadores operacionais | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-chart-line"></i> Indicadores operacionais</div>
+      <h1 class="hero-title mb-2">Gargalos, SLA e ritmo da operação.</h1>
+      <p class="hero-text mb-0">Veja tempo de ciclo, chamados parados por etapa, SLA em risco e carga atual por responsavel.</p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-ticket-simple me-1"></i>{{ resumo_produtividade.abertos }} em aberto</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-circle-check me-1"></i>{{ resumo_produtividade.fechados_periodo }} fechados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-stopwatch me-1"></i>{{ resumo_produtividade.tempo_medio_fechamento }}h ciclo medio</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ resumo_produtividade.atrasados }} atrasados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-layer-group me-1"></i>{{ resumo_produtividade.etapas_escaladas }} etapas escaladas</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+      <a class="btn btn-light btn-lg" href="{% url 'painel_tecnico' %}">
+        <i class="fa-solid fa-screwdriver-wrench me-1"></i>Fila operacional
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'chamados' %}">
+        <i class="fa-solid fa-list me-1"></i>Chamados
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-3 align-items-end" method="get">
+      <div class="col-md-4 col-xl-3">
+        <label class="form-label" for="produtividade-periodo">Periodo de fechamentos</label>
+        <select id="produtividade-periodo" class="form-select" name="periodo">
+          {% for value, label in periodos_produtividade %}
+            <option value="{{ value }}"{% if periodo == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 col-xl-2">
+        <button class="btn btn-outline-primary w-100" type="submit">Atualizar</button>
+      </div>
+      <div class="col-md-5 col-xl-7">
+        <div class="small text-muted">
+          {% if inicio_periodo %}
+            Fechamentos desde {{ inicio_periodo|date:"d/m/Y H:i" }}. Gargalos atuais usam chamados em aberto.
+          {% else %}
+            Fechamentos de todo o historico. Gargalos atuais usam chamados em aberto.
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Indicadores</div>
+      <h2 class="h6 mb-0">Resumo operacional</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualizado agora</span>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-blue h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-ticket" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Fila</span>
+        </div>
+        <div class="label">Chamados abertos</div>
+        <div class="value">{{ resumo_produtividade.abertos }}</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Entrega</span>
+        </div>
+        <div class="label">Fechados no periodo</div>
+        <div class="value">{{ resumo_produtividade.fechados_periodo }}</div>
+        <div class="small text-white-50">{{ resumo_produtividade.percentual_sla }}% no SLA.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Ciclo</span>
+        </div>
+        <div class="label">Tempo medio fechamento</div>
+        <div class="value">{{ resumo_produtividade.tempo_medio_fechamento }}</div>
+        <div class="small text-white-50">horas por chamado.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Risco</span>
+        </div>
+        <div class="label">Atrasados / sem dono</div>
+        <div class="value">{{ resumo_produtividade.atrasados }}</div>
+        <div class="small text-white-50">{{ resumo_produtividade.sem_responsavel }} sem responsavel · {{ resumo_produtividade.etapas_alerta }} etapa(s) em alerta.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="card app-card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+        <div>
+          <div class="section-kicker">Etapas</div>
+          <h2 class="h5 mb-1">Onde a fila esta parada</h2>
+          <p class="small text-muted mb-0">Tempo parado usa o historico de eventos do fluxo; chamados antigos sem evento usam a ultima atualizacao.</p>
+        </div>
+      </div>
+      <div class="row g-3">
+        {% for etapa in produtividade_etapas %}
+          <div class="col-md-6 col-xl-3">
+            <div class="app-stat dashboard-stat dashboard-stat-{{ etapa.tone }} h-100">
+              <div class="dashboard-stat-head">
+                <span class="dashboard-stat-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span>
+                <span class="dashboard-stat-tag">{{ etapa.count }}</span>
+              </div>
+              <div class="label">{{ etapa.label }}</div>
+              <div class="value">{{ etapa.count }}</div>
+              <div class="small text-white-50">{{ etapa.tempo_medio_parado }}h medio · {{ etapa.maior_parada }}h maior parada</div>
+              <div class="small text-white-50">{{ etapa.sla_alerta }} alerta · {{ etapa.sla_escalado }} escalada(s)</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-7">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-kicker">Gargalos</div>
+            <h2 class="h5 mb-0">Chamados ha mais tempo sem atualizacao</h2>
+          </div>
+        </div>
+        <div class="table-responsive app-scroll-area app-scroll-area-lg">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Chamado</th>
+                <th>Etapa</th>
+                <th>Responsavel</th>
+                <th>SLA</th>
+                <th>SLA etapa</th>
+                <th>Parado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in produtividade_gargalos %}
+                <tr>
+                  <td>
+                    <a class="fw-semibold" href="{% url 'detalhe_chamado' item.chamado.pk %}">#{{ item.chamado.pk }} · {{ item.chamado.titulo }}</a>
+                    <div class="small text-muted">{{ item.tempo_aberto }}h aberto</div>
+                  </td>
+                  <td>{{ item.chamado.fluxo_etapa_label }}</td>
+                  <td>{{ item.responsavel }}</td>
+                  <td>
+                    {% if item.sla_tone == 'success' %}
+                      <span class="status-pill status-pill-success">{{ item.sla_label }}</span>
+                    {% elif item.sla_tone == 'warning' or item.sla_tone == 'danger' %}
+                      <span class="status-pill status-pill-warning">{{ item.sla_label }}</span>
+                    {% else %}
+                      <span class="status-pill status-pill-neutral">{{ item.sla_label }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.sla_etapa_estado == 'escalado' %}
+                      <span class="status-pill status-pill-warning">{{ item.sla_etapa_label }}</span>
+                    {% elif item.sla_etapa_estado == 'alerta' %}
+                      <span class="status-pill status-pill-warning">{{ item.sla_etapa_label }}</span>
+                    {% else %}
+                      <span class="status-pill status-pill-success">{{ item.sla_etapa_label }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ item.tempo_parado }}h</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum chamado em aberto.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Responsaveis</div>
+        <h2 class="h5 mb-3">Pendencias por responsavel</h2>
+        <div class="stack-list app-scroll-area app-scroll-area-lg">
+          {% for item in produtividade_responsaveis %}
+            <article class="list-card">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>{{ item.nome }}</strong>
+                  <div class="small text-muted">{{ item.tempo_medio_aberto }}h medio em aberto</div>
+                </div>
+                <span class="status-pill {% if item.atrasados %}status-pill-warning{% else %}status-pill-neutral{% endif %}">{{ item.abertos }} aberto{{ item.abertos|pluralize }}</span>
+              </div>
+              <div class="small text-muted mt-2">{{ item.atrasados }} atrasado{{ item.atrasados|pluralize }} · {{ item.criticos }} critico{{ item.criticos|pluralize }} · {{ item.fechados }} fechado{{ item.fechados|pluralize }} no periodo</div>
+            </article>
+          {% empty %}
+            <div class="text-muted">Nenhuma pendencia por responsavel.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-6">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Throughput</div>
+        <h2 class="h5 mb-3">Fechamentos por responsavel</h2>
+        <div class="table-responsive app-scroll-area app-scroll-area-md">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Responsavel</th>
+                <th>Fechados</th>
+                <th>Tempo medio</th>
+                <th>Abertos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in produtividade_ranking %}
+                <tr>
+                  <td>{{ item.nome }}</td>
+                  <td>{{ item.fechados }}</td>
+                  <td>{{ item.tempo_medio_fechamento }}h</td>
+                  <td>{{ item.abertos }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="text-muted py-3">Sem fechamentos no periodo.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-6">
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Historico</div>
+        <h2 class="h5 mb-3">Fechamentos recentes</h2>
+        <div class="list-group list-group-flush app-scroll-area app-scroll-area-md">
+          {% for chamado in produtividade_fechados_recentes %}
+            <a class="list-group-item list-group-item-action" href="{% url 'detalhe_chamado' chamado.pk %}">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <strong>#{{ chamado.pk }} · {{ chamado.titulo }}</strong>
+                  <div class="small text-muted">{{ chamado.destinatario_nome_completo }} · {{ chamado.responsavel.nome_completo|default:"Sem responsavel" }}</div>
+                </div>
+                <span class="status-pill status-pill-success">{{ chamado.data_fechamento|date:"d/m/Y H:i" }}</span>
+              </div>
+            </a>
+          {% empty %}
+            <div class="text-muted">Nenhum fechamento no periodo.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

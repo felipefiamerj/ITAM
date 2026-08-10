@@ -29,7 +29,7 @@
 <section class="dashboard-stats mb-4">
   <div class="dashboard-stats-head">
     <div>
-      <div class="section-kicker">{% if is_operacional %}Painel operacional{% else %}Seu painel{% endif %}</div>
+      <div class="section-kicker">{% if is_operacional %}Fila operacional{% else %}Seu painel{% endif %}</div>
       <h2 class="h6 mb-0">Resumo da busca atual</h2>
     </div>
     <div class="dashboard-stats-live">
@@ -140,7 +140,7 @@
 
 {% if is_operacional %}
   <div class="card app-card">
-    <div class="table-responsive">
+    <div class="table-responsive app-scroll-area app-scroll-area-lg">
       <table class="table align-middle mb-0">
         <thead>
           <tr>

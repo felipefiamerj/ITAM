@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}API | {{ app_name }}{% endblock %}
+
+{% block content %}
+  <section class="hero-surface mb-4">
+    <div class="hero-surface-body">
+      <div>
+        <div class="section-kicker text-white-50">OpenAPI</div>
+        <h1 class="page-title text-white mb-2">Contrato da API</h1>
+        <p class="page-subtitle text-white-50 mb-0">Esquema versionado para integracoes internas e automacoes.</p>
+      </div>
+      <a class="btn btn-light" href="{{ schema_url }}">
+        <i class="fa-solid fa-file-code me-1"></i>Baixar schema
+      </a>
+    </div>
+  </section>
+
+  <section class="app-card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+        <div>
+          <div class="section-kicker">Endpoints</div>
+          <h2 class="h5 mb-0">Superficie documentada</h2>
+        </div>
+        <code>{{ schema_url }}</code>
+      </div>
+      <div class="table-responsive app-scroll-area app-scroll-area-md">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Metodo</th>
+              <th>Base</th>
+              <th>Modulo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge text-bg-primary">GET</span></td><td><code>/api/contas/</code></td><td>Contas</td></tr>
+            <tr><td><span class="badge text-bg-primary">GET</span></td><td><code>/api/chamados/</code></td><td>Chamados</td></tr>
+            <tr><td><span class="badge text-bg-primary">GET</span></td><td><code>/api/equipamentos/</code></td><td>Equipamentos</td></tr>
+            <tr><td><span class="badge text-bg-primary">GET/POST</span></td><td><code>/api/estoque/</code></td><td>Estoque</td></tr>
+            <tr><td><span class="badge text-bg-primary">POST</span></td><td><code>/api/telemetria/ingestao/</code></td><td>Telemetria</td></tr>
+            <tr><td><span class="badge text-bg-primary">GET</span></td><td><code>/api/relatorios/</code></td><td>Dashboard</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}

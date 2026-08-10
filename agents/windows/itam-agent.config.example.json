@@ -1,0 +1,12 @@
+{
+  "BaseUrl": "https://itam.seu-dominio.com",
+  "AgentToken": "cole-o-token-do-agente-aqui",
+  "AssetId": "PATRIMONIO-DO-EQUIPAMENTO",
+  "ServiceTag": "",
+  "SerialNumber": "",
+  "TimeoutSec": 30,
+  "BatteryWarningPercent": 25,
+  "BatteryCriticalPercent": 15,
+  "DiskWarningFreePercent": 10,
+  "DiskCriticalFreePercent": 5
+}

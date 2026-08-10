@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Monitoramento IA | {{ app_name }}{% endblock %}
+{% block title %}Monitoramento de ativos | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
@@ -10,7 +10,7 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-light btn-lg" href="{% url 'ia' %}">
-        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Copiloto operacional
+        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Copiloto de IA
       </a>
       <a class="btn btn-light btn-lg" href="?recalcular=1">
         <i class="fa-solid fa-rotate me-1"></i>Recalcular scores
@@ -54,7 +54,7 @@
     <div class="card app-card h-100">
       <div class="card-body">
         <div class="section-kicker mb-2">Menores scores</div>
-        <div class="table-responsive">
+        <div class="table-responsive app-scroll-area app-scroll-area-lg">
           <table class="table table-sm align-middle mb-0">
             <thead>
               <tr>
@@ -94,7 +94,7 @@
     <div class="card app-card h-100">
       <div class="card-body">
         <div class="section-kicker mb-2">Sem heartbeat</div>
-        <div class="table-responsive">
+        <div class="table-responsive app-scroll-area app-scroll-area-md">
           <table class="table table-sm align-middle mb-0">
             <thead>
               <tr>

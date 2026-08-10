@@ -3,6 +3,7 @@ from django.utils import timezone
 
 from accounts.models import NivelAcesso, Usuario
 
+from .integrations import enqueue_corporate_notification
 from .models import Notification
 from .realtime import broadcast_notification
 
@@ -63,8 +64,14 @@ def usuarios_operacionais_ativos():
 
 
 def notificar_admins(titulo, mensagem='', link=''):
-    return notificar_usuarios(usuarios_admins_ativos(), titulo, mensagem, link)
+    notificacoes = notificar_usuarios(usuarios_admins_ativos(), titulo, mensagem, link)
+    if notificacoes:
+        enqueue_corporate_notification(titulo, mensagem, link, audience='admins')
+    return notificacoes
 
 
 def notificar_time_operacional(titulo, mensagem='', link=''):
-    return notificar_usuarios(usuarios_operacionais_ativos(), titulo, mensagem, link)
+    notificacoes = notificar_usuarios(usuarios_operacionais_ativos(), titulo, mensagem, link)
+    if notificacoes:
+        enqueue_corporate_notification(titulo, mensagem, link, audience='operacional')
+    return notificacoes
