@@ -70,8 +70,13 @@ def notificar_admins(titulo, mensagem='', link=''):
     return notificacoes
 
 
-def notificar_time_operacional(titulo, mensagem='', link=''):
-    notificacoes = notificar_usuarios(usuarios_operacionais_ativos(), titulo, mensagem, link)
+def notificar_time_operacional(titulo, mensagem='', link='', excluir_ids=()):
+    usuarios = usuarios_operacionais_ativos()
+    ids_excluidos = {usuario_id for usuario_id in excluir_ids if usuario_id}
+    if ids_excluidos:
+        usuarios = usuarios.exclude(pk__in=ids_excluidos)
+
+    notificacoes = notificar_usuarios(usuarios, titulo, mensagem, link)
     if notificacoes:
         enqueue_corporate_notification(titulo, mensagem, link, audience='operacional')
     return notificacoes

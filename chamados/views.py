@@ -1185,7 +1185,12 @@ def fluxo_chamado_action(request, pk):
         if titulo_notificacao and notificar_destinatarios:
             notificar_usuarios(destinatarios, titulo_notificacao, mensagem_notificacao or mensagem, link=link)
         if titulo_notificacao and notificar_time:
-            notificar_time_operacional(titulo_notificacao, mensagem_notificacao or mensagem, link=link)
+            notificar_time_operacional(
+                titulo_notificacao,
+                mensagem_notificacao or mensagem,
+                link=link,
+                excluir_ids=[usuario.pk for usuario in destinatarios] if notificar_destinatarios else (),
+            )
         messages.success(request, mensagem)
         return redirect('detalhe_chamado', pk=chamado.pk)
 

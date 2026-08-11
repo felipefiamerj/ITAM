@@ -101,16 +101,20 @@ class ReservaEstoque(models.Model):
     def marcar_entregue(self, usuario=None):
         agora = timezone.now()
         self.status = StatusReservaEstoque.ENTREGUE
+        if self.separated_at is None:
+            self.separated_at = agora
         self.delivered_at = agora
-        if usuario is not None and self.separado_por_id is None:
+        definir_separado_por = usuario is not None and self.separado_por_id is None
+        if definir_separado_por:
             self.separado_por = usuario
         self.updated_at = agora
         campos = {
             'status': self.status,
+            'separated_at': self.separated_at,
             'delivered_at': self.delivered_at,
             'updated_at': self.updated_at,
         }
-        if usuario is not None and self.separado_por_id is None:
+        if definir_separado_por:
             campos['separado_por'] = self.separado_por
         self.__class__.objects.filter(pk=self.pk).update(**campos)
         return self
