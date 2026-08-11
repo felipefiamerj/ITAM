@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Compliance de termos | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-shield-halved"></i> Compliance</div>
+      <h1 class="hero-title mb-2">Evidencias dos termos digitais.</h1>
+      <p class="hero-text mb-0">Audite chamados encerrados, aceite digital, prazo, tempo ate assinatura e hash SHA-256 do documento.</p>
+      <div class="hero-chip-row">
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-file-signature me-1"></i>{{ resumo_compliance.total }} termos</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-circle-check me-1"></i>{{ resumo_compliance.percentual_assinado }}% assinados</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-hourglass-half me-1"></i>{{ resumo_compliance.tempo_medio_aceite }}h media</span>
+        <span class="status-pill status-pill-dark"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ resumo_compliance.expirados }} expirados</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+      <a class="btn btn-light btn-lg" href="{% url 'compliance_termos_csv' %}{{ export_query }}">
+        <i class="fa-solid fa-file-csv me-1" aria-hidden="true"></i>CSV
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'compliance_termos_pdf' %}{{ export_query }}" target="_blank" rel="noopener">
+        <i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i>PDF
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'painel_termos_chamados' %}">
+        <i class="fa-solid fa-file-signature me-1" aria-hidden="true"></i>Termos
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="dashboard-stats mb-4">
+  <div class="dashboard-stats-head">
+    <div>
+      <div class="section-kicker">Auditoria</div>
+      <h2 class="h6 mb-0">Resumo da busca</h2>
+    </div>
+    <div class="dashboard-stats-live">
+      <span class="live-dot"></span>
+      <span>Atualizado agora</span>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-green h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Assinados</span>
+        </div>
+        <div class="label">Com aceite digital</div>
+        <div class="value">{{ resumo_compliance.assinados }}</div>
+        <div class="small text-white-50">{{ resumo_compliance.assinados_no_prazo }} dentro da validade.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-amber h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-clock" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Pendentes</span>
+        </div>
+        <div class="label">Ainda sem aceite</div>
+        <div class="value">{{ resumo_compliance.pendentes }}</div>
+        <div class="small text-white-50">{{ resumo_compliance.sem_envio }} sem envio.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-red h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Risco</span>
+        </div>
+        <div class="label">Links expirados</div>
+        <div class="value">{{ resumo_compliance.expirados }}</div>
+        <div class="small text-white-50">{{ resumo_compliance.evidencias_invalidas }} evidencia(s) incompleta(s).</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="app-stat dashboard-stat dashboard-stat-sky h-100">
+        <div class="dashboard-stat-head">
+          <span class="dashboard-stat-icon"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+          <span class="dashboard-stat-tag">Tempo</span>
+        </div>
+        <div class="label">Media ate aceite</div>
+        <div class="value">{{ resumo_compliance.tempo_medio_aceite }}</div>
+        <div class="small text-white-50">horas apos encerramento.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-3" method="get">
+      <div class="col-xl-3 col-lg-4">
+        <label class="form-label" for="compliance-q">Buscar</label>
+        <input id="compliance-q" class="form-control" type="text" name="q" value="{{ q }}" placeholder="Chamado, colaborador ou matricula">
+      </div>
+      <div class="col-xl-2 col-lg-4">
+        <label class="form-label" for="compliance-situacao">Situacao</label>
+        <select id="compliance-situacao" class="form-select" name="situacao">
+          {% for value, label in situacoes_termo %}
+            <option value="{{ value }}"{% if situacao == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xl-3 col-lg-4">
+        <label class="form-label" for="compliance-responsavel">Responsavel</label>
+        <select id="compliance-responsavel" class="form-select" name="responsavel">
+          <option value="">Todos</option>
+          <option value="meus"{% if responsavel == 'meus' %} selected{% endif %}>Meus chamados</option>
+          {% for usuario in responsaveis %}
+            <option value="{{ usuario.pk }}"{% if responsavel == usuario.pk|stringformat:"s" %} selected{% endif %}>{{ usuario.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xl-2 col-lg-4">
+        <label class="form-label" for="compliance-fechado-de">Fechado de</label>
+        <input id="compliance-fechado-de" class="form-control" type="date" name="fechado_de" value="{{ fechado_de }}">
+      </div>
+      <div class="col-xl-2 col-lg-4">
+        <label class="form-label" for="compliance-fechado-ate">Fechado ate</label>
+        <input id="compliance-fechado-ate" class="form-control" type="date" name="fechado_ate" value="{{ fechado_ate }}">
+      </div>
+      <div class="col-lg-2 align-self-end">
+        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="card-body border-bottom">
+    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+      <div>
+        <div class="section-kicker">Evidencias</div>
+        <h2 class="h5 mb-0">{{ page_obj.paginator.count }} registro{{ page_obj.paginator.count|pluralize }} na busca</h2>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-primary" href="{% url 'compliance_termos_csv' %}{{ export_query }}">
+          <i class="fa-solid fa-file-csv me-1" aria-hidden="true"></i>Exportar CSV
+        </a>
+        <a class="btn btn-outline-secondary" href="{% url 'compliance_termos_pdf' %}{{ export_query }}" target="_blank" rel="noopener">
+          <i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i>Exportar PDF
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="table-responsive app-scroll-area app-scroll-area-lg">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Chamado</th>
+          <th>Colaborador</th>
+          <th>Status</th>
+          <th>Fechado</th>
+          <th>Assinatura</th>
+          <th>Tempo</th>
+          <th>Evidencia</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in linhas %}
+          <tr>
+            <td>
+              <a class="fw-semibold" href="{% url 'detalhe_chamado' row.chamado_id %}">#{{ row.chamado_id }} · {{ row.titulo }}</a>
+              <div class="small text-muted">Responsavel: {{ row.responsavel }}</div>
+            </td>
+            <td>
+              <div class="fw-semibold">{{ row.colaborador }}</div>
+              <div class="small text-muted">{{ row.matricula }}</div>
+            </td>
+            <td>
+              {% if row.status == 'Assinado' %}
+                <span class="status-pill status-pill-success">{{ row.status }}</span>
+              {% elif row.status == 'Expirado' %}
+                <span class="status-pill status-pill-warning">{{ row.status }}</span>
+              {% else %}
+                <span class="status-pill status-pill-neutral">{{ row.status }}</span>
+              {% endif %}
+              <div class="small text-muted mt-2">Envios: {{ row.envios }}</div>
+            </td>
+            <td>{{ row.fechado_em }}</td>
+            <td>
+              <div>{{ row.assinado_em }}</div>
+              <div class="small text-muted">Expira: {{ row.expires_at }}</div>
+              <div class="small text-muted">Envio: {{ row.enviado_em }}</div>
+            </td>
+            <td>{% if row.horas_ate_aceite == '-' %}-{% else %}{{ row.horas_ate_aceite }}h{% endif %}</td>
+            <td>
+              {% if row.evidencia_ok %}
+                <span class="status-pill status-pill-success">Hash OK</span>
+              {% else %}
+                <span class="status-pill status-pill-warning">Pendente</span>
+              {% endif %}
+              <div class="small text-muted text-break mt-2">{{ row.hash_curto }}</div>
+            </td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'termo_chamado' row.chamado_id %}" target="_blank" rel="noopener">Termo</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="text-center py-4 text-muted">Nenhum termo encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if page_obj.has_other_pages %}
+  <nav class="mt-4" aria-label="Paginacao do compliance">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Anterior</a></li>
+      {% endif %}
+      <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Proxima</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endif %}
+{% endblock %}

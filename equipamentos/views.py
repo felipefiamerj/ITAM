@@ -1,72 +1,39 @@
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
+from django.views.decorators.http import require_GET
+
+from accounts.permissions import pode_acessar_operacao
 
 from .forms import EquipamentoForm, ImportacaoEquipamentosCSVForm, MovimentacaoEquipamentoForm
-from .models import Equipamento, StatusEquipamento
-from .services import importar_equipamentos_csv
-
-
-def _pode_gerenciar(user):
-    return user.is_authenticated and (user.is_admin or user.is_analista or user.is_tecnico)
-
-
-def _pode_importar(user):
-    return user.is_authenticated and (user.is_admin or user.is_analista or user.is_tecnico)
+from .models import Equipamento
+from .services import aplicar_movimentacao_equipamento, importar_equipamentos_csv
 
 
 def _exigir_operacional(request):
-    if not _pode_gerenciar(request.user):
+    if not pode_acessar_operacao(request.user):
         messages.error(request, 'Acesso negado.')
         return redirect('chamados')
     return None
 
 
-def _aplicar_movimentacao(equipamento, movimentacao):
-    tipo = movimentacao.tipo
-
-    if tipo == 'entrada':
-        equipamento.status = StatusEquipamento.EM_ESTOQUE
-        equipamento.responsavel = None
-        equipamento.data_atribuicao = None
-    elif tipo == 'reserva':
-        equipamento.status = StatusEquipamento.RESERVADO
-        equipamento.data_atribuicao = None
-    elif tipo == 'liberacao_reserva':
-        equipamento.status = StatusEquipamento.EM_ESTOQUE
-        equipamento.responsavel = None
-        equipamento.data_atribuicao = None
-    elif tipo == 'saida':
-        equipamento.status = StatusEquipamento.EM_USO
-        equipamento.responsavel = movimentacao.usuario_novo or equipamento.responsavel
-        equipamento.data_atribuicao = timezone.now()
-    elif tipo == 'devolucao':
-        equipamento.status = StatusEquipamento.EM_ESTOQUE
-        equipamento.responsavel = None
-        equipamento.data_atribuicao = None
-    elif tipo == 'manutencao':
-        equipamento.status = StatusEquipamento.EM_MANUTENCAO
-        equipamento.responsavel = None
-        equipamento.data_atribuicao = None
-    elif tipo == 'retorno_manutencao':
-        equipamento.status = StatusEquipamento.EM_ESTOQUE
-        equipamento.responsavel = None
-        equipamento.data_atribuicao = None
-    elif tipo == 'descarte':
-        equipamento.status = StatusEquipamento.DESCARTADO
-        equipamento.responsavel = None
-        equipamento.data_atribuicao = None
-    elif tipo in {'transferencia', 'troca'} and movimentacao.usuario_novo:
-        equipamento.status = StatusEquipamento.EM_USO
-        equipamento.responsavel = movimentacao.usuario_novo
-        equipamento.data_atribuicao = timezone.now()
-
-    equipamento.save()
+@require_GET
+def qr_equipamento_publico(request, id_patrimonio):
+    equipamento = get_object_or_404(
+        Equipamento.objects.select_related('responsavel'),
+        id_patrimonio=id_patrimonio,
+    )
+    return render(
+        request,
+        'equipamentos/qr_publico.html',
+        {
+            'equipamento': equipamento,
+        },
+    )
 
 
 @login_required
@@ -155,9 +122,9 @@ def detalhe_equipamento(request, id_patrimonio):
         Equipamento.objects.select_related('responsavel', 'criado_por'),
         id_patrimonio=id_patrimonio,
     )
-    if not equipamento.qr_code:
+    if not equipamento.qrcode_atualizado:
         equipamento._gerar_qrcode()
-        equipamento.save()
+        equipamento.save(update_fields=['qr_code', 'updated_at'])
     movimentacoes = equipamento.movimentacoes.select_related(
         'usuario_anterior',
         'usuario_novo',
@@ -172,7 +139,7 @@ def detalhe_equipamento(request, id_patrimonio):
             'equipamento': equipamento,
             'movimentacoes': movimentacoes,
             'movimentacao_form': MovimentacaoEquipamentoForm(),
-            'pode_gerenciar': _pode_gerenciar(request.user),
+            'pode_gerenciar': pode_acessar_operacao(request.user),
         },
     )
 
@@ -223,7 +190,7 @@ def registrar_movimentacao(request, id_patrimonio):
         movimentacao.usuario_anterior = equipamento.responsavel
         movimentacao.realizado_por = request.user
         movimentacao.save()
-        _aplicar_movimentacao(equipamento, movimentacao)
+        aplicar_movimentacao_equipamento(equipamento, movimentacao)
         messages.success(request, 'Movimentação registrada.')
         return redirect('detalhe_equipamento', id_patrimonio=equipamento.id_patrimonio)
 
@@ -239,6 +206,6 @@ def registrar_movimentacao(request, id_patrimonio):
                 'chamado',
             ).order_by('-created_at'),
             'movimentacao_form': form,
-            'pode_gerenciar': _pode_gerenciar(request.user),
+            'pode_gerenciar': pode_acessar_operacao(request.user),
         },
     )

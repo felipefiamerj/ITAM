@@ -21,6 +21,32 @@
   let connectionToastShown = false;
   let unreadCount = readInitialUnreadCount();
 
+  const clampPercent = (value) => {
+    const parsed = Number.parseFloat(String(value || '').replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+      return 0;
+    }
+
+    return Math.min(100, Math.max(0, parsed));
+  };
+
+  const applyProgressValues = (root = document) => {
+    root.querySelectorAll('[data-progress-value]').forEach((element) => {
+      const percent = clampPercent(element.dataset.progressValue);
+      element.style.width = `${percent}%`;
+
+      const progressbar = element.closest('[role="progressbar"]');
+      if (progressbar) {
+        progressbar.setAttribute('aria-valuenow', String(Math.round(percent)));
+      }
+    });
+  };
+
+  window.ItamUI = {
+    ...(window.ItamUI || {}),
+    applyProgressValues,
+  };
+
   const focusSearchInput = () => {
     const input = document.querySelector('[data-search-input]');
 
@@ -250,7 +276,17 @@
     syncBadge(unreadCount);
   }
 
+  applyProgressValues();
   connectNotifications();
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target.closest('form[data-confirm-message]');
+    const message = form?.dataset.confirmMessage;
+
+    if (message && !window.confirm(message)) {
+      event.preventDefault();
+    }
+  });
 
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {

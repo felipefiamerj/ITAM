@@ -1,0 +1,63 @@
+{% if playbook_chamado %}
+  <div class="ticket-callout ticket-callout-{{ playbook_chamado.tone }} mb-3">
+    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-2">
+      <div>
+        <div class="section-kicker mb-1">Playbook automatico</div>
+        <div class="ticket-callout-title mb-0">{{ playbook_chamado.titulo }}</div>
+      </div>
+      <span class="status-pill status-pill-{{ playbook_chamado.tone }}">
+        {{ playbook_chamado.concluidas }}/{{ playbook_chamado.total }} etapas
+      </span>
+    </div>
+    <p class="ticket-callout-text mb-3">{{ playbook_chamado.descricao }}</p>
+
+    <div class="workflow-progress mb-3" aria-hidden="true">
+      <span data-progress-value="{{ playbook_chamado.progresso_percentual }}"></span>
+    </div>
+
+    {% if playbook_chamado.proxima_acao %}
+      <div class="small text-muted mb-3">
+        <strong>Proxima acao:</strong> {{ playbook_chamado.proxima_acao.titulo }}.
+        {{ playbook_chamado.proxima_acao.descricao }}
+      </div>
+    {% endif %}
+
+    {% if pode_gerenciar_chamado and playbook_chamado.reserva_inteligente_disponivel %}
+      <form method="post" action="{% url 'reserva_inteligente_estoque' %}" class="mb-3">
+        {% csrf_token %}
+        <input type="hidden" name="chamado" value="{{ chamado.pk }}">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-sm btn-primary">
+          <i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Reservar automaticamente
+        </button>
+      </form>
+    {% endif %}
+
+    {% if playbook_chamado.bloqueios %}
+      <div class="alert alert-warning py-2 mb-3">
+        <strong>Bloqueio operacional:</strong>
+        {% for bloqueio in playbook_chamado.bloqueios %}
+          {{ bloqueio.titulo }}{% if bloqueio.descricao %} - {{ bloqueio.descricao }}{% endif %}{% if not forloop.last %}; {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="timeline workflow-timeline">
+      {% for etapa in playbook_chamado.etapas %}
+        <div class="timeline-item workflow-step{% if etapa.done %} is-done{% endif %}{% if etapa.active %} is-active{% endif %}{% if etapa.blocked %} is-blocked{% endif %}">
+          <span class="timeline-dot" aria-hidden="true"></span>
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+              <strong>{{ etapa.titulo }}</strong>
+              <span class="status-pill status-pill-{{ etapa.tone }}">{{ etapa.label }}</span>
+            </div>
+            <p class="small text-muted mb-1">{{ etapa.descricao }}</p>
+            {% if etapa.detalhe %}
+              <div class="small text-muted">{{ etapa.detalhe }}</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}

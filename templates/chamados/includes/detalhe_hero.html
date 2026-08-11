@@ -1,0 +1,81 @@
+<section class="hero-surface mb-4" aria-labelledby="ticket-detail-title">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker">
+        <i class="fa-solid fa-ticket" aria-hidden="true"></i>
+        Chamado #{{ chamado.pk }}
+      </div>
+      <h1 id="ticket-detail-title" class="hero-title mb-2">{{ chamado.titulo }}</h1>
+      <div class="d-flex align-items-center gap-2 flex-wrap" aria-label="Resumo do chamado">
+        <span class="status-pill status-pill-dark">{{ chamado.get_status_display }}</span>
+        <span class="status-pill status-pill-dark">{{ chamado.get_prioridade_display }}</span>
+        {% if chamado.servico_realizado %}
+          <span class="status-pill status-pill-dark">{{ chamado.get_servico_realizado_display }}</span>
+        {% endif %}
+        <span class="status-pill status-pill-dark">Colaborador: {{ chamado.destinatario_nome_completo }}</span>
+        {% if itens_solicitados %}
+          <span class="status-pill status-pill-dark">Itens: {{ chamado.itens_solicitados_resumo }}</span>
+        {% endif %}
+        {% if chamado.equipamento %}
+          <span class="status-pill status-pill-dark">{{ chamado.equipamento.id_patrimonio }}</span>
+        {% endif %}
+        <span class="status-pill status-pill-dark">Fluxo: {{ chamado.fluxo_etapa_label }}</span>
+        {% if chamado.aprovado_por %}
+          <span class="status-pill status-pill-dark">Aprovado por: {{ chamado.aprovado_por.nome_completo }}</span>
+        {% endif %}
+        <span class="status-pill status-pill-dark">SLA: {{ chamado.sla_status_label }}</span>
+        <span class="status-pill status-pill-dark">{{ chamado.sla_restante_label }}</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end" role="group" aria-label="Ações do chamado">
+      {% if pode_editar_chamado %}
+        <a class="btn btn-light btn-lg" href="{% url 'editar_chamado' chamado.pk %}">
+          <i class="fa-solid fa-pen-to-square me-1" aria-hidden="true"></i>Editar
+        </a>
+      {% endif %}
+      {% if pode_excluir_chamado %}
+        <form
+          method="post"
+          action="{% url 'excluir_chamado' chamado.pk %}"
+          data-confirm-message="Excluir este chamado? As reservas ativas serão devolvidas ao estoque."
+          class="mb-0"
+        >
+          {% csrf_token %}
+          <button class="btn btn-outline-danger btn-lg" type="submit">
+            <i class="fa-solid fa-trash-can me-1" aria-hidden="true"></i>Excluir
+          </button>
+        </form>
+      {% endif %}
+      <a class="btn btn-outline-light btn-lg" href="{% url 'termo_chamado' chamado.pk %}" target="_blank" rel="noopener">
+        <i class="fa-solid fa-file-lines me-1" aria-hidden="true"></i>Termo
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'termo_chamado_pdf' chamado.pk %}" target="_blank" rel="noopener">
+        <i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i>PDF
+      </a>
+      {% if aceite_digital and not aceite_digital.is_assinado %}
+        <a class="btn btn-light btn-lg" href="{% url 'assinar_termo_chamado' aceite_digital.token %}" target="_blank" rel="noopener">
+          <i class="fa-solid fa-file-signature me-1" aria-hidden="true"></i>Assinar
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="workflow-hero-panel mt-4">
+    <div class="workflow-hero-panel-copy">
+      <div class="section-kicker mb-2">Acompanhamento do chamado</div>
+      <h2 class="h5 mb-1">{{ chamado.fluxo_etapa_label }}</h2>
+      <p class="mb-0">{{ chamado.fluxo_etapa_descricao }}</p>
+    </div>
+    <div class="workflow-hero-panel-meta">
+      <div class="workflow-hero-panel-step">Passo {{ fluxo_etapa_indice }} de {{ fluxo_etapas_total }}</div>
+      <div class="workflow-progress" aria-hidden="true"><span data-progress-value="{{ fluxo_progresso_percent }}"></span></div>
+      <div class="workflow-hero-panel-next">
+        {% if fluxo_proxima_etapa %}
+          Próxima etapa: {{ fluxo_proxima_etapa.label }}
+        {% else %}
+          Fluxo encerrado.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>

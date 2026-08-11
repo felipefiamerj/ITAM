@@ -1,0 +1,50 @@
+<section class="hero-surface estoque-hero mb-4" aria-labelledby="stock-page-title">
+  <div class="estoque-hero__grid">
+    <div class="estoque-hero__copy">
+      <div class="hero-kicker">
+        <i class="fa-solid fa-warehouse" aria-hidden="true"></i>
+        Estoque e lotes
+      </div>
+      <h1 id="stock-page-title" class="hero-title mb-2">Estoque operacional</h1>
+      <p class="hero-text mb-0">
+        Reserve, separe e acompanhe a disponibilidade dos ativos em tempo real.
+        <span class="d-block mt-2">
+          Ultima atualizacao: <strong id="estoque-updated-at">Agora</strong>
+        </span>
+      </p>
+      <div class="hero-chip-row estoque-hero__chips" aria-label="Resumo rapido do estoque">
+        <span class="status-pill status-pill-dark">
+          <i class="fa-solid fa-box-open" aria-hidden="true"></i>
+          {{ total_em_estoque }} em estoque
+        </span>
+        <span class="status-pill status-pill-dark">
+          <i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+          {{ reservas_ativas_total }} reservas ativas
+        </span>
+        <span class="status-pill status-pill-dark">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          {{ equipamentos_alerta_total }} alertas
+        </span>
+        <span class="status-pill status-pill-dark">
+          <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+          {{ total_sites }} sites
+        </span>
+      </div>
+    </div>
+
+    <div class="estoque-hero__actions" role="group" aria-label="Acoes rapidas do estoque">
+      <a class="btn btn-light btn-lg" href="#estoque-operacao">
+        <i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Nova reserva
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'painel_tecnico' %}">
+        <i class="fa-solid fa-list-check me-1" aria-hidden="true"></i>Fila
+      </a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'importar_equipamentos_csv' %}">
+        <i class="fa-solid fa-file-arrow-up me-1" aria-hidden="true"></i>Importar CSV
+      </a>
+      <span class="status-pill status-pill-dark estoque-hero__sync">
+        <span class="live-dot" aria-hidden="true"></span> Atualizacao automatica
+      </span>
+    </div>
+  </div>
+</section>

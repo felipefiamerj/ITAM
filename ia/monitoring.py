@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from equipamentos.models import CondicaoEquipamento, Equipamento, StatusEquipamento, StatusMonitoramento
+
 from .config import IA_MODE_DESCRIPTION, IA_MODE_DETAIL, IA_MODE_KEY, IA_MODE_LABEL
 
 

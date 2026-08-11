@@ -1,8 +1,7 @@
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-
-from auditlog.registry import auditlog
 
 
 class NivelAcesso(models.TextChoices):

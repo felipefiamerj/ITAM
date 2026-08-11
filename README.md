@@ -1,6 +1,6 @@
-# ITAM System
+# FIAME System
 
-ITAM System é uma plataforma de gestão de ativos de TI e operações de suporte. O sistema foi desenvolvido em Django e integra controle de equipamentos, chamados, solicitações de acesso, estoque e notificações.
+FIAME System é uma plataforma de gestão de ativos de TI e operações de suporte. O sistema foi desenvolvido em Django e integra controle de equipamentos, chamados, solicitações de acesso, estoque e notificações.
 
 ## Visão geral
 
@@ -56,13 +56,15 @@ O projeto oferece:
 
 ## Tecnologias utilizadas
 
-- Python 3.10 + Django 4.2.x
+- Python 3.12/3.13 + Django 5.2 LTS
 - Django REST Framework
 - Django Crispy Forms + Bootstrap 5
 - django-guardian para permissões objeto
 - django-auditlog para auditoria de alterações
 - Celery + django-celery-beat + django-celery-results para automações e rotinas agendadas
 - Channels + Redis para WebSockets e mensagens em tempo real
+- OpenAPI em `/api/schema/` e painel de documentacao em `/api/docs/`
+- Rate limit em fluxos publicos de autenticacao e endpoints de API
 - qrcode para geração de QR Code de equipamentos
 - reportlab para geração de documentos/impressos (quando necessário)
 
@@ -71,7 +73,8 @@ O projeto oferece:
 1. Ative o ambiente virtual:
 
 ```powershell
-& .\.venv\Scripts\Activate.ps1
+& .\.venv312\Scripts\Activate.ps1
+python --version
 ```
 
 2. Instale as dependências:
@@ -80,13 +83,23 @@ O projeto oferece:
 pip install -r requirements.txt
 ```
 
+Para desenvolvimento e CI local, instale tambem o lint:
+
+```powershell
+pip install -r requirements-dev.txt
+python -m ruff check .
+```
+
 3. Configure o arquivo `.env` com variáveis de ambiente, se desejar.
-   - `APP_NAME=Nome da empresa ou do sistema`
-   - `APP_SHORT_NAME=Sigla`
+   - `APP_NAME=FIAME System`
+   - `APP_SHORT_NAME=FIAME`
    - `DJANGO_ENV=development` ou `production`
    - `SITE_URL=https://seu-dominio`
    - `SECRET_KEY=...`
    - `REDIS_URL=redis://127.0.0.1:6379/0`
+   - `CACHE_URL=redis://127.0.0.1:6379/1`
+   - `ITAM_API_SHARED_KEY_SHA256=...` para autenticar integracoes sem armazenar a chave em texto puro
+     - Gere o hash com `python manage.py hash_api_key sua-chave-com-32-caracteres-ou-mais`
 
 4. Crie e aplique as migrações:
 
@@ -107,6 +120,8 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+Esse comando usa Daphne via ASGI e atende HTTP + WebSockets, incluindo `/ws/notifications/`.
+
 7. Acesse o sistema em:
 
 ```text
@@ -117,12 +132,43 @@ http://127.0.0.1:8000/
 
 - O sistema utiliza `SQLite` por padrão, mas pode ser configurado para `PostgreSQL` via variável `DB_ENGINE` no `.env`.
 - Para rodar com banco local, ajuste `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` conforme seu ambiente.
+- Em producao, use `.env.production.example` como base e defina `DJANGO_ENV=production`, `DEBUG=False`, `SECRET_KEY` forte, `ALLOWED_HOSTS`, `SITE_URL`, `REDIS_URL` e `CACHE_URL`.
+- O projeto define cookies seguros, HSTS e redirecionamento HTTPS por padrao quando `DJANGO_ENV=production`.
+- Bootstrap, Font Awesome, Chart.js e fontes estao vendorizados em `static/vendor/`, sem dependencia de CDN em runtime.
+- O guia de operacao em producao esta em `docs/deployment/production.md`.
 - O `DEBUG` está ativado por padrão no ambiente de desenvolvimento.
 - A administração de arquivos está em `staticfiles/` e `media/`.
 - Para validar a instalação em uma máquina de cliente, rode:
 
 ```powershell
 python manage.py verificar_instalacao
+```
+
+- O endpoint publico `/health/` valida banco e cache para monitoramento externo.
+- Depois de subir o servidor, rode um smoke test local:
+
+```powershell
+.\scripts\smoke-test.ps1 -BaseUrl http://127.0.0.1:8000
+```
+
+Com chave de API configurada, valide tambem o contrato OpenAPI:
+
+```powershell
+.\scripts\smoke-test.ps1 -BaseUrl http://127.0.0.1:8000 -ApiKey SUA_CHAVE
+```
+
+- Para validar um deploy antes de liberar, rode:
+
+```powershell
+.\scripts\deploy-check.ps1
+```
+
+- Para backup, restore e retencao de logs, use:
+
+```powershell
+.\scripts\backup.ps1
+.\scripts\restore.ps1 -DatabaseBackup .\backups\itam-db-YYYYMMDD-HHMMSS.dump -ConfirmRestore RESTORE
+.\scripts\rotate-logs.ps1
 ```
 
 - Para subir o sistema completo no Windows sem Docker, use os scripts em `scripts/`:
@@ -147,10 +193,14 @@ celery -A itam worker -l info
 celery -A itam beat -l info
 ```
 
-- Para WebSockets, use um servidor ASGI compatível como Daphne ou Uvicorn.
+- O beat tambem executa a cobranca automatica diaria dos termos digitais pendentes. Ajuste `ITAM_TERMO_ASSINATURA_COBRANCA_HORA`, `ITAM_TERMO_ASSINATURA_COBRANCA_MINUTO` e `ITAM_TERMO_ASSINATURA_COBRANCA_INTERVALO_DIAS` conforme a rotina da operacao.
+- Para WebSockets em producao, use um servidor ASGI compativel como Daphne ou Uvicorn.
 - Sem `REDIS_URL`, o projeto usa fallback em memória para desenvolvimento e testes.
+- O agente Windows de monitoramento esta documentado em `docs/monitoring/windows-agent.md`.
+- As integracoes corporativas de SMTP, Teams e Slack estao documentadas em `docs/integrations/corporate.md`.
+- O workflow `.github/workflows/ci.yml` valida lint, checks, migracoes e testes em Python 3.12 e 3.13 com PostgreSQL e Redis.
 
 ## Status das alterações
 
-- A base foi validada em Python 3.10 com PostgreSQL local e migrações recriadas do zero.
+- A base foi migrada para Django 5.2 LTS e preparada para Python 3.12/3.13.
 - Se você deseja que eu implemente funcionalidades específicas de solicitação, entrega, troca de equipamentos ou comprovantes assinados, por favor descreva os requisitos detalhadamente para que eu possa aplicar as mudanças no código.

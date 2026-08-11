@@ -11,7 +11,7 @@ from equipamentos.models import Equipamento, StatusEquipamento
 
 from .config import IA_MODE_DESCRIPTION, IA_MODE_DETAIL, IA_MODE_KEY, IA_MODE_LABEL
 from .monitoring import resumo_monitoramento
-
+from .predictions import build_predictive_insights
 
 SOURCE_META = {
     'chamados': {
@@ -388,6 +388,7 @@ def build_operational_copilot(user):
     now = timezone.now()
     stale_limit = now - timedelta(minutes=getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10))
     monitoring_summary = resumo_monitoramento()
+    predictive_insights = build_predictive_insights()
 
     recommendations = []
 
@@ -537,4 +538,5 @@ def build_operational_copilot(user):
         'metrics': metrics,
         'copilot_charts': copilot_charts,
         'monitoring_summary': monitoring_summary,
+        'predictive_insights': predictive_insights,
     }

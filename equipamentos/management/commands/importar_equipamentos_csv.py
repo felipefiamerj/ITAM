@@ -4,7 +4,6 @@ from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import Usuario
-
 from equipamentos.services import importar_equipamentos_csv
 
 

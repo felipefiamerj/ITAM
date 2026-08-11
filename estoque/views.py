@@ -3,16 +3,18 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from chamados.models import Chamado
 from equipamentos.models import Equipamento, StatusEquipamento, TipoEquipamento
 from itam.charting import build_choice_chart, build_top_chart
 
-from .forms import ReservaEstoqueForm, ReservaEstoqueLoteForm
+from .forms import ReservaEstoqueForm, ReservaEstoqueLoteForm, ReservaInteligenteForm
 from .models import (
     ReservaEstoque,
-    equipamentos_em_manutencao,
     equipamentos_em_estoque,
+    equipamentos_em_manutencao,
     lotes_recentes,
     reservas_ativas_queryset,
     resumo_por_localizacao,
@@ -20,7 +22,37 @@ from .models import (
     resumo_por_status,
     resumo_por_tipo,
 )
-from .services import criar_reserva_estoque, criar_reservas_estoque_lote, liberar_reserva_estoque, marcar_reserva_separada
+from .services import (
+    criar_reserva_estoque,
+    criar_reservas_estoque_lote,
+    criar_reservas_inteligentes,
+    liberar_reserva_estoque,
+    marcar_reserva_separada,
+)
+
+
+def _redirect_seguro_reserva(request):
+    destino = (request.POST.get('next') or '').strip()
+    if destino.startswith('/') and not destino.startswith('//'):
+        return destino
+    return reverse('estoque')
+
+
+def _mensagem_reserva_inteligente(request, resultado):
+    reservas = resultado['reservas']
+    bloqueios = resultado['bloqueios']
+    itens = ', '.join(
+        f'{reserva.item_solicitado.tipo_display}: {reserva.equipamento.id_patrimonio}'
+        for reserva in reservas
+        if reserva.item_solicitado_id
+    )
+    mensagem = f'{len(reservas)} reserva(s) inteligente(s) criada(s).'
+    if itens:
+        mensagem = f'{mensagem} {itens}.'
+    if bloqueios:
+        messages.warning(request, f'{mensagem} {len(bloqueios)} item(ns) ficaram sem sugestao automatica.')
+    else:
+        messages.success(request, mensagem)
 
 
 @login_required
@@ -30,9 +62,12 @@ def estoque_view(request):
 
     reserva_form = ReservaEstoqueForm()
     reserva_lote_form = ReservaEstoqueLoteForm()
+    reserva_inteligente_form = ReservaInteligenteForm()
+    estoque_form_tab = 'inteligente'
     if request.method == 'POST':
         acao = (request.POST.get('acao') or '').strip()
         if acao == 'reservar':
+            estoque_form_tab = 'manual'
             reserva_form = ReservaEstoqueForm(request.POST)
             if reserva_form.is_valid():
                 try:
@@ -52,6 +87,7 @@ def estoque_view(request):
                     )
                     return redirect('estoque')
         elif acao == 'reservar_lote':
+            estoque_form_tab = 'lote'
             reserva_lote_form = ReservaEstoqueLoteForm(request.POST)
             if reserva_lote_form.is_valid():
                 try:
@@ -115,6 +151,8 @@ def estoque_view(request):
         'reservas_ativas_total': reservas_ativas.count(),
         'reserva_form': reserva_form,
         'reserva_lote_form': reserva_lote_form,
+        'reserva_inteligente_form': reserva_inteligente_form,
+        'estoque_form_tab': estoque_form_tab,
         'equipamentos_para_reserva_total': equipamentos_em_estoque().count(),
         'chamados_operacionais': Chamado.objects.select_related('solicitante', 'destinatario', 'responsavel').order_by(
             '-updated_at',
@@ -135,3 +173,30 @@ def estoque_view(request):
         },
     }
     return render(request, 'estoque/index.html', context)
+
+
+@login_required
+@require_POST
+def reserva_inteligente_view(request):
+    if not request.user.is_operacional:
+        messages.error(request, 'Acesso negado.')
+        return redirect('chamados')
+
+    form = ReservaInteligenteForm(request.POST)
+    destino = _redirect_seguro_reserva(request)
+    if not form.is_valid():
+        messages.error(request, 'Selecione um chamado valido para a reserva inteligente.')
+        return redirect(destino)
+
+    try:
+        resultado = criar_reservas_inteligentes(
+            chamado=form.cleaned_data['chamado'],
+            solicitante=request.user,
+            observacoes=form.cleaned_data.get('observacoes', ''),
+        )
+    except ValidationError as exc:
+        messages.warning(request, exc.messages[0] if exc.messages else 'Nao foi possivel criar reservas inteligentes.')
+    else:
+        _mensagem_reserva_inteligente(request, resultado)
+
+    return redirect(destino)

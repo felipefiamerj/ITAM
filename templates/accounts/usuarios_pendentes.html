@@ -52,7 +52,7 @@
 </div>
 
 <div class="card app-card">
-  <div class="table-responsive">
+  <div class="table-responsive app-scroll-area app-scroll-area-lg">
     <table class="table mb-0 align-middle">
       <thead>
         <tr>
@@ -79,7 +79,7 @@
             <td class="text-end">
               <div class="d-flex gap-2 justify-content-end flex-wrap">
                 <a class="btn btn-sm btn-primary" href="{% url 'aprovar_usuario' usuario.pk %}">Aprovar</a>
-                <form method="post" action="{% url 'reprovar_usuario' usuario.pk %}" class="d-inline" onsubmit="return confirm('Reprovar esta solicitação?');">
+                <form method="post" action="{% url 'reprovar_usuario' usuario.pk %}" class="d-inline" data-confirm-message="Reprovar esta solicitação?">
                   {% csrf_token %}
                   <input type="hidden" name="motivo_recusa" value="Reprovado pelo administrador.">
                   <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>

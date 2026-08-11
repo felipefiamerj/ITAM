@@ -180,7 +180,7 @@
           </div>
           <a href="{% url 'chamados' %}" class="small">Abrir lista completa</a>
         </div>
-        <div class="list-group list-group-flush">
+        <div class="list-group list-group-flush app-scroll-area app-scroll-area-md">
           {% for chamado in portal_chamados_recentes %}
             <a class="list-group-item list-group-item-action" href="{% url 'detalhe_chamado' chamado.pk %}">
               <div class="d-flex justify-content-between align-items-start gap-3">
@@ -216,7 +216,7 @@
           </div>
           <span class="badge badge-soft">{{ portal_equipamentos_total }}</span>
         </div>
-        <div class="stack-list">
+        <div class="stack-list app-scroll-area app-scroll-area-md">
           {% for equipamento in portal_equipamentos %}
             <article class="list-card">
               <div class="d-flex justify-content-between align-items-start gap-3">
@@ -249,7 +249,7 @@
           </div>
           <a href="{% url 'notifications' %}" class="small">Ver todas</a>
         </div>
-        <div class="list-group list-group-flush">
+        <div class="list-group list-group-flush app-scroll-area app-scroll-area-md">
           {% for notification in portal_notificacoes %}
             <a class="list-group-item list-group-item-action" href="{% url 'notification_read' notification.pk %}?next={% url 'dashboard' %}">
               <div class="d-flex justify-content-between align-items-start gap-3">
@@ -304,6 +304,6 @@
 
 {% block extra_scripts %}
   {{ dashboard_charts|json_script:"dashboard-charts-data" }}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'vendor/chart.js/4.4.3/chart.umd.min.js' %}" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF"></script>
   <script src="{% static 'js/dashboard-charts.js' %}"></script>
 {% endblock %}

@@ -1,4 +1,5 @@
 ﻿from django import forms
+
 from chamados.models import Chamado, ChamadoItemSolicitado, StatusChamado
 from equipamentos.models import Equipamento, StatusEquipamento
 
@@ -125,3 +126,23 @@ class ReservaEstoqueLoteForm(forms.Form):
             self.add_error('equipamentos', 'Selecione pelo menos um equipamento para reservar em lote.')
 
         return cleaned_data
+
+
+class ReservaInteligenteForm(forms.Form):
+    chamado = forms.ModelChoiceField(queryset=Chamado.objects.none(), label='Chamado')
+    observacoes = forms.CharField(
+        label='Observacoes',
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['chamado'].queryset = (
+            Chamado.objects.filter(status__in=[StatusChamado.FILA, StatusChamado.EM_ATENDIMENTO, StatusChamado.AGUARDANDO_ATENDIMENTO])
+            .select_related('solicitante', 'destinatario', 'responsavel')
+            .order_by('-updated_at', '-created_at')
+        )
+        self.fields['chamado'].empty_label = 'Selecione o chamado'
+        self.fields['chamado'].widget.attrs.setdefault('class', 'form-select')
+        self.fields['observacoes'].widget.attrs.setdefault('class', 'form-control')

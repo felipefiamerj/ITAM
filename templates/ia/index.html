@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Copiloto Operacional | {{ app_name }}{% endblock %}
+{% block title %}Copiloto de IA | {{ app_name }}{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4 ia-copilot-hero">
   <div class="ia-copilot-hero-grid">
     <div class="ia-copilot-hero-copy">
-      <div class="hero-kicker"><i class="fa-solid fa-wand-magic-sparkles"></i> Copiloto operacional</div>
+      <div class="hero-kicker"><i class="fa-solid fa-wand-magic-sparkles"></i> Copiloto de IA</div>
       <h1 class="hero-title mb-2">Transforme sinais soltos em próximas ações claras.</h1>
       <p class="hero-text mb-0">
         O motor de recomendação cruza chamados, telemetria e saúde dos ativos para mostrar o que exige reação,
@@ -92,6 +92,84 @@
         </div>
       </div>
     {% endfor %}
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Previsoes</div>
+      <h2 class="h5 mb-0">Demanda e risco de SLA</h2>
+    </div>
+    <span class="badge badge-soft">{{ predictive_insights.forecast_days }} dias</span>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-xl-6">
+      <div class="card app-card ia-copilot-panel h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Estoque</div>
+              <h3 class="h6 mb-1">Risco de ruptura</h3>
+            </div>
+            <span class="badge badge-soft">{{ predictive_insights.metrics.rupture_risk }} em atencao</span>
+          </div>
+
+          <div class="list-group list-group-flush">
+            {% for item in predictive_insights.demand_forecast %}
+              <div class="list-group-item px-0 d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <div class="fw-semibold">{{ item.label }}</div>
+                  <div class="small text-muted">
+                    Previsto {{ item.previsao_periodo }} | estoque {{ item.em_estoque }} | media {{ item.media_diaria }}/dia
+                  </div>
+                </div>
+                <span class="badge {{ item.badge_class }}">{{ item.risk_label }}</span>
+              </div>
+            {% empty %}
+              <div class="dashboard-chart-empty">
+                <i class="fa-regular fa-circle-check"></i>
+                <strong>Sem demanda historica suficiente.</strong>
+                <span>As previsoes aparecem conforme chamados com itens solicitados entram no sistema.</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-6">
+      <div class="card app-card ia-copilot-panel h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">SLA</div>
+              <h3 class="h6 mb-1">Chamados com maior risco</h3>
+            </div>
+            <span class="badge badge-soft">{{ predictive_insights.metrics.sla_critical }} critico{{ predictive_insights.metrics.sla_critical|pluralize }}</span>
+          </div>
+
+          <div class="list-group list-group-flush">
+            {% for item in predictive_insights.sla_risk %}
+              <a class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-start gap-3" href="{{ item.url }}">
+                <div>
+                  <div class="fw-semibold">#{{ item.id }} - {{ item.titulo }}</div>
+                  <div class="small text-muted">{{ item.fluxo_etapa }} | {{ item.sla_restante }} | {{ item.responsavel }}</div>
+                </div>
+                <span class="badge {{ item.badge_class }}">{{ item.risk_score }}</span>
+              </a>
+            {% empty %}
+              <div class="dashboard-chart-empty">
+                <i class="fa-regular fa-circle-check"></i>
+                <strong>Nenhum chamado aberto em risco.</strong>
+                <span>A fila nao tem sinais relevantes de estouro de SLA agora.</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -193,6 +271,6 @@
 
 {% block extra_scripts %}
   {{ copilot_charts|json_script:"ia-copilot-data" }}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{% static 'vendor/chart.js/4.4.3/chart.umd.min.js' %}" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF"></script>
   <script src="{% static 'js/dashboard-charts.js' %}"></script>
 {% endblock %}

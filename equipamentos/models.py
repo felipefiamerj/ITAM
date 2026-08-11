@@ -1,13 +1,17 @@
 import io
 import secrets
 from datetime import timedelta
+from hashlib import sha256
+from urllib.parse import urljoin
 
 import qrcode
 from auditlog.registry import auditlog
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 
 
 class TipoEquipamento(models.TextChoices):
@@ -210,18 +214,80 @@ class Equipamento(models.Model):
         return self.last_seen_at < timezone.now() - timedelta(minutes=limite_minutos)
 
     def save(self, *args, **kwargs):
-        if self.id_patrimonio and not self.qr_code:
+        if self.id_patrimonio and not self.qrcode_atualizado:
             self._gerar_qrcode()
         super().save(*args, **kwargs)
 
+    @property
+    def qr_payload(self):
+        return '\n'.join(
+            [
+                f'Patrimônio: {self.id_patrimonio or "-"}',
+                f'Marca: {self.marca or "-"}',
+                f'Modelo: {self.modelo or "-"}',
+                f'Service tag: {self.service_tag or "-"}',
+                f'Responsável: {self.responsavel.nome_completo if self.responsavel else "-"}',
+                f'Condição: {self.condicao_display_limpa}',
+                f'Saúde: {self.score_saude_formatado}',
+                f'Site: {self.site or "-"}',
+                f'Setor: {self.setor or "-"}',
+            ]
+        )
+
+    @property
+    def qr_public_url(self):
+        path = reverse('qr_equipamento_publico', kwargs={'id_patrimonio': self.id_patrimonio})
+        base_url = (getattr(settings, 'ITAM_QR_BASE_URL', '') or getattr(settings, 'SITE_URL', '') or '').strip()
+        if not base_url:
+            return path
+        return urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
+
+    @property
+    def condicao_display_limpa(self):
+        labels = {
+            CondicaoEquipamento.OTIMO: 'Ótimo',
+            CondicaoEquipamento.BOM: 'Bom',
+            CondicaoEquipamento.REGULAR: 'Regular',
+            CondicaoEquipamento.RUIM: 'Ruim',
+            CondicaoEquipamento.INUTIL: 'Inútil',
+        }
+        return labels.get(self.condicao, self.get_condicao_display() or '-')
+
+    @property
+    def score_saude_formatado(self):
+        if self.score_saude is None:
+            return '-'
+        if float(self.score_saude).is_integer():
+            return str(int(self.score_saude))
+        return f'{self.score_saude:.1f}'
+
+    @property
+    def qrcode_atualizado(self):
+        return bool(self.qr_code and self.qr_code.name == self.qrcode_expected_name)
+
+    @property
+    def qrcode_expected_name(self):
+        return f'qrcodes/{self.qrcode_file_name}'
+
+    @property
+    def qrcode_file_name(self):
+        payload_hash = sha256(self.qr_payload.encode('utf-8')).hexdigest()[:12]
+        patrimonio = slugify(self.id_patrimonio) or 'equipamento'
+        return f'qr_{patrimonio}_{payload_hash}.png'
+
     def _gerar_qrcode(self):
-        qr = qrcode.QRCode(version=1, box_size=10, border=4)
-        qr.add_data(f'PATRIMONIO:{self.id_patrimonio}')
+        qr = qrcode.QRCode(box_size=10, border=4)
+        qr.add_data(self.qr_payload)
         qr.make(fit=True)
         image = qr.make_image(fill_color='black', back_color='white')
         buffer = io.BytesIO()
         image.save(buffer, format='PNG')
-        self.qr_code.save(f'qr_{self.id_patrimonio}.png', ContentFile(buffer.getvalue()), save=False)
+
+        storage = self.qr_code.storage
+        for file_name in {self.qr_code.name, self.qrcode_expected_name}:
+            if file_name and storage.exists(file_name):
+                storage.delete(file_name)
+        self.qr_code.save(self.qrcode_file_name, ContentFile(buffer.getvalue()), save=False)
 
     def get_historico(self):
         return [

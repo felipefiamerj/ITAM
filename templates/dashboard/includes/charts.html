@@ -1,0 +1,49 @@
+<section class="mb-4" aria-labelledby="dashboard-charts-title">
+  <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+    <div>
+      <div class="section-kicker">Gráficos</div>
+      <h2 id="dashboard-charts-title" class="h5 mb-0">Leituras visuais do parque</h2>
+    </div>
+    <span class="badge badge-soft">Atualização ao vivo</span>
+  </div>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-blue h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Inventário</div>
+              <h3 class="h6 mb-1">Equipamentos por status</h3>
+              <p class="small text-muted mb-0">A composição do parque em tempo real.</p>
+            </div>
+            <span class="badge badge-soft">{{ total_equipamentos }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-status-chart-wrap">
+            <canvas id="dashboard-status-chart" aria-label="Distribuição de equipamentos por status" role="img">
+              Distribuição de equipamentos por status.
+            </canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card app-card dashboard-chart-card dashboard-chart-card-amber h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Suporte</div>
+              <h3 class="h6 mb-1">Chamados ativos por prioridade</h3>
+              <p class="small text-muted mb-0">Foco imediato da fila operacional.</p>
+            </div>
+            <span class="badge badge-soft">{{ chamados_abertos }}</span>
+          </div>
+          <div class="dashboard-chart-wrap" id="dashboard-priority-chart-wrap">
+            <canvas id="dashboard-priority-chart" aria-label="Chamados ativos por prioridade" role="img">
+              Chamados ativos por prioridade.
+            </canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

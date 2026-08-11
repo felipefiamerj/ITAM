@@ -7,7 +7,17 @@ from django.utils import timezone
 from estoque.models import reservas_ativas_por_chamado
 from itam.api_auth import api_auth_required
 
-from .models import Chamado, EtapaFluxoChamado
+from .models import Chamado
+from .policies import (
+    PAINEL_OPERACIONAL_LANES,
+    pode_visualizar_chamado,
+)
+from .policies import (
+    acoes_fluxo_chamado as _fluxo_acoes,
+)
+from .policies import (
+    pode_gerenciar_chamado as _pode_gerenciar,
+)
 
 
 def _serialize_item(item):
@@ -67,33 +77,6 @@ def _serialize_chamado(chamado):
     }
 
 
-def _pode_gerenciar(user):
-    return user.is_authenticated and (user.is_admin or user.is_analista or user.is_tecnico)
-
-
-def _fluxo_acoes(user, chamado):
-    return {
-        'pode_assumir': _pode_gerenciar(user) and chamado.fluxo_etapa in {
-            EtapaFluxoChamado.SOLICITADO,
-            EtapaFluxoChamado.AGUARDANDO_ESTOQUE,
-        },
-        'pode_marcar_sem_estoque': user.is_authenticated and (user.is_admin or user.is_analista) and chamado.fluxo_etapa in {
-            EtapaFluxoChamado.TRIAGEM,
-            EtapaFluxoChamado.AGUARDANDO_ESTOQUE,
-        },
-        'pode_enviar_para_aprovacao': user.is_authenticated and (user.is_admin or user.is_analista) and chamado.fluxo_etapa in {
-            EtapaFluxoChamado.TRIAGEM,
-            EtapaFluxoChamado.AGUARDANDO_ESTOQUE,
-        },
-        'pode_aprovar_retirada': user.is_authenticated and chamado.destinatario_id == user.id and chamado.fluxo_etapa == EtapaFluxoChamado.AGUARDANDO_APROVACAO,
-        'pode_marcar_separacao': user.is_authenticated and (user.is_admin or user.is_tecnico) and chamado.fluxo_etapa in {
-            EtapaFluxoChamado.APROVADO_PARA_RETIRADA,
-            EtapaFluxoChamado.EM_SEPARACAO,
-        },
-        'pode_marcar_pronto': user.is_authenticated and (user.is_admin or user.is_tecnico) and chamado.fluxo_etapa == EtapaFluxoChamado.EM_SEPARACAO,
-    }
-
-
 @api_auth_required
 def chamados_api(request):
     qs = Chamado.objects.select_related('equipamento', 'solicitante', 'destinatario', 'responsavel', 'aprovado_por').prefetch_related(
@@ -131,7 +114,7 @@ def chamado_api(request, pk):
         ),
         pk=pk,
     )
-    if not _pode_gerenciar(request.user) and chamado.solicitante_id != request.user.id and chamado.destinatario_id != request.user.id:
+    if not pode_visualizar_chamado(request.user, chamado):
         return JsonResponse({'detail': 'Acesso negado.'}, status=403)
     return JsonResponse(_serialize_chamado(chamado))
 
@@ -144,35 +127,8 @@ def painel_tecnico_api(request):
     qs = Chamado.objects.select_related('equipamento', 'solicitante', 'destinatario', 'responsavel', 'aprovado_por').prefetch_related(
         'itens_solicitados',
     )
-    lanes = [
-        {
-            'key': 'recebidos',
-            'label': 'Recebidos',
-            'etapas': [EtapaFluxoChamado.SOLICITADO, EtapaFluxoChamado.TRIAGEM],
-        },
-        {
-            'key': 'estoque',
-            'label': 'Aguardando estoque',
-            'etapas': [EtapaFluxoChamado.AGUARDANDO_ESTOQUE],
-        },
-        {
-            'key': 'aprovacao',
-            'label': 'Aguardando aprovação',
-            'etapas': [EtapaFluxoChamado.AGUARDANDO_APROVACAO],
-        },
-        {
-            'key': 'separacao',
-            'label': 'Separação e entrega',
-            'etapas': [
-                EtapaFluxoChamado.APROVADO_PARA_RETIRADA,
-                EtapaFluxoChamado.EM_SEPARACAO,
-                EtapaFluxoChamado.PRONTO_PARA_ENTREGA,
-            ],
-        },
-    ]
-
     results = []
-    for lane in lanes:
+    for lane in PAINEL_OPERACIONAL_LANES:
         lane_qs = qs.filter(fluxo_etapa__in=lane['etapas']).order_by('-updated_at', '-created_at')
         results.append(
             {

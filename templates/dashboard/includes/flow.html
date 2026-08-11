@@ -1,0 +1,109 @@
+{% if chamados_fluxo %}
+  <section class="mb-4" aria-labelledby="dashboard-flow-title">
+    <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-3">
+      <div>
+        <div class="section-kicker">Equipe</div>
+        <h2 id="dashboard-flow-title" class="h5 mb-0">Fluxo operacional de chamados</h2>
+      </div>
+      <span class="badge badge-soft">Visual moderno do fluxo ativo</span>
+    </div>
+
+    <div class="dashboard-flow-layout">
+      <div class="card app-card dashboard-flow-overview h-100">
+        <div class="card-body">
+          <div class="dashboard-flow-overview-head">
+            <div class="dashboard-flow-overview-copy">
+              <div class="section-kicker">Visão rápida</div>
+              <h3 class="h5 mb-1">Chamados em movimento</h3>
+              <p class="small text-muted mb-0">
+                Leitura simplificada do fluxo com foco em triagem, atendimento e encerramento.
+              </p>
+            </div>
+            <div class="dashboard-flow-illustration" aria-hidden="true">
+              <span class="dashboard-flow-illustration-ring dashboard-flow-illustration-ring-a"></span>
+              <span class="dashboard-flow-illustration-ring dashboard-flow-illustration-ring-b"></span>
+              <span class="dashboard-flow-illustration-node dashboard-flow-illustration-node-a">
+                <i class="fa-solid fa-inbox"></i>
+              </span>
+              <span class="dashboard-flow-illustration-connector"></span>
+              <span class="dashboard-flow-illustration-node dashboard-flow-illustration-node-b">
+                <i class="fa-solid fa-headset"></i>
+              </span>
+              <span class="dashboard-flow-illustration-connector"></span>
+              <span class="dashboard-flow-illustration-node dashboard-flow-illustration-node-c">
+                <i class="fa-solid fa-circle-check"></i>
+              </span>
+            </div>
+          </div>
+
+          <div class="dashboard-chart-wrap dashboard-flow-chart-wrap mt-3" id="dashboard-flow-chart-wrap">
+            <canvas id="dashboard-flow-chart" aria-label="Distribuição do fluxo de chamados" role="img">
+              Distribuição do fluxo de chamados.
+            </canvas>
+          </div>
+
+          <div class="dashboard-flow-summary">
+            <div class="dashboard-flow-summary-card">
+              <span>Total visível</span>
+              <strong>{{ dashboard_flow_total }}</strong>
+              <small>etapas mostradas no painel</small>
+            </div>
+            <div class="dashboard-flow-summary-card">
+              <span>Etapas ativas</span>
+              <strong>{{ chamados_fluxo|length }}</strong>
+              <small>fila, atendimento e encerramento</small>
+            </div>
+            <div class="dashboard-flow-summary-card">
+              <span>Última leitura</span>
+              <strong>Agora</strong>
+              <small>dados carregados com a página</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-flow-lane-grid">
+        {% for bloco in chamados_fluxo %}
+          <article class="dashboard-flow-lane-card dashboard-flow-lane-card-{{ bloco.status }} h-100">
+            <div class="dashboard-flow-lane-head">
+              <div>
+                <div class="dashboard-flow-lane-kicker">{{ bloco.label }}</div>
+                <h3 class="h5 mb-1">{{ bloco.count }} chamado{{ bloco.count|pluralize }}</h3>
+              </div>
+              <span class="status-pill status-pill-dark">{{ bloco.count }}</span>
+            </div>
+            <p class="dashboard-flow-lane-text">{{ bloco.description }}</p>
+            <div class="dashboard-flow-lane-progress" aria-hidden="true">
+              <span
+                class="dashboard-flow-lane-progress-fill"
+                data-progress-value="{% widthratio bloco.count dashboard_flow_total_safe 100 %}"
+              ></span>
+            </div>
+            <div class="dashboard-flow-lane-list app-scroll-area app-scroll-area-sm" role="region" tabindex="0" aria-label="Chamados da etapa {{ bloco.label }}">
+              {% for chamado in bloco.items|slice:":3" %}
+                <a class="dashboard-flow-item" href="{% url 'detalhe_chamado' chamado.pk %}">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <strong class="dashboard-flow-item-title">#{{ chamado.pk }} · {{ chamado.titulo }}</strong>
+                    <span class="badge badge-soft">{{ chamado.get_prioridade_display }}</span>
+                  </div>
+                  <div class="small text-muted">{{ chamado.destinatario_nome_completo }}</div>
+                  <div class="small text-muted">Fluxo: {{ chamado.fluxo_etapa_label }}</div>
+                  <div class="dashboard-flow-item-foot">
+                    <span>Atualizado em {{ chamado.updated_at|date:"d/m/Y H:i" }}</span>
+                    <span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+                  </div>
+                </a>
+              {% empty %}
+                <div class="dashboard-flow-empty">
+                  <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+                  <strong>Nenhum chamado nesta etapa.</strong>
+                  <span>Quando aparecerem itens, eles vão ganhar destaque aqui.</span>
+                </div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+{% endif %}

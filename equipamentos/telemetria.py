@@ -13,7 +13,6 @@ from notifications.services import notificar_time_operacional
 
 from .models import AgenteMonitoramento, Equipamento, StatusMonitoramento, TelemetriaEvento
 
-
 EVENTO_SEVERIDADE_PADRAO = {
     'heartbeat': 'info',
     'conectado': 'info',
@@ -160,7 +159,11 @@ def processar_pacote_telemetria(payload, remote_ip=None):
     agente.host_name = (payload.get('host_name') or payload.get('machine_name') or agente.host_name or '').strip()
     agente.last_ip = (payload.get('ip') or remote_ip or agente.last_ip or '').strip() or None
     agente.last_seen_at = agora
-    agente.save(update_fields=['host_name', 'last_ip', 'last_seen_at', 'updated_at'])
+    update_fields = ['host_name', 'last_ip', 'last_seen_at', 'updated_at']
+    if isinstance(payload.get('metadata'), dict):
+        agente.metadata = payload['metadata']
+        update_fields.append('metadata')
+    agente.save(update_fields=update_fields)
 
     devices = payload.get('devices')
     if devices is None:

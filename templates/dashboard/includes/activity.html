@@ -1,0 +1,145 @@
+<section aria-labelledby="dashboard-workbench-title">
+  <h2 id="dashboard-workbench-title" class="visually-hidden">Filas e atividade do dashboard</h2>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="card app-card h-100" aria-labelledby="dashboard-recent-tickets-title">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="section-kicker">Fila de trabalho</div>
+              <h3 id="dashboard-recent-tickets-title" class="h5 mb-0">Chamados recentes</h3>
+            </div>
+            <a href="{% url 'chamados' %}" class="small">Ver todos</a>
+          </div>
+          <div class="table-responsive app-scroll-area app-scroll-area-lg" role="region" tabindex="0" aria-label="Tabela de chamados recentes">
+            <table class="table table-sm align-middle mb-0">
+              <caption class="visually-hidden">Chamados recentes do sistema</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Título</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Colaborador</th>
+                  <th scope="col">Responsável</th>
+                  <th scope="col">Etapa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for chamado in chamados_recentes %}
+                  <tr>
+                    <td><a href="{% url 'detalhe_chamado' chamado.pk %}">{{ chamado.titulo }}</a></td>
+                    <td>{{ chamado.get_status_display }}</td>
+                    <td>{{ chamado.destinatario_nome_completo }}</td>
+                    <td>{{ chamado.responsavel.nome_completo|default:"-" }}</td>
+                    <td class="small text-muted">{{ chamado.fluxo_etapa_label }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="5" class="text-muted py-3">Nenhum chamado recente.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card app-card h-100" aria-labelledby="dashboard-recent-assets-title">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="section-kicker">Inventário</div>
+              <h3 id="dashboard-recent-assets-title" class="h5 mb-0">Equipamentos recentes</h3>
+            </div>
+            <a href="{% url 'equipamentos' %}" class="small">Ver todos</a>
+          </div>
+          <div class="list-group list-group-flush app-scroll-area app-scroll-area-md" role="region" tabindex="0" aria-label="Equipamentos recentes">
+            {% for equipamento in equipamentos_recentes %}
+              <a class="list-group-item list-group-item-action" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                  <strong>{{ equipamento.id_patrimonio }}</strong>
+                  <span class="badge badge-soft">{{ equipamento.get_status_display }}</span>
+                </div>
+                <div class="small text-muted">{{ equipamento.tipo_display }} · {{ equipamento.marca|default:"-" }} {{ equipamento.modelo|default:"" }}</div>
+              </a>
+            {% empty %}
+              <div class="text-muted">Nenhum equipamento cadastrado.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card app-card h-100" aria-labelledby="dashboard-pending-users-title">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="section-kicker">Governança</div>
+              <h3 id="dashboard-pending-users-title" class="h5 mb-0">Usuários pendentes</h3>
+            </div>
+            <a href="{% url 'usuarios_pendentes' %}" class="small">Abrir fila</a>
+          </div>
+          <div class="list-group list-group-flush app-scroll-area app-scroll-area-md" role="region" tabindex="0" aria-label="Usuários pendentes">
+            {% for usuario in usuarios_pendentes_recentes %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div>
+                    <strong>{{ usuario.nome_completo }}</strong>
+                    <div class="small text-muted">{{ usuario.matricula }} · {{ usuario.setor|default:"Sem setor" }}</div>
+                    <div class="small text-muted">Solicitado em {{ usuario.created_at|date:"d/m/Y H:i" }}</div>
+                  </div>
+                  <span class="badge text-bg-warning">Pendente</span>
+                </div>
+                <div class="d-flex gap-2 flex-wrap mt-3">
+                  <a class="btn btn-sm btn-primary" href="{% url 'aprovar_usuario' usuario.pk %}">Aprovar</a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'reprovar_usuario' usuario.pk %}">Reprovar</a>
+                </div>
+              </div>
+            {% empty %}
+              <div class="text-muted">Nenhuma solicitação pendente agora.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card app-card h-100" aria-labelledby="dashboard-recent-activity-title">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="section-kicker">Auditoria</div>
+              <h3 id="dashboard-recent-activity-title" class="h5 mb-0">Atividade recente</h3>
+            </div>
+          </div>
+          <div class="list-group list-group-flush app-scroll-area app-scroll-area-lg" role="region" tabindex="0" aria-label="Atividade recente">
+            {% for entry in atividade_recente %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div>
+                    <strong>{{ entry.object_repr }}</strong>
+                    <div class="small text-muted">
+                      {% if entry.actor %}
+                        {{ entry.actor.nome_completo }}
+                      {% else %}
+                        Sistema
+                      {% endif %}
+                      · {{ entry.content_type.model|title }}
+                    </div>
+                  </div>
+                  <span class="badge badge-soft">{{ entry.get_action_display }}</span>
+                </div>
+                <div class="small text-muted mt-2">{{ entry.timestamp|date:"d/m/Y H:i" }}</div>
+              </div>
+            {% empty %}
+              <div class="text-muted">Sem atividade registrada ainda.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

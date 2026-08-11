@@ -1,0 +1,71 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ equipamento.id_patrimonio }} | {{ app_name }}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v={{ static_version }}">
+</head>
+<body class="qr-public-body">
+  <main class="qr-public-shell">
+    <section class="qr-public-card" aria-label="Dados do equipamento">
+      <div class="qr-public-brand">
+        <img src="{% static 'img/fiame-mark.svg' %}" alt="" class="qr-public-brand-mark">
+        <div>
+          <div class="qr-public-brand-title">{{ app_name }}</div>
+          <div class="qr-public-brand-subtitle">Identificacao do ativo</div>
+        </div>
+      </div>
+
+      <dl class="qr-public-data">
+        <div>
+          <dt>Patrimonio</dt>
+          <dd>{{ equipamento.id_patrimonio }}</dd>
+        </div>
+        <div>
+          <dt>Marca</dt>
+          <dd>{{ equipamento.marca|default:"-" }}</dd>
+        </div>
+        <div>
+          <dt>Modelo</dt>
+          <dd>{{ equipamento.modelo|default:"-" }}</dd>
+        </div>
+        <div>
+          <dt>Responsavel</dt>
+          <dd>{{ equipamento.responsavel.nome_completo|default:"-" }}</dd>
+        </div>
+        <div>
+          <dt>Service tag</dt>
+          <dd>{{ equipamento.service_tag|default:"-" }}</dd>
+        </div>
+        <div>
+          <dt>Condicao</dt>
+          <dd>{{ equipamento.condicao_display_limpa }}</dd>
+        </div>
+        <div>
+          <dt>Saude</dt>
+          <dd>{{ equipamento.score_saude_formatado }}</dd>
+        </div>
+        <div>
+          <dt>Site</dt>
+          <dd>{{ equipamento.site|default:"-" }}</dd>
+        </div>
+        <div>
+          <dt>Setor</dt>
+          <dd>{{ equipamento.setor|default:"-" }}</dd>
+        </div>
+      </dl>
+
+      {% if request.user.is_authenticated and request.user.is_operacional %}
+        <div class="qr-public-actions">
+          <a class="qr-public-action" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">
+            Abrir ativo no sistema
+          </a>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

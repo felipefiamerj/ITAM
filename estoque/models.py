@@ -1,11 +1,10 @@
 """Consultas e resumos do módulo de estoque."""
 
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.db.models import Count, Q
 from django.utils import timezone
-
-from auditlog.registry import auditlog
 
 from equipamentos.models import EntradaLote, Equipamento, StatusEquipamento
 

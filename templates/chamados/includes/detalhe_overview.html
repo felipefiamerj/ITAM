@@ -1,0 +1,329 @@
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card app-card h-100 mb-4">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Descrição</div>
+        <p class="mb-0">{{ chamado.descricao|linebreaksbr }}</p>
+        {% if chamado.solucao %}
+          <hr>
+          <div class="section-kicker mb-2">Solução</div>
+          <p class="mb-0">{{ chamado.solucao|linebreaksbr }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+          <div>
+            <div class="section-kicker">Solicitação formal</div>
+            <h2 class="h5 mb-0">Itens solicitados</h2>
+          </div>
+          <span class="status-pill status-pill-dark">{{ itens_solicitados|length }} item{{ itens_solicitados|pluralize }}</span>
+        </div>
+
+        {% if itens_solicitados %}
+          <div class="row g-3">
+            {% for item in itens_solicitados %}
+              <div class="col-md-6 col-xl-4">
+                {% include "chamados/includes/requested_item_card.html" with item=item %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Nenhum item solicitado foi informado neste chamado.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card app-card mb-4">
+      <div class="card-body">
+        <div class="workflow-state-card mb-4">
+          <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div>
+              <div class="section-kicker mb-2">Estado atual</div>
+              <h2 class="h5 mb-1">{{ chamado.fluxo_etapa_label }}</h2>
+              <p class="text-muted mb-0">{{ chamado.fluxo_etapa_descricao }}</p>
+            </div>
+            <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
+              {% if chamado.status == 'encerrado' %}
+                <span class="status-pill status-pill-success">{{ chamado.get_status_display }}</span>
+              {% elif chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+                <span class="status-pill status-pill-warning">{{ chamado.get_status_display }}</span>
+              {% elif chamado.fluxo_etapa == 'aprovado_para_retirada' %}
+                <span class="status-pill status-pill-success">{{ chamado.get_status_display }}</span>
+              {% elif chamado.fluxo_etapa == 'em_separacao' %}
+                <span class="status-pill status-pill-info">{{ chamado.get_status_display }}</span>
+              {% else %}
+                <span class="status-pill status-pill-neutral">{{ chamado.get_status_display }}</span>
+              {% endif %}
+              <span class="status-pill status-pill-neutral">Passo {{ fluxo_etapa_indice }} de {{ fluxo_etapas_total }}</span>
+            </div>
+          </div>
+          <div class="workflow-progress mt-3" aria-hidden="true"><span data-progress-value="{{ fluxo_progresso_percent }}"></span></div>
+          <div class="workflow-state-next mt-3">
+            <div class="small text-uppercase fw-semibold text-muted mb-1">Próxima etapa</div>
+            {% if fluxo_proxima_etapa %}
+              <div class="fw-semibold">{{ fluxo_proxima_etapa.label }}</div>
+              <div class="small text-muted">{{ fluxo_proxima_etapa.description }}</div>
+            {% else %}
+              <div class="fw-semibold">Fluxo encerrado</div>
+              <div class="small text-muted">Não há próxima etapa porque o chamado já foi concluído.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% include "chamados/includes/detalhe_playbook.html" %}
+
+        {% if chamado.fluxo_etapa == 'aguardando_aprovacao' %}
+          <div class="ticket-callout ticket-callout-warning mb-3">
+            {% if request.user.id == chamado.destinatario_id %}
+              <div class="ticket-callout-title">Sua aprovação está pendente</div>
+              <p class="ticket-callout-text mb-0">Clique em <strong>Aprovar retirada</strong> para liberar o fluxo. Depois disso o status vai para <strong>Aprovado para retirada</strong>.</p>
+            {% else %}
+              <div class="ticket-callout-title">Chamado aguardando aprovação</div>
+              <p class="ticket-callout-text mb-0">A equipe só segue para separação depois da liberação do colaborador.</p>
+            {% endif %}
+          </div>
+        {% elif chamado.fluxo_etapa == 'aprovado_para_retirada' %}
+          <div class="ticket-callout ticket-callout-success mb-3">
+            <div class="ticket-callout-title">Aprovação concluída</div>
+            <p class="ticket-callout-text mb-0">A liberação já entrou no fluxo. Agora o time pode separar e preparar a entrega.</p>
+          </div>
+        {% elif chamado.fluxo_etapa == 'aguardando_estoque' %}
+          <div class="ticket-callout ticket-callout-warning mb-3">
+            <div class="ticket-callout-title">Aguardando estoque</div>
+            <p class="ticket-callout-text mb-0">O fluxo está parado até haver disponibilidade ou reposição do item solicitado.</p>
+          </div>
+        {% elif chamado.fluxo_etapa == 'pronto_para_entrega' %}
+          <div class="ticket-callout ticket-callout-info mb-3">
+            <div class="ticket-callout-title">Pronto para entrega</div>
+            <p class="ticket-callout-text mb-0">Os equipamentos estão separados e aguardam o registro final da entrega.</p>
+          </div>
+        {% elif chamado.fluxo_etapa == 'encerrado' %}
+          <div class="ticket-callout ticket-callout-success mb-3">
+            <div class="ticket-callout-title">Chamado encerrado</div>
+            <p class="ticket-callout-text mb-0">O atendimento foi concluído e o termo fica disponível para consulta.</p>
+          </div>
+        {% else %}
+          <div class="ticket-callout ticket-callout-info mb-3">
+            <div class="ticket-callout-title">Acompanhe o andamento</div>
+            <p class="ticket-callout-text mb-0">Aqui fica claro se o chamado ainda está em triagem, aguardando aprovação ou pronto para entrega.</p>
+          </div>
+        {% endif %}
+
+        {% if chamado.responsavel %}
+          <div class="small text-muted mb-3">
+            Responsável atual: {{ chamado.responsavel.nome_completo }} ({{ chamado.responsavel.papel_fluxo }})
+          </div>
+        {% endif %}
+
+        <div class="timeline workflow-timeline mb-4">
+          {% for etapa in fluxo_etapas %}
+            <div class="timeline-item workflow-step{% if etapa.done %} is-done{% endif %}{% if etapa.active %} is-active{% endif %}">
+              <span class="timeline-dot" aria-hidden="true"></span>
+              <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                  <strong>{{ etapa.label }}</strong>
+                  {% if etapa.active %}
+                    <span class="badge badge-soft">Atual</span>
+                  {% elif etapa.done %}
+                    <span class="badge badge-soft">Concluída</span>
+                  {% endif %}
+                </div>
+                <p class="small text-muted mb-0">{{ etapa.description }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if chamado.aprovado_por %}
+          <div class="alert alert-success py-2 mb-3">
+            <strong>Aprovação registrada:</strong> {{ chamado.aprovado_por_label }}
+          </div>
+        {% endif %}
+
+        {% if fluxo_eventos %}
+          <div class="ticket-callout ticket-callout-info mb-3">
+            <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-2">
+              <div class="ticket-callout-title mb-0">Historico do fluxo</div>
+              <span class="status-pill status-pill-info">{{ fluxo_eventos|length }} evento{{ fluxo_eventos|length|pluralize }}</span>
+            </div>
+            <div class="stack-list">
+              {% for evento in fluxo_eventos %}
+                <div class="list-card py-2">
+                  <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                      <strong>{{ evento.etapa_anterior_label }} -> {{ evento.etapa_nova_label }}</strong>
+                      <div class="small text-muted">
+                        {{ evento.status_anterior_label }} -> {{ evento.status_novo_label }}
+                        {% if evento.usuario %} · {{ evento.usuario.nome_completo }}{% endif %}
+                      </div>
+                      {% if evento.observacao %}
+                        <div class="small text-muted">{{ evento.observacao }}</div>
+                      {% endif %}
+                    </div>
+                    <span class="status-pill status-pill-neutral">{{ evento.criado_em|date:"d/m/Y H:i" }}</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if assinatura_pendente %}
+          <div class="ticket-callout ticket-callout-warning mb-3">
+            <div class="ticket-callout-title">Chamado encerrado com termo pendente</div>
+            <p class="ticket-callout-text mb-0">A entrega foi concluida, mas o colaborador ainda precisa assinar o termo digital.</p>
+          </div>
+        {% endif %}
+
+        {% if aceite_digital %}
+          <div class="ticket-callout {% if aceite_digital.is_assinado %}ticket-callout-success{% elif aceite_digital.is_expirado %}ticket-callout-warning{% else %}ticket-callout-info{% endif %} mb-3">
+            <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+              <div class="ticket-callout-title mb-0">Aceite digital do termo</div>
+              <span class="status-pill {% if aceite_digital.is_assinado %}status-pill-success{% elif aceite_digital.is_expirado %}status-pill-warning{% else %}status-pill-info{% endif %}">
+                {{ aceite_digital.status_operacional_label }}
+              </span>
+            </div>
+            {% if aceite_digital.is_assinado %}
+              <p class="ticket-callout-text mt-2 mb-2">
+                Assinado por {{ aceite_digital.nome_assinante }} em {{ aceite_digital.assinado_em_label }}.
+              </p>
+              <div class="small text-muted text-break">Hash: {{ aceite_digital.documento_hash }}</div>
+            {% else %}
+              {% if aceite_digital.is_expirado %}
+                <p class="ticket-callout-text mt-2 mb-2">O link de assinatura expirou em {{ aceite_digital.expires_at_label }}.</p>
+              {% else %}
+                <p class="ticket-callout-text mt-2 mb-2">O link seguro esta pronto para o colaborador ate {{ aceite_digital.expires_at_label }}.</p>
+              {% endif %}
+              <div class="small text-muted mb-3">
+                Ultimo envio: {{ aceite_digital.enviado_em_label }} · Envios: {{ aceite_digital.envio_total }}
+                {% if aceite_digital.email_destino %} · E-mail: {{ aceite_digital.email_destino }}{% endif %}
+              </div>
+              <div class="d-flex gap-2 flex-wrap align-items-center">
+                {% if aceite_digital.pode_assinar %}
+                  <a class="btn btn-sm btn-primary" href="{% url 'assinar_termo_chamado' aceite_digital.token %}" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-file-signature me-1" aria-hidden="true"></i>Abrir assinatura
+                  </a>
+                {% endif %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'termo_chamado' chamado.pk %}" target="_blank" rel="noopener">
+                  <i class="fa-solid fa-file-lines me-1" aria-hidden="true"></i>Ver termo
+                </a>
+                {% if pode_gerenciar_chamado %}
+                  {% if aceite_digital.pode_assinar %}
+                    <form method="post" action="{% url 'enviar_assinatura_termo' chamado.pk %}" class="d-inline">
+                      {% csrf_token %}
+                      <button class="btn btn-sm btn-outline-primary" type="submit">
+                        <i class="fa-solid fa-paper-plane me-1" aria-hidden="true"></i>Enviar link
+                      </button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="{% url 'renovar_assinatura_termo' chamado.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-warning" type="submit">
+                      <i class="fa-solid fa-rotate me-1" aria-hidden="true"></i>Gerar novo link
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2">
+          {% if acoes_fluxo.pode_assumir %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="assumir">
+              <button class="btn btn-primary" type="submit">Assumir triagem</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_marcar_sem_estoque %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="sem_estoque">
+              <button class="btn btn-outline-warning" type="submit">Marcar sem estoque</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_enviar_para_aprovacao %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="enviar_aprovacao">
+              <button class="btn btn-outline-primary" type="submit">Enviar para aprovação</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_aprovar_retirada %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="aprovar_retirada">
+              <button class="btn btn-success" type="submit">Aprovar retirada</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_marcar_separacao %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="separar">
+              <button class="btn btn-outline-info" type="submit">Iniciar separação</button>
+            </form>
+          {% endif %}
+          {% if acoes_fluxo.pode_marcar_pronto %}
+            <form method="post" action="{% url 'fluxo_chamado_action' chamado.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="pronto">
+              <button class="btn btn-outline-success" type="submit">Pronto para entrega</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card app-card h-100">
+      <div class="card-body">
+        <div class="section-kicker mb-2">Detalhes</div>
+        <ul class="list-unstyled mb-0">
+          <li class="mb-2"><strong>Solicitante:</strong> {{ chamado.solicitante.nome_completo }}</li>
+          <li class="mb-2">
+            <strong>Colaborador:</strong> {{ chamado.destinatario_nome_completo }}
+            <div class="small text-muted">Matrícula: {{ chamado.destinatario_matricula }}</div>
+          </li>
+          <li class="mb-2"><strong>Origem da solicitação:</strong> {{ chamado.solicitacao_origem_label }}</li>
+          <li class="mb-2">
+            <strong>Responsável:</strong>
+            {% if chamado.responsavel %}
+              {{ chamado.responsavel.nome_completo }} <span class="text-muted">({{ chamado.responsavel.papel_fluxo }})</span>
+            {% else %}
+              -
+            {% endif %}
+          </li>
+          <li class="mb-2"><strong>Serviço:</strong> {{ chamado.get_servico_realizado_display|default:"-" }}</li>
+          <li class="mb-2"><strong>Prioridade:</strong> {{ chamado.get_prioridade_display }}</li>
+          <li class="mb-2"><strong>Status:</strong> {{ chamado.get_status_display }}</li>
+          <li class="mb-2"><strong>SLA:</strong> {{ chamado.sla_status_label }}</li>
+          <li class="mb-2"><strong>Prazo SLA:</strong> {{ chamado.sla_prazo_em|date:"d/m/Y H:i" }}</li>
+          <li class="mb-2"><strong>Restante:</strong> {{ chamado.sla_restante_label }}</li>
+          <li class="mb-2">
+            <strong>Itens solicitados:</strong>
+            {% if itens_solicitados %}
+              {{ chamado.itens_solicitados_resumo }}
+            {% else %}
+              -
+            {% endif %}
+          </li>
+          <li class="mb-2">
+            <strong>Equipamento:</strong>
+            {% if chamado.equipamento %}
+              <a href="{% url 'detalhe_equipamento' chamado.equipamento.id_patrimonio %}">{{ chamado.equipamento.id_patrimonio }}</a>
+            {% else %}
+              -
+            {% endif %}
+          </li>
+          <li class="mb-2"><strong>Criado em:</strong> {{ chamado.created_at|date:"d/m/Y H:i" }}</li>
+          <li class="mb-0"><strong>Atualizado em:</strong> {{ chamado.updated_at|date:"d/m/Y H:i" }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

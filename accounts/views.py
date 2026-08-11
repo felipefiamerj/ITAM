@@ -1,4 +1,6 @@
 from contextlib import suppress
+from functools import wraps
+from ipaddress import ip_address, ip_network
 from urllib.parse import urljoin
 
 from django.conf import settings
@@ -13,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode, urlsafe_base64_encode
+from django_ratelimit.decorators import ratelimit
 
 from chamados.models import Chamado
 from equipamentos.models import Equipamento
@@ -42,7 +45,7 @@ def _safe_next_url(request, next_url):
 
 
 def _site_name():
-    return getattr(settings, 'APP_NAME', 'ITAM System')
+    return getattr(settings, 'APP_NAME', 'FIAME System')
 
 
 def _absolute_url(request, relative_path):
@@ -62,6 +65,109 @@ def _recovery_link(request, usuario):
     uidb64 = urlsafe_base64_encode(force_bytes(usuario.pk))
     token = password_recovery_token.make_token(usuario)
     return _absolute_url(request, reverse('redefinir_senha', kwargs={'uidb64': uidb64, 'token': token}))
+
+
+def _admin_email_recipients():
+    configured = getattr(settings, 'ITAM_ADMIN_EMAILS', None) or []
+    if isinstance(configured, str):
+        configured = [email.strip() for email in configured.split(',') if email.strip()]
+    recipients = list(configured)
+    recipients.extend(email for _name, email in getattr(settings, 'ADMINS', []) if email)
+    return list(dict.fromkeys(recipients))
+
+
+def _configured_ip_ranges(setting_name):
+    configured = getattr(settings, setting_name, '') or []
+    if isinstance(configured, str):
+        configured = [item.strip() for item in configured.split(',') if item.strip()]
+    return configured
+
+
+def _ip_in_ranges(value, configured_ranges):
+    try:
+        address = ip_address(value)
+    except ValueError:
+        return False
+
+    for configured in configured_ranges:
+        try:
+            if address in ip_network(configured, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _request_ip(request):
+    remote_addr = (request.META.get('REMOTE_ADDR') or '').strip()
+    trusted_proxies = _configured_ip_ranges('ITAM_TRUSTED_PROXY_IPS')
+    if not _ip_in_ranges(remote_addr, trusted_proxies):
+        return remote_addr
+
+    forwarded = request.headers.get('X-Forwarded-For') or ''
+    candidates = [item.strip() for item in forwarded.split(',') if item.strip()]
+    for candidate in reversed(candidates):
+        try:
+            ip_address(candidate)
+        except ValueError:
+            continue
+        if not _ip_in_ranges(candidate, trusted_proxies):
+            return candidate
+    return remote_addr
+
+
+def _rate_limit_bypass_ips():
+    return _configured_ip_ranges('ITAM_RATE_LIMIT_BYPASS_IPS')
+
+
+def _is_rate_limit_bypassed(request):
+    return _ip_in_ranges(_request_ip(request), _rate_limit_bypass_ips())
+
+
+def _rate_limit_key(_group, request):
+    return _request_ip(request) or 'unknown'
+
+
+def _bypassable_ratelimit(*args, **kwargs):
+    def decorator(view_func):
+        wrapped = ratelimit(*args, **kwargs)(view_func)
+
+        @wraps(view_func)
+        def _wrapped(request, *view_args, **view_kwargs):
+            if _is_rate_limit_bypassed(request):
+                return view_func(request, *view_args, **view_kwargs)
+            return wrapped(request, *view_args, **view_kwargs)
+
+        return _wrapped
+
+    return decorator
+
+
+def _notificar_admins_recuperacao_senha(request, usuario):
+    recipients = _admin_email_recipients()
+    if not recipients:
+        return
+
+    data_hora = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
+    mensagem = f'''Uma solicitacao de recuperacao de senha foi registrada no {_site_name()}.
+
+Usuario: {usuario.nome_completo}
+Matricula: {usuario.matricula}
+Email do usuario: {usuario.email or '-'}
+Data/hora: {data_hora}
+IP de origem: {_request_ip(request) or '-'}
+Navegador: {request.META.get('HTTP_USER_AGENT', '-') or '-'}
+
+O link de redefinicao foi enviado apenas para o email cadastrado do usuario.
+'''
+    with suppress(Exception):
+        send_mail(
+            f'Solicitacao de recuperacao de senha - {usuario.nome_completo}',
+            mensagem,
+            settings.DEFAULT_FROM_EMAIL,
+            recipients,
+            fail_silently=False,
+        )
 
 
 def _usuario_por_uidb64(uidb64):
@@ -124,6 +230,7 @@ def _aplicar_filtros_usuarios(qs, q=None, status=None):
     return qs
 
 
+@_bypassable_ratelimit(key=_rate_limit_key, rate='10/m', method='POST', block=True)
 def login_view(request):
     if request.user.is_authenticated:
         return redirect(_home_url_name(request.user))
@@ -156,7 +263,7 @@ def login_view(request):
                 return redirect('login')
         elif login_form.is_valid():
             usuario = login_form.get_user()
-            login(request, usuario)
+            login(request, usuario, backend='accounts.backends.MatriculaBackend')
             messages.success(request, f'Bem-vindo, {usuario.first_name or usuario.matricula}!')
             return _redirect_after_login(request, usuario)
         else:
@@ -183,6 +290,7 @@ def login_view(request):
     )
 
 
+@_bypassable_ratelimit(key=_rate_limit_key, rate='5/m', method='POST', block=True)
 def recuperar_senha(request):
     if request.user.is_authenticated:
         return redirect(_home_url_name(request.user))
@@ -213,6 +321,12 @@ Atenciosamente,
                     [usuario.email],
                     fail_silently=False,
                 )
+            notificar_admins(
+                'Solicitacao de recuperacao de senha',
+                f'{usuario.nome_completo} ({usuario.matricula}) solicitou redefinicao de senha.',
+                link=reverse('lista_usuarios'),
+            )
+            _notificar_admins_recuperacao_senha(request, usuario)
 
         messages.success(
             request,
@@ -229,6 +343,7 @@ Atenciosamente,
     )
 
 
+@_bypassable_ratelimit(key=_rate_limit_key, rate='8/m', method='POST', block=True)
 def redefinir_senha(request, uidb64, token):
     usuario = _usuario_por_uidb64(uidb64)
     if not usuario or not password_recovery_token.check_token(usuario, token):
@@ -245,7 +360,7 @@ def redefinir_senha(request, uidb64, token):
             notificar_usuario(
                 usuario,
                 'Senha redefinida',
-                'Sua senha foi atualizada com sucesso no ITAM System.',
+                f'Sua senha foi atualizada com sucesso no {_site_name()}.',
                 link=reverse('login'),
             )
             return redirect('login')
@@ -428,6 +543,7 @@ Atenciosamente,
     )
 
 
+@_bypassable_ratelimit(key=_rate_limit_key, rate='8/m', method='POST', block=True)
 def ativar_conta(request, uidb64, token):
     usuario = _usuario_por_uidb64(uidb64)
     if not usuario or not account_activation_token.check_token(usuario, token):
@@ -536,7 +652,7 @@ def criar_usuario(request):
         notificar_usuario(
             user,
             'Conta criada',
-            'Sua conta no ITAM System foi criada. Use a senha inicial e conclua o primeiro acesso.',
+            f'Sua conta no {_site_name()} foi criada. Use a senha inicial e conclua o primeiro acesso.',
             link=reverse('login'),
         )
         messages.success(request, f'Usuário {user.matricula} criado com sucesso.')
@@ -570,7 +686,7 @@ def editar_usuario(request, pk):
             notificar_usuario(
                 usuario,
                 'Dados de acesso atualizados',
-                f'Seu perfil no ITAM System foi atualizado por {request.user.nome_completo}.',
+                f'Seu perfil no {_site_name()} foi atualizado por {request.user.nome_completo}.',
                 link=reverse('meu_perfil'),
             )
 

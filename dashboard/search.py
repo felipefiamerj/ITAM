@@ -11,7 +11,6 @@ from accounts.models import Usuario
 from chamados.models import Chamado
 from equipamentos.models import EntradaLote, Equipamento
 
-
 SEARCH_LIMITS = {
     'equipamentos': 6,
     'chamados': 6,

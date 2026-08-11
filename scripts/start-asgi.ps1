@@ -16,8 +16,9 @@ function Get-PythonExe {
   }
 
   $venvCandidates = @(
-    (Join-Path $repoRoot '.venv310\Scripts\python.exe'),
-    (Join-Path $repoRoot '.venv\Scripts\python.exe')
+    (Join-Path $repoRoot '.venv312\Scripts\python.exe'),
+    (Join-Path $repoRoot '.venv\Scripts\python.exe'),
+    (Join-Path $repoRoot '.venv313\Scripts\python.exe')
   )
 
   foreach ($candidate in $venvCandidates) {

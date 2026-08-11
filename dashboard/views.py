@@ -7,15 +7,15 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Usuario
-from chamados.views import painel_tecnico as painel_tecnico_view
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
+from chamados.views import painel_tecnico as painel_tecnico_view
 from equipamentos.models import Equipamento, StatusEquipamento
-from estoque.views import estoque_view as estoque_workspace_view
 from estoque.models import reservas_ativas_queryset
-from notifications.models import Notification
+from estoque.views import estoque_view as estoque_workspace_view
 from itam.charting import build_choice_chart
-from .search import build_search_payload
+from notifications.models import Notification
 
+from .search import build_search_payload
 
 FLUXO_CHAMADO_DASHBOARD = [
     {

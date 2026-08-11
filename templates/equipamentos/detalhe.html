@@ -49,7 +49,9 @@
           <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div>
               <h3 class="h6 mb-2">QR Code</h3>
-              <p class="text-muted mb-0">Identificação rápida para conferência física.</p>
+              <p class="text-muted mb-1">Ao escanear, mostra os dados principais do ativo.</p>
+              <pre class="equipment-qr-payload">{{ equipamento.qr_payload }}</pre>
+              <a class="small text-break" href="{{ equipamento.qr_public_url }}">Abrir ficha publica</a>
             </div>
             <img src="{{ equipamento.qr_code.url }}" alt="QR Code" class="img-fluid rounded-4 equipment-qr-code">
           </div>
@@ -86,7 +88,7 @@
       </div>
       <span class="badge badge-soft">{{ movimentacoes|length }} registros</span>
     </div>
-    <div class="table-responsive">
+    <div class="table-responsive app-scroll-area app-scroll-area-lg">
       <table class="table table-sm align-middle mb-0">
         <thead>
           <tr>
