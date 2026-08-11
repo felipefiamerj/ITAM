@@ -4550,7 +4550,7 @@ h6,
 
 @media (max-width: 991.98px) {
   .auth-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .auth-hero {
@@ -4590,6 +4590,17 @@ h6,
 @media (max-width: 767.98px) {
   .auth-shell {
     padding: 0.9rem;
+  }
+
+  .auth-grid,
+  .auth-stack,
+  .auth-stack > .auth-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .auth-card > .d-flex:first-child {
+    flex-wrap: wrap;
   }
 
   .auth-stack {
