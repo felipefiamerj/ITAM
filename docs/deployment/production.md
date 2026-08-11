@@ -60,7 +60,17 @@ Crie backup do banco e da pasta `media`:
 .\scripts\backup.ps1
 ```
 
-Por padrao os arquivos vao para `backups/`. O script suporta PostgreSQL via `pg_dump` e SQLite por copia do arquivo. Para PostgreSQL, `pg_dump` precisa estar no `PATH`.
+Por padrao os arquivos vao para `backups/`. O script suporta PostgreSQL via `pg_dump` e SQLite por copia consistente usando a API nativa do banco.
+
+No Windows, o script tambem procura automaticamente a versao mais recente instalada em `C:\Program Files\PostgreSQL`. Para usar outro local, configure `POSTGRES_BIN` no `.env`.
+
+QR Codes em `media/qrcodes` sao derivados dos equipamentos e ficam fora do backup padrao. Depois de uma restauracao, recrie-os com:
+
+```powershell
+python manage.py regenerar_qrcodes --force
+```
+
+Para inclui-los excepcionalmente no ZIP, use `-IncludeGeneratedQrCodes`.
 
 Para backup apenas do banco:
 
@@ -74,7 +84,19 @@ Para backup apenas da midia:
 .\scripts\backup.ps1 -SkipDatabase
 ```
 
-Agende este script no Windows Task Scheduler ou no cron do servidor. Guarde uma copia fora da maquina da aplicacao.
+Por padrao, backups locais com mais de 30 dias sao removidos depois que um novo backup valido e concluido. Para alterar a retencao:
+
+```powershell
+.\scripts\backup.ps1 -RetentionDays 60
+```
+
+No Windows, instale a tarefa diaria com:
+
+```powershell
+.\scripts\install-backup-task.ps1 -At 19:00 -RetentionDays 30
+```
+
+A tarefa roda com o usuario atual, inclusive na bateria, e usa `StartWhenAvailable` caso o computador esteja desligado no horario. Guarde tambem uma copia fora da maquina da aplicacao.
 
 ## 5. Restore
 

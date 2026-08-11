@@ -168,8 +168,11 @@ Com chave de API configurada, valide tambem o contrato OpenAPI:
 ```powershell
 .\scripts\backup.ps1
 .\scripts\restore.ps1 -DatabaseBackup .\backups\itam-db-YYYYMMDD-HHMMSS.dump -ConfirmRestore RESTORE
+.\scripts\install-backup-task.ps1 -At 19:00 -RetentionDays 30
 .\scripts\rotate-logs.ps1
 ```
+
+O backup local inclui banco e arquivos persistentes de `media`, valida os arquivos gerados e remove copias com mais de 30 dias. QR Codes nao entram por padrao porque podem ser recriados com `python manage.py regenerar_qrcodes --force`. No Windows, o instalador cria uma tarefa diaria e executa o backup assim que possivel quando o computador estiver desligado no horario programado.
 
 - Para subir o sistema completo no Windows sem Docker, use os scripts em `scripts/`:
 
