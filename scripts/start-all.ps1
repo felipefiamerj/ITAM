@@ -1,6 +1,6 @@
 param(
   [string]$PythonExe = '',
-  [string]$Host = '0.0.0.0',
+  [string]$ListenHost = '0.0.0.0',
   [int]$Port = 8000
 )
 
@@ -36,23 +36,39 @@ $pidDir = Join-Path $logDir 'pids'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 New-Item -ItemType Directory -Force -Path $pidDir | Out-Null
 
-$asgiArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repoRoot 'scripts\start-asgi.ps1'), '-PythonExe', $python, '-Host', $Host, '-Port', $Port)
-$workerArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repoRoot 'scripts\start-worker.ps1'), '-PythonExe', $python)
-$beatArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repoRoot 'scripts\start-beat.ps1'), '-PythonExe', $python)
+$asgiArgs = @('-m', 'daphne', 'itam.asgi:application', '-b', $ListenHost, '-p', "$Port")
+$workerArgs = @('-m', 'celery', '-A', 'itam', 'worker', '-l', 'info')
+if ($env:OS -eq 'Windows_NT') {
+  $workerArgs += @('--pool', 'solo')
+}
+$beatArgs = @('-m', 'celery', '-A', 'itam', 'beat', '-l', 'info')
 
 $services = @(
-  @{ Name = 'asgi'; Args = $asgiArgs },
-  @{ Name = 'worker'; Args = $workerArgs },
-  @{ Name = 'beat'; Args = $beatArgs }
+  @{ Name = 'asgi'; Args = $asgiArgs; Signature = 'daphne itam.asgi:application' },
+  @{ Name = 'worker'; Args = $workerArgs; Signature = 'celery -A itam worker' },
+  @{ Name = 'beat'; Args = $beatArgs; Signature = 'celery -A itam beat' }
 )
 
 foreach ($service in $services) {
+  $pidFile = Join-Path $pidDir "$($service.Name).pid"
+  if (Test-Path -LiteralPath $pidFile -PathType Leaf) {
+    $rawPid = Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1
+    $existingProcess = if ($rawPid -as [int]) {
+      Get-CimInstance Win32_Process -Filter "ProcessId = $rawPid" -ErrorAction SilentlyContinue
+    }
+    if ($existingProcess -and $existingProcess.CommandLine -like "*$($service.Signature)*") {
+      Write-Host "$($service.Name) ja esta em execucao com PID $rawPid."
+      continue
+    }
+    Remove-Item -LiteralPath $pidFile -Force
+  }
+
   $stdout = Join-Path $logDir "$($service.Name).out.log"
   $stderr = Join-Path $logDir "$($service.Name).err.log"
-  $process = Start-Process -WindowStyle Hidden -FilePath powershell.exe -ArgumentList $service.Args -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-  Set-Content -LiteralPath (Join-Path $pidDir "$($service.Name).pid") -Value $process.Id
+  $process = Start-Process -WindowStyle Hidden -FilePath $python -ArgumentList $service.Args -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  Set-Content -LiteralPath $pidFile -Value $process.Id
   Write-Host "$($service.Name) iniciado com PID $($process.Id). Logs: $stdout / $stderr"
 }
 
 Write-Host 'Servicos iniciados em segundo plano.'
-Write-Host "ASGI em http://$Host`:$Port"
+Write-Host "ASGI em http://$ListenHost`:$Port"

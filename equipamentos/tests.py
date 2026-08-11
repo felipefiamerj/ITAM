@@ -1,12 +1,15 @@
 import json
 import shutil
 import tempfile
+from datetime import timedelta
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Usuario
 
@@ -19,6 +22,7 @@ from .models import (
     TelemetriaEvento,
 )
 from .services import importar_equipamentos_csv
+from .telemetria import marcar_equipamentos_sem_sinal
 
 CSV_FIXTURE = """id_patrimonio,tipo,tipo_outro,marca,modelo,service_tag,imei,numero_serie,monitor_patrimonio,status,condicao,responsavel,site,setor,andar_sala,descricao,data_aquisicao,valor_aquisicao,garantia_ate,vida_util_estimada_meses,score_saude
 PAT-100001,notebook_padrao,,Dell,Latitude 7420,ST123,,SN123,,ativo,novo,,RJ-Matriz,TI,12º Andar - Sala 1,Notebook principal,2024-01-01,5000.00,2026-01-01,36,88
@@ -214,3 +218,56 @@ class ImportacaoEquipamentosCSVTests(TestCase):
         self.assertEqual(agente.host_name, 'NOTE-MON-001')
         self.assertEqual(agente.metadata['agent_name'], 'itam-windows-agent')
         self.assertEqual(TelemetriaEvento.objects.filter(equipamento=equipamento, agente=agente).count(), 1)
+
+    @patch('equipamentos.telemetria.notificar_time_operacional')
+    def test_monitoramento_marca_offline_sem_agente_associado(self, notificar):
+        equipamento = Equipamento.objects.create(
+            id_patrimonio='PAT-MON-SEM-AGENTE',
+            tipo='notebook_padrao',
+            status=StatusEquipamento.EM_USO,
+            condicao=CondicaoEquipamento.BOM,
+            monitoramento_ativo=True,
+            monitoramento_status='online',
+            last_seen_at=timezone.now() - timedelta(minutes=30),
+        )
+
+        atualizados = marcar_equipamentos_sem_sinal()
+        equipamento.refresh_from_db()
+
+        self.assertEqual(atualizados, 1)
+        self.assertEqual(equipamento.monitoramento_status, 'offline')
+        evento = TelemetriaEvento.objects.get(equipamento=equipamento, tipo='desconectado')
+        self.assertIsNone(evento.agente)
+        notificar.assert_called_once()
+
+    @patch('equipamentos.telemetria.notificar_time_operacional')
+    def test_alerta_telemetria_respeita_intervalo_de_notificacao(self, notificar):
+        agente = AgenteMonitoramento.objects.create(nome='Agente de alerta')
+        equipamento = Equipamento.objects.create(
+            id_patrimonio='PAT-MON-ALERTA',
+            tipo='notebook_padrao',
+            status=StatusEquipamento.EM_USO,
+            condicao=CondicaoEquipamento.BOM,
+        )
+        payload = {
+            'host_name': 'NOTE-ALERTA',
+            'devices': [
+                {
+                    'id_patrimonio': equipamento.id_patrimonio,
+                    'event_type': 'erro_driver',
+                    'message': 'Falha de driver.',
+                }
+            ],
+        }
+
+        for _ in range(2):
+            response = self.client.post(
+                reverse('api_telemetria_ingestao'),
+                data=json.dumps(payload),
+                content_type='application/json',
+                HTTP_X_ITAM_AGENT_TOKEN=agente.token,
+            )
+            self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(TelemetriaEvento.objects.filter(equipamento=equipamento, tipo='erro_driver').count(), 2)
+        notificar.assert_called_once()

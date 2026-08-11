@@ -1,0 +1,21 @@
+name: itam
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: itam-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - itam-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  itam-redis-data:
+    name: itam-redis-data

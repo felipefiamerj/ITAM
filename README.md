@@ -98,23 +98,30 @@ python -m ruff check .
    - `SECRET_KEY=...`
    - `REDIS_URL=redis://127.0.0.1:6379/0`
    - `CACHE_URL=redis://127.0.0.1:6379/1`
+   - `CELERY_BROKER_URL=redis://127.0.0.1:6379/2`
    - `ITAM_API_SHARED_KEY_SHA256=...` para autenticar integracoes sem armazenar a chave em texto puro
      - Gere o hash com `python manage.py hash_api_key sua-chave-com-32-caracteres-ou-mais`
 
-4. Crie e aplique as migrações:
+4. Inicie o Redis local com Docker Desktop:
+
+```powershell
+docker compose -f compose.redis.yml up -d
+```
+
+5. Crie e aplique as migrações:
 
 ```powershell
 python manage.py makemigrations
 python manage.py migrate
 ```
 
-5. Crie um superusuário:
+6. Crie um superusuário:
 
 ```powershell
 python manage.py createsuperuser
 ```
 
-6. Inicie o servidor de desenvolvimento:
+7. Inicie o servidor de desenvolvimento:
 
 ```powershell
 python manage.py runserver
@@ -122,7 +129,7 @@ python manage.py runserver
 
 Esse comando usa Daphne via ASGI e atende HTTP + WebSockets, incluindo `/ws/notifications/`.
 
-7. Acesse o sistema em:
+8. Acesse o sistema em:
 
 ```text
 http://127.0.0.1:8000/
@@ -174,12 +181,16 @@ Com chave de API configurada, valide tambem o contrato OpenAPI:
 
 O backup local inclui banco e arquivos persistentes de `media`, valida os arquivos gerados e remove copias com mais de 30 dias. QR Codes nao entram por padrao porque podem ser recriados com `python manage.py regenerar_qrcodes --force`. No Windows, o instalador cria uma tarefa diaria e executa o backup assim que possivel quando o computador estiver desligado no horario programado.
 
-- Para subir o sistema completo no Windows sem Docker, use os scripts em `scripts/`:
+- Para subir ASGI e as automacoes no Windows, inicie o Redis e depois use os scripts em `scripts/`:
 
 ```powershell
+docker compose -f compose.redis.yml up -d
 .\scripts\bootstrap.ps1
-.\scripts\start-all.ps1
+.\scripts\start-all.ps1 -ListenHost 127.0.0.1 -Port 8000
+.\scripts\install-runtime-task.ps1
 ```
+
+`install-runtime-task.ps1` registra a tarefa `ITAM Runtime` no logon do Windows. Ela inicia Docker, Redis, ASGI, worker e beat sem duplicar processos ja ativos.
 
 - Se preferir iniciar manualmente, os serviços ficam assim:
 

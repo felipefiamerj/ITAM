@@ -29,4 +29,8 @@ function Get-PythonExe {
 }
 
 $python = Get-PythonExe -ProvidedPythonExe $PythonExe
-& $python -m celery -A itam worker -l info
+$workerArgs = @('-m', 'celery', '-A', 'itam', 'worker', '-l', 'info')
+if ($env:OS -eq 'Windows_NT') {
+  $workerArgs += @('--pool', 'solo')
+}
+& $python @workerArgs
