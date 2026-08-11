@@ -12,7 +12,12 @@ from equipamentos.models import Equipamento, StatusEquipamento
 from equipamentos.services import importar_equipamentos_csv
 
 from .models import ReservaEstoque
-from .services import criar_reserva_estoque, criar_reservas_inteligentes, sugerir_reservas_inteligentes
+from .services import (
+    criar_reserva_estoque,
+    criar_reservas_inteligentes,
+    marcar_reserva_entregue,
+    sugerir_reservas_inteligentes,
+)
 
 CSV_FIXTURE = """id_patrimonio,tipo,tipo_outro,marca,modelo,service_tag,imei,numero_serie,monitor_patrimonio,status,condicao,responsavel,site,setor,andar_sala,descricao,data_aquisicao,valor_aquisicao,garantia_ate,vida_util_estimada_meses,score_saude
 PAT-200001,mouse,,Logitech,MK270,ST999,,SN999,,estoque,bom,,RJ-Matriz,TI,10o Andar - Sala 22,Mouse reserva,2024-01-01,120.00,2026-01-01,24,95
@@ -87,6 +92,28 @@ class EstoqueApiTests(TestCase):
         )
         self.assertEqual(action_response.status_code, 200)
         self.assertEqual(action_response.json()['status'], 'separada')
+
+    def test_entrega_direta_registra_separacao_implicita(self):
+        chamado = Chamado.objects.create(
+            titulo='Entrega direta',
+            descricao='Chamado usado para validar a trilha da reserva.',
+            solicitante=self.user,
+            status=StatusChamado.EM_ATENDIMENTO,
+        )
+        equipamento = Equipamento.objects.get(id_patrimonio='PAT-200001')
+        reserva = criar_reserva_estoque(
+            chamado=chamado,
+            equipamento=equipamento,
+            solicitante=self.user,
+        )
+
+        marcar_reserva_entregue(reserva=reserva, usuario=self.user)
+        reserva.refresh_from_db()
+
+        self.assertEqual(reserva.status, 'entregue')
+        self.assertIsNotNone(reserva.separated_at)
+        self.assertIsNotNone(reserva.delivered_at)
+        self.assertEqual(reserva.separado_por, self.user)
 
     def test_api_equipamentos_permite_filtrar_por_status_e_tipo(self):
         equipamento = Equipamento.objects.get(id_patrimonio='PAT-200001')

@@ -10,7 +10,14 @@ from django.urls import reverse
 
 from accounts.models import Usuario
 
-from .models import AgenteMonitoramento, CondicaoEquipamento, Equipamento, StatusEquipamento, TelemetriaEvento
+from .models import (
+    AgenteMonitoramento,
+    CondicaoEquipamento,
+    Equipamento,
+    MovimentacaoEquipamento,
+    StatusEquipamento,
+    TelemetriaEvento,
+)
 from .services import importar_equipamentos_csv
 
 CSV_FIXTURE = """id_patrimonio,tipo,tipo_outro,marca,modelo,service_tag,imei,numero_serie,monitor_patrimonio,status,condicao,responsavel,site,setor,andar_sala,descricao,data_aquisicao,valor_aquisicao,garantia_ate,vida_util_estimada_meses,score_saude
@@ -108,6 +115,26 @@ class ImportacaoEquipamentosCSVTests(TestCase):
         self.assertContains(response, 'EG')
         self.assertContains(response, 'CCR')
         self.assertNotContains(response, 'Historico')
+
+    def test_detalhe_exibe_registro_no_singular(self):
+        equipamento = Equipamento.objects.create(
+            id_patrimonio='PAT-HIST-001',
+            tipo='monitor',
+            status=StatusEquipamento.EM_ESTOQUE,
+            condicao=CondicaoEquipamento.BOM,
+        )
+        MovimentacaoEquipamento.objects.create(
+            equipamento=equipamento,
+            tipo='entrada',
+            descricao='Entrada de teste.',
+            realizado_por=self.user,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('detalhe_equipamento', args=[equipamento.id_patrimonio]))
+
+        self.assertContains(response, '1 registro')
+        self.assertNotContains(response, '1 registros')
 
     @override_settings(ITAM_QR_BASE_URL='https://itam.example.com')
     def test_regenerar_qrcodes_atualiza_payload_antigo(self):

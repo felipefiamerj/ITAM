@@ -370,6 +370,39 @@ class ChamadoModelTests(TestCase):
         )
         self.assertContains(detail, 'Historico do fluxo')
 
+    def test_aprovacao_nao_duplica_notificacao_para_destinatario_operacional(self):
+        admin_destinatario = Usuario.objects.create_user(
+            matricula='2006',
+            password='senha-forte-123',
+            first_name='Nina',
+            last_name='Admin',
+            nivel_acesso=NivelAcesso.ADMIN,
+        )
+        chamado = Chamado.objects.create(
+            titulo='Aprovacao sem duplicidade',
+            descricao='Teste de notificacao para destinatario operacional.',
+            solicitante=admin_destinatario,
+            destinatario=admin_destinatario,
+            status=StatusChamado.AGUARDANDO_ATENDIMENTO,
+            fluxo_etapa=EtapaFluxoChamado.AGUARDANDO_APROVACAO,
+        )
+        self.client.force_login(admin_destinatario)
+
+        response = self.client.post(
+            reverse('fluxo_chamado_action', args=[chamado.pk]),
+            {'acao': 'aprovar_retirada'},
+        )
+
+        self.assertRedirects(response, reverse('detalhe_chamado', args=[chamado.pk]))
+        self.assertEqual(
+            Notification.objects.filter(
+                user=admin_destinatario,
+                title='Retirada aprovada',
+                link=reverse('detalhe_chamado', args=[chamado.pk]),
+            ).count(),
+            1,
+        )
+
     def test_termo_mostra_todos_os_itens_entregues(self):
         operacional = Usuario.objects.create_user(
             matricula='2002',
