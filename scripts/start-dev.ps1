@@ -1,5 +1,5 @@
 param(
-  [string]$Host = '0.0.0.0',
+  [string]$ListenHost = '0.0.0.0',
   [int]$Port = 8000
 )
 
@@ -12,4 +12,4 @@ if (-not (Test-Path $python)) {
 }
 
 Set-Location $repoRoot
-& $python manage.py runserver "$Host`:$Port"
+& $python manage.py runserver "$ListenHost`:$Port"

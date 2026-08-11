@@ -1,6 +1,6 @@
 param(
   [string]$PythonExe = '',
-  [string]$Host = '0.0.0.0',
+  [string]$ListenHost = '0.0.0.0',
   [int]$Port = 8000
 )
 
@@ -31,4 +31,4 @@ function Get-PythonExe {
 }
 
 $python = Get-PythonExe -ProvidedPythonExe $PythonExe
-& $python -m daphne itam.asgi:application -b $Host -p $Port
+& $python -m daphne itam.asgi:application -b $ListenHost -p $Port

@@ -11,6 +11,12 @@ if (-not (Test-Path $pidDir)) {
   return
 }
 
+$signatures = @{
+  asgi = 'daphne itam.asgi:application'
+  worker = 'celery -A itam worker'
+  beat = 'celery -A itam beat'
+}
+
 Get-ChildItem -LiteralPath $pidDir -File -Filter '*.pid' | ForEach-Object {
   $rawPid = (Get-Content -LiteralPath $_.FullName -ErrorAction SilentlyContinue | Select-Object -First 1)
   if (-not $rawPid) {
@@ -18,10 +24,16 @@ Get-ChildItem -LiteralPath $pidDir -File -Filter '*.pid' | ForEach-Object {
     return
   }
 
-  $process = Get-Process -Id ([int]$rawPid) -ErrorAction SilentlyContinue
+  $process = Get-CimInstance Win32_Process -Filter "ProcessId = $rawPid" -ErrorAction SilentlyContinue
   if ($process) {
+    $signature = $signatures[$_.BaseName]
+    if (-not $signature -or $process.CommandLine -notlike "*$signature*") {
+      Write-Warning "PID $rawPid nao corresponde ao servico $($_.BaseName). O processo nao sera encerrado."
+      Remove-Item -LiteralPath $_.FullName -Force
+      return
+    }
     Write-Host "Parando $($_.BaseName) PID $rawPid"
-    Stop-Process -Id $process.Id -Force:$Force
+    Stop-Process -Id $process.ProcessId -Force:$Force
   } else {
     Write-Host "PID $rawPid de $($_.BaseName) nao esta em execucao."
   }

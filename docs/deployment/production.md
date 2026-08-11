@@ -30,13 +30,25 @@ O comando executa `manage.py check`, `check --deploy`, `verificar_instalacao`, c
 
 ## 3. Subir e parar servicos no Windows
 
+Inicie o Redis local no Docker Desktop:
+
+```powershell
+docker compose -f compose.redis.yml up -d
+```
+
 Para iniciar ASGI, Celery worker e Celery beat:
 
 ```powershell
-.\scripts\start-all.ps1 -Host 0.0.0.0 -Port 8000
+.\scripts\start-all.ps1 -ListenHost 0.0.0.0 -Port 8000
 ```
 
 Os logs ficam em `logs/asgi.*.log`, `logs/worker.*.log`, `logs/beat.*.log`. Os PIDs ficam em `logs/pids/`.
+
+Para iniciar automaticamente no logon do Windows:
+
+```powershell
+.\scripts\install-runtime-task.ps1
+```
 
 Para parar:
 

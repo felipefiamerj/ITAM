@@ -213,6 +213,10 @@ def processar_pacote_telemetria(payload, remote_ip=None):
             ]
         )
 
+        if severidade in {'warning', 'critical'}:
+            alertas += 1
+            _notificar_evento(equipamento, agente, event_type, severidade, mensagem)
+
         TelemetriaEvento.objects.create(
             equipamento=equipamento,
             agente=agente,
@@ -221,10 +225,6 @@ def processar_pacote_telemetria(payload, remote_ip=None):
             mensagem=mensagem,
             payload=item,
         )
-
-        if severidade in {'warning', 'critical'}:
-            alertas += 1
-            _notificar_evento(equipamento, agente, event_type, severidade, mensagem)
 
         processados += 1
 
@@ -249,7 +249,7 @@ def marcar_equipamentos_sem_sinal():
     limite = timezone.now() - timedelta(minutes=_limite_stale_minutos())
     equipamentos = (
         Equipamento.objects.select_for_update()
-        .select_related('last_telemetria_agente')
+        .prefetch_related('last_telemetria_agente')
         .filter(monitoramento_ativo=True)
         .filter(models.Q(last_seen_at__isnull=True) | models.Q(last_seen_at__lt=limite))
         .exclude(monitoramento_status=StatusMonitoramento.OFFLINE)
@@ -266,6 +266,7 @@ def marcar_equipamentos_sem_sinal():
         equipamento.score_saude = calcular_score(equipamento)
         equipamento.save(update_fields=['monitoramento_status', 'score_saude', 'updated_at'])
 
+        _notificar_evento(equipamento, agente, 'desconectado', 'critical', mensagem)
         TelemetriaEvento.objects.create(
             equipamento=equipamento,
             agente=agente,
@@ -274,7 +275,6 @@ def marcar_equipamentos_sem_sinal():
             mensagem=mensagem,
             payload={'source': 'stale-check', 'stale_minutes': _limite_stale_minutos()},
         )
-        _notificar_evento(equipamento, agente, 'desconectado', 'critical', mensagem)
         atualizados += 1
 
     return atualizados
