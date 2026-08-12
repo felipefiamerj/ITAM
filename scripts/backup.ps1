@@ -1,7 +1,7 @@
 param(
   [string]$OutputDir = '',
   [string]$PythonExe = '',
-  [ValidateRange(0, 3650)]
+  [ValidateRange(0, 30)]
   [int]$RetentionDays = 30,
   [switch]$SkipDatabase,
   [switch]$SkipMedia,

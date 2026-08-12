@@ -1,10 +1,14 @@
+from collections import defaultdict
+
 from auditlog.models import LogEntry
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from accounts.models import Usuario
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
@@ -15,6 +19,17 @@ from estoque.views import estoque_view as estoque_workspace_view
 from itam.charting import build_choice_chart
 from notifications.models import Notification
 
+from .backup_service import (
+    BackupOperationError,
+    configure_backup_task,
+    get_backup_task_status,
+    get_restore_status,
+    list_backup_sets,
+    run_backup_now,
+    start_restore_point,
+)
+from .forms import BackupConfigurationForm
+from .models import BackupConfiguration
 from .search import build_search_payload
 
 FLUXO_CHAMADO_DASHBOARD = [
@@ -316,6 +331,143 @@ def relatorios_view(request):
 
     context = build_relatorios_context()
     return render(request, 'dashboard/relatorios.html', context)
+
+
+def _backup_chart(backup_sets):
+    daily = defaultdict(lambda: {'count': 0, 'bytes': 0})
+    for backup_set in backup_sets:
+        local_date = timezone.localtime(backup_set.created_at).date()
+        daily[local_date]['count'] += 1
+        daily[local_date]['bytes'] += backup_set.total_bytes
+
+    dates = sorted(daily)
+    return {
+        'labels': [item.strftime('%d/%m') for item in dates],
+        'counts': [daily[item]['count'] for item in dates],
+        'sizes_mb': [round(daily[item]['bytes'] / (1024 * 1024), 2) for item in dates],
+    }
+
+
+@login_required
+def backup_configuration_view(request):
+    if not request.user.is_admin:
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    configuration = BackupConfiguration.load()
+    form = BackupConfigurationForm(request.POST or None, instance=configuration)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'run_now':
+            requested_at = timezone.now()
+            try:
+                run_backup_now()
+            except BackupOperationError as exc:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'started': False, 'error': str(exc)}, status=500)
+                messages.error(request, f'Nao foi possivel iniciar o backup: {exc}')
+            else:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'started': True, 'requested_at': requested_at.isoformat()})
+                messages.success(request, 'Backup iniciado. O historico sera atualizado quando ele terminar.')
+            return redirect('backup_configuration')
+
+        if action == 'restore':
+            if request.POST.get('confirmation') != 'RESTAURAR':
+                return JsonResponse({'started': False, 'error': 'Confirmacao invalida.'}, status=400)
+            try:
+                operation_id = start_restore_point(
+                    request.POST.get('manifest', ''),
+                    retention_days=configuration.retention_days,
+                    schedule_times=configuration.schedule_times,
+                )
+            except BackupOperationError as exc:
+                return JsonResponse({'started': False, 'error': str(exc)}, status=400)
+            return JsonResponse(
+                {
+                    'started': True,
+                    'operation_id': str(operation_id),
+                    'status_url': reverse('restore_status', kwargs={'operation_id': operation_id}),
+                }
+            )
+
+        if form.is_valid():
+            try:
+                configure_backup_task(
+                    form.cleaned_data['retention_days'],
+                    form.cleaned_data['schedule_times'],
+                )
+            except BackupOperationError as exc:
+                form.add_error(None, f'Nao foi possivel atualizar o agendamento: {exc}')
+            else:
+                configuration = form.save(commit=False)
+                configuration.updated_by = request.user
+                configuration.save()
+                messages.success(request, 'Configuracao de backup atualizada.')
+                return redirect('backup_configuration')
+
+    backup_sets = list_backup_sets(limit=None)
+    total_size = sum(item.total_bytes for item in backup_sets)
+    return render(
+        request,
+        'dashboard/backups.html',
+        {
+            'form': form,
+            'configuration': configuration,
+            'task_status': get_backup_task_status(),
+            'backup_sets': backup_sets[:30],
+            'backup_count': len(backup_sets),
+            'restore_point_count': sum(item.restorable for item in backup_sets),
+            'backup_total_size_mb': round(total_size / (1024 * 1024), 1),
+            'backup_chart': _backup_chart(backup_sets),
+        },
+    )
+
+
+@login_required
+def backup_status_view(request):
+    if not request.user.is_admin:
+        return JsonResponse({'detail': 'Acesso negado.'}, status=403)
+
+    requested_at = parse_datetime(request.GET.get('requested_at', ''))
+    if requested_at is None:
+        return JsonResponse({'detail': 'Data da solicitacao invalida.'}, status=400)
+    if timezone.is_naive(requested_at):
+        requested_at = timezone.make_aware(requested_at, timezone.get_current_timezone())
+
+    task_status = get_backup_task_status()
+    completed_backups = [item for item in list_backup_sets(limit=5) if item.status == 'complete']
+    latest_backup = completed_backups[0] if completed_backups else None
+    complete = bool(latest_backup and latest_backup.created_at >= requested_at)
+    running = task_status.state == 'Running' or task_status.last_result in (267009, 0x41301)
+    failed = bool(
+        not complete
+        and not running
+        and task_status.last_run
+        and task_status.last_run >= requested_at
+        and task_status.last_result not in (None, 0)
+    )
+
+    return JsonResponse(
+        {
+            'complete': complete,
+            'running': running,
+            'failed': failed,
+            'task_state': task_status.state,
+            'status_label': task_status.last_result_label,
+            'latest_backup_at': latest_backup.created_at.isoformat() if latest_backup else None,
+            'error': task_status.error,
+        }
+    )
+
+
+def restore_status_view(request, operation_id):
+    try:
+        payload = get_restore_status(operation_id)
+    except BackupOperationError as exc:
+        return JsonResponse({'detail': str(exc)}, status=404)
+    return JsonResponse(payload)
 
 
 @login_required

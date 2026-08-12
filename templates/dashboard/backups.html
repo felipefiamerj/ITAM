@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Backups | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface backup-hero mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-shield-halved"></i> Administração do sistema</div>
+      <h1 class="hero-title mb-2">Backups</h1>
+      <p class="hero-text mb-0">Agendamento, retenção, histórico e pontos de restauração protegidos.</p>
+    </div>
+    <form method="post" action="{% url 'backup_configuration' %}" data-backup-run-form data-status-url="{% url 'backup_status' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="run_now">
+      <button class="btn btn-light btn-lg" type="submit" data-backup-run-button {% if task_status.state == "Running" %}disabled{% endif %}>
+        <i class="fa-solid fa-play me-1"></i>Executar agora
+      </button>
+    </form>
+  </div>
+</section>
+
+<div class="alert alert-info app-alert d-none mb-4" role="status" aria-live="polite" data-backup-run-status></div>
+
+<div class="row g-3 mb-4 backup-summary-grid">
+  <div class="col-md-6 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Agendamento</div>
+      <div class="value backup-stat-value">{{ task_status.state_label }}</div>
+      <div class="small text-muted mt-2">{{ configuration.schedule_times|join:", " }}</div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Último resultado</div>
+      <div class="value backup-stat-value {% if task_status.last_result == 0 %}text-success{% endif %}">{{ task_status.last_result_label }}</div>
+      <div class="small text-muted mt-2">{{ task_status.last_run|date:"d/m/Y H:i"|default:"Sem execução" }}</div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Próxima execução</div>
+      <div class="value backup-stat-value">{{ task_status.next_run|date:"d/m H:i"|default:"-" }}</div>
+      <div class="small text-muted mt-2">Horário local</div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="app-stat h-100">
+      <div class="label">Histórico local</div>
+      <div class="value backup-stat-value">{{ backup_count }}</div>
+      <div class="small text-muted mt-2">{{ restore_point_count }} ponto(s) disponível(is)</div>
+    </div>
+  </div>
+</div>
+
+{% if task_status.error %}
+  <div class="alert alert-warning app-alert mb-4" role="alert">
+    <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ task_status.error }}
+  </div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-4">
+    <section class="card app-card h-100" aria-labelledby="backup-settings-title">
+      <div class="card-body p-4">
+        <div class="section-kicker mb-2">Política automática</div>
+        <h2 class="h5 mb-4" id="backup-settings-title">Configuração</h2>
+        <form method="post" data-backup-schedule-form>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save">
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-warning py-2">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="form-field-shell mb-4">
+            <label class="form-label" for="{{ form.retention_days.id_for_label }}">Retenção</label>
+            <div class="input-group">
+              {{ form.retention_days }}
+              <span class="input-group-text">dias</span>
+            </div>
+            {% for error in form.retention_days.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+            <div class="form-text">Mínimo de 1 e máximo de 30 dias.</div>
+          </div>
+
+          {{ form.schedule_times_json }}
+          <fieldset class="mb-4">
+            <legend class="form-label">Horários diários</legend>
+            <div class="backup-time-list" data-backup-time-list>
+              {% for schedule_time in form.schedule_times_for_display %}
+                <div class="backup-time-row" data-backup-time-row>
+                  <input class="form-control" type="time" value="{{ schedule_time }}" aria-label="Horário do backup" data-backup-time-input required>
+                  <button class="btn btn-outline-danger backup-time-remove" type="button" title="Remover horário" aria-label="Remover horário" data-backup-time-remove>
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              {% endfor %}
+            </div>
+            {% for error in form.schedule_times_json.errors %}
+              <div class="text-danger small mt-2">{{ error }}</div>
+            {% endfor %}
+            <button class="btn btn-outline-primary btn-sm mt-3" type="button" data-backup-time-add>
+              <i class="fa-solid fa-plus me-1"></i>Adicionar horário
+            </button>
+          </fieldset>
+
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="fa-solid fa-floppy-disk me-1"></i>Salvar configuração
+          </button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-xl-8">
+    <section class="card app-card h-100" aria-labelledby="backup-chart-title">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+          <div>
+            <div class="section-kicker mb-2">Movimentação</div>
+            <h2 class="h5 mb-0" id="backup-chart-title">Execuções e volume por dia</h2>
+          </div>
+          <span class="status-pill status-pill-success">Retenção: {{ configuration.retention_days }} dias</span>
+        </div>
+        <div class="backup-chart-wrap" data-backup-chart-wrap>
+          <canvas id="backup-history-chart" aria-label="Histórico diário dos backups" role="img"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="card app-card" aria-labelledby="backup-history-title">
+  <div class="card-body px-4 pt-4 pb-3">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <div class="section-kicker mb-2">Arquivos validados</div>
+        <h2 class="h5 mb-0" id="backup-history-title">Histórico e pontos de restauração</h2>
+      </div>
+          <span class="text-muted small">Até 30 execuções recentes</span>
+    </div>
+  </div>
+  <div class="table-responsive app-scroll-area app-scroll-area-lg">
+    <table class="table mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Status</th>
+          <th>Banco</th>
+          <th>Mídia</th>
+          <th>Tamanho</th>
+          <th>Retenção</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for backup in backup_sets %}
+          <tr>
+            <td class="fw-semibold text-nowrap">{{ backup.created_at|date:"d/m/Y H:i" }}</td>
+            <td>
+              {% if backup.status == "complete" %}
+                <span class="badge text-bg-success">Concluído</span>
+              {% else %}
+                <span class="badge text-bg-warning">Incompleto</span>
+              {% endif %}
+            </td>
+            <td class="backup-file-name">{{ backup.database_file|default:"-" }}</td>
+            <td class="backup-file-name">{{ backup.media_file|default:"-" }}</td>
+            <td class="text-nowrap">{{ backup.size_label }}</td>
+            <td class="text-nowrap">
+              {% if backup.retention_days %}{{ backup.retention_days }} dias{% else %}-{% endif %}
+            </td>
+            <td class="text-end text-nowrap">
+              {% if backup.restorable %}
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  type="button"
+                  data-bs-toggle="modal"
+                  data-bs-target="#restorePointModal"
+                  data-restore-manifest="{{ backup.manifest_file }}"
+                  data-restore-date="{{ backup.created_at|date:'d/m/Y H:i' }}"
+                >
+                  <i class="fa-solid fa-clock-rotate-left me-1"></i>Restaurar
+                </button>
+              {% else %}
+                <span class="text-muted small">Indisponível</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              Nenhum backup concluído no histórico local.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="modal fade" id="restorePointModal" tabindex="-1" aria-labelledby="restorePointModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content app-card">
+      <div class="modal-header">
+        <div>
+          <div class="section-kicker mb-1">Operação protegida</div>
+          <h2 class="modal-title fs-5" id="restorePointModalLabel">Restaurar ponto</h2>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" action="{% url 'backup_configuration' %}" data-restore-form>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="restore">
+        <input type="hidden" name="manifest" value="" data-restore-manifest-input>
+        <div class="modal-body">
+          <div class="restore-warning mb-4">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            <div>
+              <strong>Os dados posteriores a <span data-restore-date></span> serão substituídos.</strong>
+              <p class="mb-0">Antes da restauração, o sistema criará automaticamente um backup de segurança do estado atual.</p>
+            </div>
+          </div>
+          <label class="form-label" for="restore-confirmation">Digite RESTAURAR para confirmar</label>
+          <input
+            class="form-control"
+            id="restore-confirmation"
+            name="confirmation"
+            type="text"
+            autocomplete="off"
+            data-restore-confirmation
+            required
+          >
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger" data-restore-submit disabled>
+            <i class="fa-solid fa-clock-rotate-left me-1"></i>Iniciar restauração
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="restore-progress-overlay d-none" role="status" aria-live="polite" data-restore-progress>
+  <div class="restore-progress-panel">
+    <span class="spinner-border text-primary" aria-hidden="true"></span>
+    <div>
+      <div class="section-kicker mb-1">Restauração em andamento</div>
+      <strong data-restore-progress-title>Preparando o ponto de restauração</strong>
+      <p class="mb-0 text-muted" data-restore-progress-message>Não desligue o computador.</p>
+    </div>
+  </div>
+</div>
+
+{{ backup_chart|json_script:"backup-history-data" }}
+{% endblock %}
+{% block extra_scripts %}
+  <script src="{% static 'vendor/chart.js/4.4.3/chart.umd.min.js' %}"></script>
+  <script src="{% static 'js/backup-settings.js' %}?v={{ static_version }}"></script>
+{% endblock %}

@@ -96,10 +96,10 @@ Para backup apenas da midia:
 .\scripts\backup.ps1 -SkipDatabase
 ```
 
-Por padrao, backups locais com mais de 30 dias sao removidos depois que um novo backup valido e concluido. Para alterar a retencao:
+Por padrao, backups locais com mais de 30 dias sao removidos depois que um novo backup valido e concluido. A retencao configuravel aceita de 1 a 30 dias:
 
 ```powershell
-.\scripts\backup.ps1 -RetentionDays 60
+.\scripts\backup.ps1 -RetentionDays 30
 ```
 
 No Windows, instale a tarefa diaria com:
@@ -107,6 +107,14 @@ No Windows, instale a tarefa diaria com:
 ```powershell
 .\scripts\install-backup-task.ps1 -At 19:00 -RetentionDays 30
 ```
+
+Para executar em varios horarios no mesmo dia:
+
+```powershell
+.\scripts\install-backup-task.ps1 -Times "08:00,13:00,19:00" -RetentionDays 3
+```
+
+Administradores tambem podem ajustar a retencao, adicionar horarios, executar um backup imediato e consultar o historico em **Conta > Backups**. Backups completos, integres e com ate 30 dias aparecem como pontos de restauracao; a operacao exige confirmacao explicita e cria antes uma copia de seguranca do estado atual.
 
 A tarefa roda com o usuario atual, inclusive na bateria, e usa `StartWhenAvailable` caso o computador esteja desligado no horario. Guarde tambem uma copia fora da maquina da aplicacao.
 
