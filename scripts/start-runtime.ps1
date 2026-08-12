@@ -2,7 +2,7 @@ param(
   [string]$ListenHost = '127.0.0.1',
   [int]$Port = 8000,
   [ValidateRange(30, 600)]
-  [int]$DockerTimeoutSeconds = 180
+  [int]$DockerTimeoutSeconds = 300
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,8 +10,36 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repoRoot
 
 $docker = Get-Command docker.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1
-& $docker.Source info --format '{{.ServerVersion}}' 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
+
+function Test-DockerReady {
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $docker.Source
+  $startInfo.Arguments = 'info --format "{{.ServerVersion}}"'
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+
+  try {
+    if (-not $process.Start()) {
+      return $false
+    }
+    if (-not $process.WaitForExit(5000)) {
+      $process.Kill()
+      $process.WaitForExit()
+      return $false
+    }
+    return $process.ExitCode -eq 0
+  } catch {
+    return $false
+  } finally {
+    $process.Dispose()
+  }
+}
+
+if (-not (Test-DockerReady)) {
   $dockerDesktop = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
   if (-not (Test-Path -LiteralPath $dockerDesktop -PathType Leaf)) {
     throw "Docker Desktop nao encontrado: $dockerDesktop"
@@ -21,15 +49,14 @@ if ($LASTEXITCODE -ne 0) {
   }
 
   $dockerReady = $false
-  $attempts = [math]::Ceiling($DockerTimeoutSeconds / 2)
-  for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
+  $dockerDeadline = [DateTime]::UtcNow.AddSeconds($DockerTimeoutSeconds)
+  do {
     Start-Sleep -Seconds 2
-    & $docker.Source info --format '{{.ServerVersion}}' 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-DockerReady) {
       $dockerReady = $true
       break
     }
-  }
+  } while ([DateTime]::UtcNow -lt $dockerDeadline)
   if (-not $dockerReady) {
     throw "Docker Desktop nao ficou pronto em $DockerTimeoutSeconds segundos."
   }
