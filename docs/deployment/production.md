@@ -170,6 +170,8 @@ GET /health/
 
 Resposta `200` indica banco e cache OK. Resposta `503` indica dependencia indisponivel.
 
+Administradores tambem podem usar **Conta > Saude do sistema** para acompanhar banco, Redis, worker, armazenamento, backups e validacoes de restauracao. A verificacao automatica roda a cada cinco minutos e registra apenas mudancas de estado no historico. Depois de um ensaio controlado de restauracao, registre o resultado e o ponto utilizado nessa tela para manter a evidencia de recuperacao atualizada.
+
 ## 8. Checklist rapido de release
 
 - `.env` revisado e sem `DEBUG=True`.

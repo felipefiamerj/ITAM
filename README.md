@@ -15,6 +15,7 @@ O projeto oferece:
 - Movimentações de equipamentos, incluindo entrada, saída, devolução, manutenção, transferência e troca.
 - Chamados técnicos para suporte com prioridade, status e solução.
 - Painel de dashboard com métricas de equipamentos, chamados, usuários e histórico de auditoria.
+- Central administrativa de saúde com diagnóstico de banco, Redis, automações, disco, backups, restauração e ambiente.
 - Importação em lote de equipamentos via Excel.
 - Sistema de notificações internas.
 - Suporte a execução de tarefas assíncronas com Celery e rotinas preparadas para tempo real com Channels.
@@ -208,6 +209,7 @@ celery -A itam beat -l info
 ```
 
 - O beat tambem executa a cobranca automatica diaria dos termos digitais pendentes. Ajuste `ITAM_TERMO_ASSINATURA_COBRANCA_HORA`, `ITAM_TERMO_ASSINATURA_COBRANCA_MINUTO` e `ITAM_TERMO_ASSINATURA_COBRANCA_INTERVALO_DIAS` conforme a rotina da operacao.
+- O beat verifica a saúde do sistema a cada cinco minutos. Administradores acompanham o estado e o histórico em **Conta > Saúde do sistema**; mudanças para atenção ou crítico geram alertas sem repetição, seguidos de aviso de recuperação.
 - Para WebSockets em producao, use um servidor ASGI compativel como Daphne ou Uvicorn.
 - Sem `REDIS_URL`, o projeto usa fallback em memória para desenvolvimento e testes.
 - O agente Windows de monitoramento esta documentado em `docs/monitoring/windows-agent.md`.

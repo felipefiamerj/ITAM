@@ -62,3 +62,87 @@ class BackupConfiguration(models.Model):
 
 
 auditlog.register(BackupConfiguration)
+
+
+class SystemHealthStatus(models.TextChoices):
+    HEALTHY = 'healthy', 'Saudavel'
+    WARNING = 'warning', 'Atencao'
+    CRITICAL = 'critical', 'Critico'
+    UNKNOWN = 'unknown', 'Sem dados'
+
+
+class SystemHealthComponent(models.Model):
+    component_key = models.CharField('Componente', max_length=50, unique=True)
+    name = models.CharField('Nome', max_length=100)
+    status = models.CharField(
+        'Status',
+        max_length=20,
+        choices=SystemHealthStatus.choices,
+        default=SystemHealthStatus.UNKNOWN,
+        db_index=True,
+    )
+    summary = models.CharField('Resumo', max_length=255, blank=True)
+    details = models.JSONField('Detalhes', default=dict, blank=True)
+    source = models.CharField('Origem', max_length=20, default='scheduled')
+    checked_at = models.DateTimeField('Verificado em')
+    status_changed_at = models.DateTimeField('Status alterado em')
+    last_notified_status = models.CharField(max_length=20, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Componente de saude'
+        verbose_name_plural = 'Componentes de saude'
+        ordering = ['name']
+
+    def __str__(self):
+        return f'{self.name}: {self.get_status_display()}'
+
+
+class SystemHealthEvent(models.Model):
+    component_key = models.CharField('Componente', max_length=50, db_index=True)
+    component_name = models.CharField('Nome', max_length=100)
+    previous_status = models.CharField('Status anterior', max_length=20, blank=True)
+    status = models.CharField('Status', max_length=20, choices=SystemHealthStatus.choices, db_index=True)
+    summary = models.CharField('Resumo', max_length=255)
+    details = models.JSONField('Detalhes', default=dict, blank=True)
+    occurred_at = models.DateTimeField('Ocorrido em', auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Evento de saude'
+        verbose_name_plural = 'Eventos de saude'
+        ordering = ['-occurred_at']
+
+    def __str__(self):
+        return f'{self.component_name}: {self.get_status_display()}'
+
+
+class RestoreTestResult(models.TextChoices):
+    SUCCESS = 'success', 'Aprovado'
+    FAILED = 'failed', 'Falhou'
+
+
+class RestoreValidation(models.Model):
+    tested_at = models.DateTimeField('Testado em')
+    result = models.CharField('Resultado', max_length=20, choices=RestoreTestResult.choices)
+    backup_manifest = models.CharField('Ponto utilizado', max_length=255)
+    notes = models.TextField('Observacoes', blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='restore_validations_recorded',
+        verbose_name='Registrado por',
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField('Registrado em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Validacao de restauracao'
+        verbose_name_plural = 'Validacoes de restauracao'
+        ordering = ['-tested_at', '-created_at']
+
+    def __str__(self):
+        return f'{self.get_result_display()} em {self.tested_at:%d/%m/%Y %H:%M}'
+
+
+auditlog.register(RestoreValidation)

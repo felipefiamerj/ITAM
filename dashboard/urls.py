@@ -7,6 +7,7 @@ from .views import (
     dashboard_view,
     relatorios_view,
     restore_status_view,
+    system_health_view,
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
     path('administracao/backups/', backup_configuration_view, name='backup_configuration'),
     path('administracao/backups/status/', backup_status_view, name='backup_status'),
     path('administracao/backups/restauracao/<uuid:operation_id>/', restore_status_view, name='restore_status'),
+    path('administracao/saude/', system_health_view, name='system_health'),
 ]

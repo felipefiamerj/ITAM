@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Saúde do sistema | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface health-hero health-hero-{{ status_meta.tone }} mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-heart-pulse"></i> Administracao do sistema</div>
+      <h1 class="hero-title mb-2">Saúde do sistema</h1>
+      <p class="hero-text mb-0">Disponibilidade, continuidade e capacidade de recuperação em uma única visão.</p>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="check_now">
+      <button class="btn btn-light btn-lg" type="submit">
+        <i class="fa-solid fa-rotate me-1"></i>Verificar agora
+      </button>
+    </form>
+  </div>
+</section>
+
+<section class="health-overview mb-4" aria-labelledby="health-overview-title">
+  <div class="health-overview-main">
+    <div class="health-overview-icon health-tone-{{ status_meta.tone }}">
+      <i class="fa-solid {{ status_meta.icon }}" aria-hidden="true"></i>
+    </div>
+    <div>
+      <div class="section-kicker mb-2">Estado geral</div>
+      <h2 class="h4 mb-1" id="health-overview-title">{{ status_meta.label }}</h2>
+      <p class="text-muted mb-0">
+        Ultima leitura em {{ last_checked_at|date:"d/m/Y H:i:s"|default:"-" }}.
+      </p>
+    </div>
+  </div>
+  <div class="health-overview-counts" aria-label="Resumo dos componentes">
+    <div><strong>{{ healthy_count }}</strong><span>Saudáveis</span></div>
+    <div><strong>{{ warning_count }}</strong><span>Atenção</span></div>
+    <div><strong>{{ critical_count }}</strong><span>Críticos</span></div>
+  </div>
+</section>
+
+<div class="health-component-grid mb-4">
+  {% for component in component_cards %}
+    <article class="health-component health-component-{{ component.status }}">
+      <div class="health-component-head">
+        <div class="health-component-icon"><i class="fa-solid {{ component.icon }}"></i></div>
+        <span class="health-status health-status-{{ component.status }}">
+          <span aria-hidden="true"></span>{{ component.status_label }}
+        </span>
+      </div>
+      <div class="section-kicker mt-4 mb-2">{{ component.category }}</div>
+      <h2 class="h5 mb-2">{{ component.name }}</h2>
+      <p class="health-component-summary">{{ component.summary }}</p>
+      {% if component.disk_percent != None %}
+        <div class="progress health-disk-progress" role="progressbar" aria-label="Espaco livre" aria-valuenow="{{ component.disk_percent|stringformat:'d' }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" style="width: {{ component.disk_percent|stringformat:'d' }}%"></div>
+        </div>
+      {% endif %}
+      {% if component.details %}
+        <div class="health-component-details">
+          {% for detail in component.details %}<span>{{ detail }}</span>{% endfor %}
+        </div>
+      {% endif %}
+      <div class="health-component-footer">
+        <i class="fa-regular fa-clock"></i>{{ component.checked_at|timesince }} atras
+      </div>
+    </article>
+  {% endfor %}
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-8">
+    <section class="card app-card h-100" aria-labelledby="health-chart-title">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+          <div>
+            <div class="section-kicker mb-2">Ultimos 14 dias</div>
+          <h2 class="h5 mb-0" id="health-chart-title">Incidentes e recuperações</h2>
+          </div>
+          <span class="status-pill status-pill-success">Verificacao a cada 5 minutos</span>
+        </div>
+        <div class="health-chart-wrap">
+          <canvas id="system-health-chart" aria-label="Historico de saude do sistema" role="img"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="col-xl-4">
+    <section class="card app-card h-100" aria-labelledby="restore-validation-title">
+      <div class="card-body p-4">
+        <div class="section-kicker mb-2">Plano de recuperação</div>
+        <h2 class="h5 mb-2" id="restore-validation-title">Registrar teste de restauração</h2>
+        <p class="text-muted small mb-4">Registre somente depois de restaurar e conferir uma copia isolada do sistema.</p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="record_restore_test">
+          {% if restore_form.non_field_errors %}
+            <div class="alert alert-warning py-2">{{ restore_form.non_field_errors }}</div>
+          {% endif %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ restore_form.tested_at.id_for_label }}">Data do teste</label>
+            {{ restore_form.tested_at }}
+            {% for error in restore_form.tested_at.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ restore_form.result.id_for_label }}">Resultado</label>
+            {{ restore_form.result }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ restore_form.backup_manifest.id_for_label }}">Ponto utilizado</label>
+            {{ restore_form.backup_manifest }}
+            {% for error in restore_form.backup_manifest.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="mb-4">
+            <label class="form-label" for="{{ restore_form.notes.id_for_label }}">Observações</label>
+            {{ restore_form.notes }}
+          </div>
+          <button class="btn btn-primary w-100" type="submit" {% if not has_restore_points %}disabled{% endif %}>
+            <i class="fa-solid fa-clipboard-check me-1"></i>Registrar validacao
+          </button>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <section class="card app-card h-100" aria-labelledby="health-events-title">
+      <div class="card-body px-4 pt-4 pb-3">
+        <div class="section-kicker mb-2">Mudancas de estado</div>
+        <h2 class="h5 mb-0" id="health-events-title">Historico de incidentes</h2>
+      </div>
+      <div class="table-responsive app-scroll-area app-scroll-area-lg">
+        <table class="table mb-0 align-middle">
+          <thead><tr><th>Data</th><th>Componente</th><th>Status</th><th>Descricao</th></tr></thead>
+          <tbody>
+            {% for event in events %}
+              <tr>
+                <td class="text-nowrap">{{ event.occurred_at|date:"d/m/Y H:i" }}</td>
+                <td class="fw-semibold">{{ event.component_name }}</td>
+                <td><span class="health-status health-status-{{ event.status }}"><span></span>{{ event.get_status_display }}</span></td>
+                <td>{{ event.summary }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center py-5 text-muted">Nenhuma mudanca registrada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <div class="col-xl-5">
+    <section class="card app-card h-100" aria-labelledby="restore-history-title">
+      <div class="card-body px-4 pt-4 pb-3">
+        <div class="section-kicker mb-2">Evidencias</div>
+        <h2 class="h5 mb-0" id="restore-history-title">Testes de restauração</h2>
+      </div>
+      <div class="health-validation-list">
+        {% for validation in restore_validations %}
+          <article class="health-validation-item">
+            <div class="d-flex justify-content-between gap-3 align-items-start">
+              <div>
+                <strong>{{ validation.tested_at|date:"d/m/Y H:i" }}</strong>
+                <div class="small text-muted mt-1">{{ validation.backup_manifest }}</div>
+              </div>
+              <span class="badge {% if validation.result == 'success' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ validation.get_result_display }}</span>
+            </div>
+            {% if validation.notes %}<p class="mb-0 mt-3 small">{{ validation.notes }}</p>{% endif %}
+            <div class="health-validation-author">{{ validation.recorded_by.nome_completo|default:"Sistema" }}</div>
+          </article>
+        {% empty %}
+          <div class="text-center py-5 px-4 text-muted">Nenhum teste de restauração registrado.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{{ health_chart|json_script:"system-health-data" }}
+{% endblock %}
+{% block extra_scripts %}
+  <script src="{% static 'vendor/chart.js/4.4.3/chart.umd.min.js' %}"></script>
+  <script src="{% static 'js/system-health.js' %}?v={{ static_version }}"></script>
+{% endblock %}

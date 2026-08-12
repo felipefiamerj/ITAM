@@ -120,7 +120,7 @@ def _database_config_from_url(database_url):
 DJANGO_ENV = config('DJANGO_ENV', default='development').strip().lower()
 APP_NAME = config('APP_NAME', default='FIAME System')
 APP_SHORT_NAME = config('APP_SHORT_NAME', default='FIAME')
-APP_STATIC_VERSION = config('APP_STATIC_VERSION', default='20260812')
+APP_STATIC_VERSION = config('APP_STATIC_VERSION', default='20260812-health')
 
 SECRET_KEY = config('SECRET_KEY', default='')
 if not SECRET_KEY:
@@ -344,6 +344,10 @@ CELERY_BEAT_SCHEDULE = {
     },
     'itam-verificar-sla-etapas-chamados': {
         'task': 'chamados.verificar_sla_etapas_chamados',
+        'schedule': crontab(minute='*/5'),
+    },
+    'itam-verificar-saude-sistema': {
+        'task': 'dashboard.verificar_saude_sistema',
         'schedule': crontab(minute='*/5'),
     },
 }
