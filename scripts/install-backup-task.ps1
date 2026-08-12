@@ -2,7 +2,8 @@ param(
   [string]$TaskName = 'ITAM Daily Backup',
   [ValidatePattern('^([01]\d|2[0-3]):[0-5]\d$')]
   [string]$At = '19:00',
-  [ValidateRange(1, 3650)]
+  [string]$Times = '',
+  [ValidateRange(1, 30)]
   [int]$RetentionDays = 30,
   [string]$OutputDir = '',
   [switch]$Remove
@@ -35,9 +36,32 @@ if ($OutputDir) {
   $arguments += " -OutputDir `"$resolvedOutputDir`""
 }
 
-$scheduleTime = [DateTime]::Today.Add([TimeSpan]::ParseExact($At, 'hh\:mm', [Globalization.CultureInfo]::InvariantCulture))
+$requestedTimes = if ($Times) { @($Times.Split(',')) } else { @($At) }
+$scheduleTimes = @()
+foreach ($requestedTime in $requestedTimes) {
+  $normalizedTime = $requestedTime.Trim()
+  try {
+    $parsedTime = [DateTime]::ParseExact($normalizedTime, 'HH:mm', [Globalization.CultureInfo]::InvariantCulture)
+  } catch {
+    throw "Horario de backup invalido: $normalizedTime. Use HH:mm."
+  }
+  $canonicalTime = $parsedTime.ToString('HH:mm')
+  if ($scheduleTimes -notcontains $canonicalTime) {
+    $scheduleTimes += $canonicalTime
+  }
+}
+if ($scheduleTimes.Count -eq 0) {
+  throw 'Informe pelo menos um horario para o backup.'
+}
+$scheduleTimes = @($scheduleTimes | Sort-Object)
+
 $action = New-ScheduledTaskAction -Execute $powershellExe -Argument $arguments -WorkingDirectory $repoRoot
-$trigger = New-ScheduledTaskTrigger -Daily -At $scheduleTime
+$triggers = @(
+  foreach ($scheduleTime in $scheduleTimes) {
+    $time = [DateTime]::Today.Add([DateTime]::ParseExact($scheduleTime, 'HH:mm', [Globalization.CultureInfo]::InvariantCulture).TimeOfDay)
+    New-ScheduledTaskTrigger -Daily -At $time
+  }
+)
 $settings = New-ScheduledTaskSettingsSet `
   -StartWhenAvailable `
   -AllowStartIfOnBatteries `
@@ -50,7 +74,7 @@ $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interact
 Register-ScheduledTask `
   -TaskName $TaskName `
   -Action $action `
-  -Trigger $trigger `
+  -Trigger $triggers `
   -Settings $settings `
   -Principal $principal `
   -Description 'Backup diario do banco e da pasta media do ITAM.' `
@@ -61,3 +85,4 @@ $taskInfo = Get-ScheduledTaskInfo -TaskName $TaskName
 Write-Host "Tarefa instalada: $($task.TaskName)"
 Write-Host "Proxima execucao: $($taskInfo.NextRunTime)"
 Write-Host "Retencao local: $RetentionDays dia(s)"
+Write-Host "Horarios diarios: $($scheduleTimes -join ', ')"

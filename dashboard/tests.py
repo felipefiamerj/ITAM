@@ -1,17 +1,33 @@
+import hashlib
+import json
 import shutil
 import tempfile
+import uuid
+from datetime import timedelta
 from io import StringIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import CommandError, call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import NivelAcesso, Usuario
 from chamados.models import Chamado, StatusChamado
 from equipamentos.models import EntradaLote, Equipamento, StatusEquipamento
 from itam.settings import _database_config_from_url, config
+
+from .backup_service import (
+    BackupOperationError,
+    BackupSet,
+    BackupTaskStatus,
+    list_backup_sets,
+    resolve_restore_point,
+)
+from .forms import BackupConfigurationForm
+from .models import BackupConfiguration
 
 
 class SettingsParsingTests(SimpleTestCase):
@@ -38,6 +54,272 @@ class SettingsParsingTests(SimpleTestCase):
             patch.dict('itam.settings.DOTENV_VALUES', {'DEBUG': 'True'}, clear=True),
         ):
             self.assertIs(config('DEBUG', default=False, cast=bool), True)
+
+
+class BackupConfigurationFormTests(SimpleTestCase):
+    def test_normaliza_e_ordena_horarios(self):
+        form = BackupConfigurationForm(
+            data={
+                'retention_days': 7,
+                'schedule_times_json': json.dumps(['18:30', '08:00', '12:15']),
+            },
+            instance=BackupConfiguration(),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['schedule_times'], ['08:00', '12:15', '18:30'])
+
+    def test_rejeita_horarios_repetidos(self):
+        form = BackupConfigurationForm(
+            data={
+                'retention_days': 3,
+                'schedule_times_json': json.dumps(['19:00', '19:00']),
+            },
+            instance=BackupConfiguration(),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('Nao repita o mesmo horario.', form.errors['schedule_times_json'])
+
+    def test_exige_ao_menos_um_horario(self):
+        form = BackupConfigurationForm(
+            data={'retention_days': 3, 'schedule_times_json': '[]'},
+            instance=BackupConfiguration(),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('Informe pelo menos um horario', form.errors['schedule_times_json'][0])
+
+    def test_limita_retencao_a_trinta_dias(self):
+        form = BackupConfigurationForm(
+            data={
+                'retention_days': 31,
+                'schedule_times_json': json.dumps(['19:00']),
+            },
+            instance=BackupConfiguration(),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('30', form.errors['retention_days'][0])
+
+
+class BackupConfigurationViewTests(TestCase):
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            matricula='backup-admin',
+            password='test12345',
+            first_name='Admin',
+            last_name='Backup',
+        )
+        self.viewer = Usuario.objects.create_user(
+            matricula='backup-viewer',
+            password='test12345',
+            first_name='Viewer',
+            last_name='Backup',
+        )
+
+    @patch('dashboard.views.get_backup_task_status', return_value=BackupTaskStatus(installed=True))
+    @patch('dashboard.views.list_backup_sets', return_value=[])
+    def test_admin_acessa_painel(self, _mock_sets, _mock_status):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('backup_configuration'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Execuções e volume por dia')
+        self.assertContains(response, 'Histórico e pontos de restauração')
+        self.assertContains(response, 'Executar agora')
+
+    def test_solicitante_nao_acessa_painel(self):
+        self.client.force_login(self.viewer)
+
+        response = self.client.get(reverse('backup_configuration'))
+
+        self.assertRedirects(response, reverse('dashboard'))
+
+    @patch('dashboard.views.get_backup_task_status', return_value=BackupTaskStatus(installed=True))
+    @patch('dashboard.views.list_backup_sets', return_value=[])
+    @patch('dashboard.views.configure_backup_task')
+    def test_salva_configuracao_depois_de_atualizar_tarefa(self, mock_configure, _mock_sets, _mock_status):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('backup_configuration'),
+            {
+                'action': 'save',
+                'retention_days': 5,
+                'schedule_times_json': json.dumps(['18:00', '08:00']),
+            },
+        )
+
+        self.assertRedirects(response, reverse('backup_configuration'))
+        mock_configure.assert_called_once_with(5, ['08:00', '18:00'])
+        configuration = BackupConfiguration.load()
+        self.assertEqual(configuration.retention_days, 5)
+        self.assertEqual(configuration.schedule_times, ['08:00', '18:00'])
+        self.assertEqual(configuration.updated_by, self.admin)
+
+    @patch('dashboard.views.run_backup_now')
+    def test_administrador_inicia_backup_imediato(self, mock_run):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('backup_configuration'), {'action': 'run_now'})
+
+        self.assertRedirects(response, reverse('backup_configuration'))
+        mock_run.assert_called_once_with()
+
+    @patch('dashboard.views.run_backup_now')
+    def test_backup_imediato_responde_json_para_acompanhamento(self, mock_run):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('backup_configuration'),
+            {'action': 'run_now'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            HTTP_ACCEPT='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['started'])
+        self.assertIn('requested_at', response.json())
+        mock_run.assert_called_once_with()
+
+    @patch('dashboard.views.get_backup_task_status', return_value=BackupTaskStatus(installed=True, state='Ready'))
+    @patch('dashboard.views.list_backup_sets')
+    def test_status_confirma_novo_backup_concluido(self, mock_sets, _mock_status):
+        requested_at = timezone.now()
+        mock_sets.return_value = [
+            BackupSet(
+                manifest_file='itam-backup-20260812-120000.manifest.txt',
+                created_at=requested_at + timedelta(seconds=2),
+                database_file='itam-db.dump',
+                media_file='itam-media.zip',
+                total_bytes=1024,
+                status='complete',
+                retention_days=3,
+            )
+        ]
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('backup_status'),
+            {'requested_at': requested_at.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['complete'])
+        self.assertFalse(response.json()['failed'])
+
+    @patch('dashboard.views.start_restore_point', return_value=uuid.UUID('11111111-1111-1111-1111-111111111111'))
+    def test_restauracao_exige_confirmacao_forte(self, mock_start):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('backup_configuration'),
+            {
+                'action': 'restore',
+                'manifest': 'itam-backup-20260812-120000.manifest.txt',
+                'confirmation': 'restaurar',
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['started'])
+        mock_start.assert_not_called()
+
+    @patch('dashboard.views.start_restore_point', return_value=uuid.UUID('11111111-1111-1111-1111-111111111111'))
+    def test_administrador_inicia_ponto_de_restauracao(self, mock_start):
+        configuration = BackupConfiguration.load()
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('backup_configuration'),
+            {
+                'action': 'restore',
+                'manifest': 'itam-backup-20260812-120000.manifest.txt',
+                'confirmation': 'RESTAURAR',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['started'])
+        self.assertIn('/restauracao/11111111-1111-1111-1111-111111111111/', response.json()['status_url'])
+        mock_start.assert_called_once_with(
+            'itam-backup-20260812-120000.manifest.txt',
+            retention_days=configuration.retention_days,
+            schedule_times=configuration.schedule_times,
+        )
+
+
+class RestorePointIntegrityTests(SimpleTestCase):
+    def setUp(self):
+        self.backup_dir = tempfile.mkdtemp()
+        self.settings_override = override_settings(BACKUP_DIR=self.backup_dir)
+        self.settings_override.enable()
+
+    def tearDown(self):
+        self.settings_override.disable()
+        shutil.rmtree(self.backup_dir, ignore_errors=True)
+
+    def _create_restore_point(self, database_content=b'database backup', created_at=None, status='complete'):
+        created_at = created_at or timezone.now()
+        timestamp = created_at.strftime('%Y%m%d-%H%M%S')
+        database_name = f'itam-db-{timestamp}.dump'
+        media_name = f'itam-media-{timestamp}.zip'
+        manifest_name = f'itam-backup-{timestamp}.manifest.txt'
+        database_path = tempfile.NamedTemporaryFile(dir=self.backup_dir, delete=False)
+        database_path.close()
+        final_database_path = shutil.move(database_path.name, f'{self.backup_dir}/{database_name}')
+        with open(final_database_path, 'wb') as stream:
+            stream.write(database_content)
+        media_content = b'media backup'
+        media_path = f'{self.backup_dir}/{media_name}'
+        with open(media_path, 'wb') as stream:
+            stream.write(media_content)
+        database_digest = hashlib.sha256(database_content).hexdigest().upper()
+        media_digest = hashlib.sha256(media_content).hexdigest().upper()
+        manifest_path = f'{self.backup_dir}/{manifest_name}'
+        with open(manifest_path, 'w', encoding='utf-8') as stream:
+            stream.write(f'created_at={created_at.isoformat()}\n')
+            stream.write(f'status={status}\n')
+            stream.write(f'file={database_name}|{len(database_content)}|{database_digest}\n')
+            stream.write(f'file={media_name}|{len(media_content)}|{media_digest}\n')
+        return manifest_name, final_database_path
+
+    def test_aceita_ponto_com_hash_integro(self):
+        manifest_name, database_path = self._create_restore_point()
+
+        files = resolve_restore_point(manifest_name)
+
+        self.assertEqual(files['database'], Path(database_path))
+
+    def test_rejeita_ponto_com_arquivo_alterado(self):
+        manifest_name, database_path = self._create_restore_point()
+        with open(database_path, 'ab') as stream:
+            stream.write(b'alterado')
+
+        with self.assertRaisesMessage(BackupOperationError, 'tamanho invalido'):
+            resolve_restore_point(manifest_name)
+
+    def test_rejeita_nome_de_manifesto_fora_do_padrao(self):
+        with self.assertRaisesMessage(BackupOperationError, 'Ponto de restauracao invalido'):
+            resolve_restore_point('../.env')
+
+    def test_rejeita_ponto_com_mais_de_trinta_dias(self):
+        manifest_name, _database_path = self._create_restore_point(
+            created_at=timezone.now() - timedelta(days=31)
+        )
+
+        with self.assertRaisesMessage(BackupOperationError, 'mais de 30 dias'):
+            resolve_restore_point(manifest_name)
+
+    def test_nao_oferece_manifesto_incompleto_como_ponto(self):
+        self._create_restore_point(status='incomplete')
+
+        points = list_backup_sets()
+
+        self.assertEqual(len(points), 1)
+        self.assertFalse(points[0].restorable)
 
 
 class BuscaGlobalTests(TestCase):

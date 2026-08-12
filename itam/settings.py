@@ -120,7 +120,7 @@ def _database_config_from_url(database_url):
 DJANGO_ENV = config('DJANGO_ENV', default='development').strip().lower()
 APP_NAME = config('APP_NAME', default='FIAME System')
 APP_SHORT_NAME = config('APP_SHORT_NAME', default='FIAME')
-APP_STATIC_VERSION = config('APP_STATIC_VERSION', default='20260731')
+APP_STATIC_VERSION = config('APP_STATIC_VERSION', default='20260812')
 
 SECRET_KEY = config('SECRET_KEY', default='')
 if not SECRET_KEY:
@@ -286,6 +286,7 @@ else:
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+BACKUP_DIR = Path(config('BACKUP_DIR', default=str(BASE_DIR / 'backups')))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

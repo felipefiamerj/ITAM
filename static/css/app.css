@@ -6612,6 +6612,117 @@ button,
   padding: 0;
 }
 
+/* Backup administration */
+.backup-stat-value {
+  margin-top: 0.35rem;
+  font-size: clamp(1.15rem, 2vw, 1.55rem) !important;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.backup-time-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.backup-time-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.backup-time-remove {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+
+.backup-chart-wrap {
+  position: relative;
+  min-height: 330px;
+  height: 100%;
+  max-height: 430px;
+}
+
+.backup-chart-empty {
+  min-height: 330px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  color: var(--app-muted);
+  text-align: center;
+}
+
+.backup-chart-empty i {
+  color: var(--app-primary);
+  font-size: 2rem;
+}
+
+.backup-file-name {
+  max-width: 280px;
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.restore-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(217, 119, 6, 0.22);
+  border-radius: 8px;
+  background: rgba(245, 183, 0, 0.08);
+}
+
+.restore-warning > i {
+  flex: none;
+  margin-top: 0.2rem;
+  color: #b45309;
+  font-size: 1.15rem;
+}
+
+.restore-warning p {
+  margin-top: 0.4rem;
+  color: var(--app-muted);
+  font-size: 0.88rem;
+}
+
+.restore-progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 30, 54, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.restore-progress-panel {
+  width: min(100%, 520px);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.35rem;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 26px 70px rgba(8, 30, 54, 0.26);
+}
+
+.restore-progress-overlay.is-failed .spinner-border {
+  display: none;
+}
+
+body.restore-in-progress {
+  overflow: hidden;
+}
+
 @media (max-width: 767.98px) {
   .estoque-hero__grid,
   .stock-command-grid,
@@ -6671,6 +6782,15 @@ button,
 
   .bulk-equipment-grid {
     grid-template-columns: 1fr;
+  }
+
+  .backup-summary-grid .app-stat {
+    min-height: 0;
+  }
+
+  .backup-chart-wrap,
+  .backup-chart-empty {
+    min-height: 280px;
   }
 }
 

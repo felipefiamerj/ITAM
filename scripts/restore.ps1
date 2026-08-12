@@ -2,6 +2,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$DatabaseBackup,
   [string]$MediaBackup = '',
+  [switch]$ReplaceMedia,
   [string]$ConfirmRestore = ''
 )
 
@@ -188,6 +189,14 @@ if ($databaseUrl -and ($databaseUrl.StartsWith('postgres://') -or $databaseUrl.S
 
 if ($mediaBackupPath) {
   $mediaDir = Join-Path $repoRoot 'media'
+  if ($ReplaceMedia -and (Test-Path -LiteralPath $mediaDir)) {
+    $resolvedMediaDir = (Resolve-Path -LiteralPath $mediaDir).Path
+    $expectedMediaDir = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'media'))
+    if ($resolvedMediaDir -ne $expectedMediaDir -or -not $resolvedMediaDir.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "Diretorio de media fora do repositorio: $resolvedMediaDir"
+    }
+    Get-ChildItem -LiteralPath $resolvedMediaDir -Force | Remove-Item -Recurse -Force
+  }
   New-Item -ItemType Directory -Force -Path $mediaDir | Out-Null
   Expand-Archive -LiteralPath $mediaBackupPath -DestinationPath $mediaDir -Force
   Write-Warning 'QR Codes gerados nao fazem parte do backup padrao. Execute: python manage.py regenerar_qrcodes --force'
