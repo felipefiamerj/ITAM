@@ -5,7 +5,9 @@ from .views import (
     detalhe_equipamento,
     editar_equipamento,
     importar_equipamentos_csv_view,
+    lifecycle_dashboard,
     lista_equipamentos,
+    obter_campos_especificacoes,
     qr_equipamento_publico,
     registrar_movimentacao,
 )
@@ -14,6 +16,8 @@ urlpatterns = [
     path('', lista_equipamentos, name='equipamentos'),
     path('novo/', criar_equipamento, name='criar_equipamento'),
     path('importar/', importar_equipamentos_csv_view, name='importar_equipamentos_csv'),
+    path('ciclo-de-vida/', lifecycle_dashboard, name='lifecycle_dashboard'),
+    path('api/campos-especificacoes/', obter_campos_especificacoes, name='obter_campos_especificacoes'),
     path('qr/<str:id_patrimonio>/', qr_equipamento_publico, name='qr_equipamento_publico'),
     path('<str:id_patrimonio>/', detalhe_equipamento, name='detalhe_equipamento'),
     path('<str:id_patrimonio>/editar/', editar_equipamento, name='editar_equipamento'),

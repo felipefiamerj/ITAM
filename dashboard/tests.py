@@ -16,7 +16,13 @@ from django.utils import timezone
 
 from accounts.models import NivelAcesso, Usuario
 from chamados.models import Chamado, StatusChamado
-from equipamentos.models import EntradaLote, Equipamento, StatusEquipamento
+from equipamentos.models import (
+    AgenteMonitoramento,
+    EntradaLote,
+    Equipamento,
+    StatusEquipamento,
+    StatusMonitoramento,
+)
 from itam.settings import _database_config_from_url, config
 
 from .backup_service import (
@@ -33,6 +39,7 @@ from .health_service import (
     _celery_diagnostic,
     _disk_diagnostic,
     _restore_validation_diagnostic,
+    _telemetry_diagnostic,
     persist_health_diagnostics,
 )
 from .models import (
@@ -337,6 +344,39 @@ class RestorePointIntegrityTests(SimpleTestCase):
 
 
 class SystemHealthServiceTests(TestCase):
+    def test_telemetria_recente_e_classificada_como_saudavel(self):
+        agente = AgenteMonitoramento.objects.create(nome='Agente teste')
+        Equipamento.objects.create(
+            id_patrimonio='MON-001',
+            tipo='notebook_padrao',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.ONLINE,
+            last_seen_at=timezone.now(),
+            last_telemetria_agente=agente,
+        )
+
+        diagnostic = _telemetry_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.HEALTHY)
+        self.assertEqual(diagnostic.details['online_count'], 1)
+        self.assertEqual(diagnostic.details['stale_count'], 0)
+
+    def test_telemetria_atrasada_e_classificada_como_critica(self):
+        agente = AgenteMonitoramento.objects.create(nome='Agente teste')
+        Equipamento.objects.create(
+            id_patrimonio='MON-002',
+            tipo='notebook_padrao',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.OFFLINE,
+            last_seen_at=timezone.now() - timedelta(minutes=11),
+            last_telemetria_agente=agente,
+        )
+
+        diagnostic = _telemetry_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.CRITICAL)
+        self.assertEqual(diagnostic.details['stale_assets'], ['MON-002'])
+
     @patch('dashboard.health_service.notificar_admins')
     def test_notifica_falha_uma_vez_e_recuperacao_uma_vez(self, mock_notify):
         failure = HealthDiagnostic(

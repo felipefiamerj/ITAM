@@ -11,6 +11,7 @@ from django.utils import timezone
 from ia.monitoring import calcular_score
 from notifications.services import notificar_time_operacional
 
+from .inventory import sync_inventory_divergences
 from .models import AgenteMonitoramento, Equipamento, StatusMonitoramento, TelemetriaEvento
 
 EVENTO_SEVERIDADE_PADRAO = {
@@ -174,6 +175,7 @@ def processar_pacote_telemetria(payload, remote_ip=None):
     processados = 0
     erros = []
     alertas = 0
+    divergencias = 0
 
     for item in devices:
         if not isinstance(item, dict):
@@ -212,6 +214,7 @@ def processar_pacote_telemetria(payload, remote_ip=None):
                 'updated_at',
             ]
         )
+        divergencias += sync_inventory_divergences(equipamento, item)
 
         if severidade in {'warning', 'critical'}:
             alertas += 1
@@ -233,6 +236,7 @@ def processar_pacote_telemetria(payload, remote_ip=None):
         'processados': processados,
         'erros': erros,
         'alertas': alertas,
+        'divergencias': divergencias,
         'stale_minutes': _limite_stale_minutos(),
     }
 

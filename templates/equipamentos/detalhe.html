@@ -61,6 +61,90 @@
   </div>
 </div>
 
+<div class="row g-4 mb-4">
+  <div class="col-xl-7">
+    <section class="card app-card h-100" aria-labelledby="lifecycle-title">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <div class="section-kicker">Ciclo de vida</div>
+            <h2 class="h5 mb-0" id="lifecycle-title">Aquisição, garantia e substituição</h2>
+          </div>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'lifecycle_dashboard' %}">
+            <i class="fa-solid fa-chart-line me-1"></i>Visão geral
+          </a>
+        </div>
+        <dl class="row mb-0 equipment-lifecycle-data">
+          <dt class="col-5">Data de aquisição</dt>
+          <dd class="col-7">{{ equipamento.data_aquisicao|date:"d/m/Y"|default:"-" }}</dd>
+          <dt class="col-5">Valor de aquisição</dt>
+          <dd class="col-7">{% if equipamento.valor_aquisicao %}R$ {{ equipamento.valor_aquisicao|floatformat:2 }}{% else %}-{% endif %}</dd>
+          <dt class="col-5">Fornecedor</dt>
+          <dd class="col-7">{{ equipamento.fornecedor|default:"-" }}</dd>
+          <dt class="col-5">Garantia até</dt>
+          <dd class="col-7">
+            {{ equipamento.garantia_ate|date:"d/m/Y"|default:"-" }}
+            {% if equipamento.em_garantia %}<span class="badge text-bg-success-subtle text-success-emphasis ms-1">Vigente</span>{% endif %}
+          </dd>
+          <dt class="col-5">Substituição prevista</dt>
+          <dd class="col-7">{{ equipamento.data_prevista_substituicao|date:"d/m/Y"|default:"-" }}</dd>
+          <dt class="col-5">Manutenções</dt>
+          <dd class="col-7">{{ equipamento.total_manutencoes }} registro(s)</dd>
+          <dt class="col-5">Custo acumulado</dt>
+          <dd class="col-7">R$ {{ equipamento.custo_acumulado_manutencao|floatformat:2 }}</dd>
+        </dl>
+      </div>
+    </section>
+  </div>
+  <div class="col-xl-5">
+    <section class="card app-card h-100" aria-labelledby="inventory-title">
+      <div class="card-body p-4">
+        <div class="section-kicker">Inventário automático</div>
+        <h2 class="h5 mb-3" id="inventory-title">Leitura do agente Windows</h2>
+        <dl class="row mb-3 equipment-lifecycle-data">
+          <dt class="col-5">Status</dt>
+          <dd class="col-7">{{ equipamento.get_monitoramento_status_display }}</dd>
+          <dt class="col-5">Último sinal</dt>
+          <dd class="col-7">{{ equipamento.last_seen_at|date:"d/m/Y H:i"|default:"Nunca" }}</dd>
+          <dt class="col-5">Serial</dt>
+          <dd class="col-7">{{ equipamento.last_telemetria_payload.serial|default:"-" }}</dd>
+          <dt class="col-5">Memória</dt>
+          <dd class="col-7">{% if equipamento.last_telemetria_payload.memory_total_mb %}{{ equipamento.last_telemetria_payload.memory_total_mb }} MB{% else %}-{% endif %}</dd>
+          <dt class="col-5">Usuário atual</dt>
+          <dd class="col-7 text-break">{{ equipamento.last_telemetria_payload.logged_user|default:"-" }}</dd>
+        </dl>
+        {% if divergencias_inventario %}
+          <div class="equipment-divergence-list">
+            {% for divergence in divergencias_inventario %}
+              <div class="equipment-divergence-item">
+                <strong>{{ divergence.get_campo_display }}</strong>
+                <span>Cadastro: {{ divergence.valor_cadastrado }}</span>
+                <span>Agente: {{ divergence.valor_detectado }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">Nenhuma divergência detectada nos campos configurados.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{% if alertas_ciclo_vida %}
+  <section class="equipment-alert-band mb-4" aria-labelledby="asset-alerts-title">
+    <div>
+      <div class="section-kicker">Atenção necessária</div>
+      <h2 class="h5 mb-0" id="asset-alerts-title">Alertas ativos deste equipamento</h2>
+    </div>
+    <div class="equipment-alert-band-list">
+      {% for alert in alertas_ciclo_vida %}
+        <span class="health-status health-status-{{ alert.severidade }}"><span></span>{{ alert.titulo }}</span>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
 {% if pode_gerenciar %}
   <div class="card app-card mb-4">
     <div class="card-body p-4">
@@ -96,6 +180,7 @@
             <th>Descrição</th>
             <th>Usuário</th>
             <th>Chamado</th>
+            <th>Custo</th>
             <th>Data</th>
           </tr>
         </thead>
@@ -112,14 +197,42 @@
                   -
                 {% endif %}
               </td>
+              <td>
+                {% if movimentacao.custo_manutencao %}
+                  R$ {{ movimentacao.custo_manutencao|floatformat:2 }}
+                  {% if movimentacao.fornecedor_manutencao %}<div class="small text-muted">{{ movimentacao.fornecedor_manutencao }}</div>{% endif %}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
               <td>{{ movimentacao.created_at|date:"d/m/Y H:i" }}</td>
             </tr>
           {% empty %}
-            <tr><td colspan="5" class="text-muted">Nenhuma movimentação registrada.</td></tr>
+            <tr><td colspan="6" class="text-muted">Nenhuma movimentação registrada.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  (() => {
+    const typeField = document.getElementById('id_tipo');
+    const maintenanceFields = ['id_fornecedor_manutencao', 'id_custo_manutencao']
+      .map((id) => document.getElementById(id)?.closest('.form-field-shell'))
+      .filter(Boolean);
+    if (!typeField || !maintenanceFields.length) return;
+
+    const syncMaintenanceFields = () => {
+      const visible = ['manutencao', 'retorno_manutencao'].includes(typeField.value);
+      maintenanceFields.forEach((field) => {
+        field.hidden = !visible;
+      });
+    };
+    typeField.addEventListener('change', syncMaintenanceFields);
+    syncMaintenanceFields();
+  })();
+</script>
 {% endblock %}

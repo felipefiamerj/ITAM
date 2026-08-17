@@ -492,6 +492,7 @@ def _health_component_cards(components):
         'database': ('fa-database', 'Dados'),
         'redis': ('fa-bolt', 'Tempo real'),
         'celery': ('fa-gears', 'Automacoes'),
+        'telemetry': ('fa-satellite-dish', 'Inventario'),
         'disk': ('fa-hard-drive', 'Servidor'),
         'backup': ('fa-box-archive', 'Continuidade'),
         'restore_validation': ('fa-clock-rotate-left', 'Recuperacao'),
@@ -523,6 +524,15 @@ def _health_component_cards(components):
             detail_lines = ['Cache e canais']
         elif component.component_key == 'celery':
             detail_lines = ['Worker e tarefas periodicas']
+        elif component.component_key == 'telemetry':
+            detail_lines = [
+                f'{details.get("online_count", 0)}/{details.get("monitored_count", 0)} online',
+                f'{details.get("active_agent_count", 0)} agente(s) ativo(s)',
+            ]
+            if details.get('divergence_count'):
+                detail_lines.append(f'{details["divergence_count"]} divergencia(s) de inventario')
+            if details.get('stale_assets'):
+                detail_lines.append('Sem sinal: ' + ', '.join(details['stale_assets'][:3]))
 
         cards.append(
             {

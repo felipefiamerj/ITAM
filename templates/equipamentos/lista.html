@@ -12,6 +12,9 @@
     </div>
     {% if request.user.is_admin or request.user.is_analista or request.user.is_tecnico %}
       <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-light btn-lg" href="{% url 'lifecycle_dashboard' %}">
+          <i class="fa-solid fa-chart-line me-1"></i>Ciclo de vida
+        </a>
         <a class="btn btn-light btn-lg" href="{% url 'criar_equipamento' %}">
           <i class="fa-solid fa-plus me-1"></i>Novo equipamento
         </a>

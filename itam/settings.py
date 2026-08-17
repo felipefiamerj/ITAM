@@ -338,6 +338,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'equipamentos.verificar_monitoramento',
         'schedule': crontab(minute='*/5'),
     },
+    'itam-verificar-ciclo-vida-diario': {
+        'task': 'equipamentos.verificar_ciclo_vida',
+        'schedule': crontab(hour=7, minute=30),
+    },
     'itam-verificar-sla-chamados': {
         'task': 'chamados.verificar_sla_chamados',
         'schedule': crontab(minute='*/5'),

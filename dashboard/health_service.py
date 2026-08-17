@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connections, transaction
+from django.db.models import Max, Q
 from django.urls import reverse
 from django.utils import timezone
 
+from equipamentos.models import AgenteMonitoramento, DivergenciaInventario, Equipamento, StatusMonitoramento
 from notifications.services import notificar_admins
 
 from .backup_service import get_backup_task_status, list_backup_sets
@@ -116,6 +118,89 @@ def _celery_diagnostic(source):
         SystemHealthStatus.HEALTHY,
         'Worker confirmou atividade recentemente.',
         {'heartbeat_at': heartbeat_at.isoformat()},
+    )
+
+
+def _telemetry_diagnostic():
+    now = timezone.now()
+    stale_minutes = getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10)
+    cutoff = now - timedelta(minutes=stale_minutes)
+    monitored = Equipamento.objects.filter(monitoramento_ativo=True)
+    monitored_count = monitored.count()
+    active_agents = AgenteMonitoramento.objects.filter(ativo=True)
+    active_agent_count = active_agents.count()
+    stale = monitored.filter(Q(last_seen_at__isnull=True) | Q(last_seen_at__lt=cutoff))
+    stale_count = stale.count()
+    online_count = monitored.filter(
+        monitoramento_status=StatusMonitoramento.ONLINE,
+        last_seen_at__gte=cutoff,
+    ).count()
+    alert_count = monitored.filter(
+        monitoramento_status=StatusMonitoramento.ALERTA,
+        last_seen_at__gte=cutoff,
+    ).count()
+    divergence_count = DivergenciaInventario.objects.filter(ativa=True).count()
+    last_heartbeat_at = monitored.aggregate(value=Max('last_seen_at'))['value']
+    stale_assets = list(stale.order_by('last_seen_at').values_list('id_patrimonio', flat=True)[:10])
+    details = {
+        'monitored_count': monitored_count,
+        'online_count': online_count,
+        'alert_count': alert_count,
+        'stale_count': stale_count,
+        'active_agent_count': active_agent_count,
+        'divergence_count': divergence_count,
+        'last_heartbeat_at': last_heartbeat_at.isoformat() if last_heartbeat_at else '',
+        'stale_minutes': stale_minutes,
+        'stale_assets': stale_assets,
+    }
+
+    if monitored_count == 0:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.WARNING,
+            'Nenhum equipamento possui monitoramento ativo.',
+            details,
+            notify=False,
+        )
+    if active_agent_count == 0:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.CRITICAL,
+            'Ha equipamentos monitorados, mas nenhum agente ativo.',
+            details,
+        )
+    if stale_count:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.CRITICAL,
+            f'{stale_count} equipamento(s) sem heartbeat recente.',
+            details,
+        )
+    if divergence_count:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.WARNING,
+            f'{divergence_count} divergencia(s) entre o agente e o cadastro.',
+            details,
+        )
+    if alert_count:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.WARNING,
+            f'{alert_count} equipamento(s) enviando alerta de telemetria.',
+            details,
+        )
+    return HealthDiagnostic(
+        'telemetry',
+        'Agentes e telemetria',
+        SystemHealthStatus.HEALTHY,
+        f'{online_count} equipamento(s) respondendo dentro da janela esperada.',
+        details,
     )
 
 
@@ -293,6 +378,7 @@ def collect_health_diagnostics(source='manual'):
         _database_diagnostic(),
         _redis_diagnostic(),
         _celery_diagnostic(source),
+        _telemetry_diagnostic(),
         _disk_diagnostic(),
         _backup_diagnostic(),
         _restore_validation_diagnostic(),

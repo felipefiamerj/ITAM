@@ -33,6 +33,7 @@ def _navigation_items(user):
         'criar_equipamento',
         'registrar_movimentacao',
         'importar_equipamentos_csv',
+        'lifecycle_dashboard',
     )
     termos = _nav_item(
         'Termos digitais',

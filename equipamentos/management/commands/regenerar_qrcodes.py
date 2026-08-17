@@ -25,6 +25,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         patrimonio = (options.get('patrimonio') or '').strip()
+        verbosity = options.get('verbosity', 1)
         qs = Equipamento.objects.order_by('id_patrimonio')
         if patrimonio:
             qs = qs.filter(id_patrimonio__iexact=patrimonio)
@@ -37,12 +38,14 @@ class Command(BaseCommand):
                 continue
 
             alterados += 1
-            self.stdout.write(f'{equipamento.id_patrimonio}: {equipamento.qr_payload}')
+            if verbosity > 1:
+                self.stdout.write(f'{equipamento.id_patrimonio}: {equipamento.qr_code_payload}')
             if not options['dry_run']:
                 equipamento._gerar_qrcode()
                 equipamento.save(update_fields=['qr_code', 'updated_at'])
 
         if options['dry_run']:
-            self.stdout.write(self.style.WARNING(f'Dry-run: {alterados} de {total} QR Code(s) seriam regenerados.'))
-        else:
+            if verbosity:
+                self.stdout.write(self.style.WARNING(f'Dry-run: {alterados} de {total} QR Code(s) seriam regenerados.'))
+        elif verbosity:
             self.stdout.write(self.style.SUCCESS(f'{alterados} de {total} QR Code(s) regenerado(s).'))

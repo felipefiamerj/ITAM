@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import AgenteMonitoramento, EntradaLote, Equipamento, MovimentacaoEquipamento, TelemetriaEvento
+from .models import (
+    AgenteMonitoramento,
+    AlertaCicloVida,
+    DivergenciaInventario,
+    EntradaLote,
+    Equipamento,
+    MovimentacaoEquipamento,
+    TelemetriaEvento,
+)
 
 
 class MovimentacaoInline(admin.TabularInline):
@@ -58,3 +66,19 @@ class TelemetriaEventoAdmin(admin.ModelAdmin):
     list_filter = ['tipo', 'severidade', 'created_at']
     search_fields = ['equipamento__id_patrimonio', 'mensagem', 'agente__nome', 'agente__host_name']
     raw_id_fields = ['equipamento', 'agente']
+
+
+@admin.register(AlertaCicloVida)
+class AlertaCicloVidaAdmin(admin.ModelAdmin):
+    list_display = ['equipamento', 'tipo', 'severidade', 'ativo', 'atualizado_em', 'resolvido_em']
+    list_filter = ['ativo', 'severidade', 'tipo']
+    search_fields = ['equipamento__id_patrimonio', 'titulo', 'descricao']
+    raw_id_fields = ['equipamento']
+
+
+@admin.register(DivergenciaInventario)
+class DivergenciaInventarioAdmin(admin.ModelAdmin):
+    list_display = ['equipamento', 'campo', 'valor_cadastrado', 'valor_detectado', 'ativa', 'ultima_verificacao_em']
+    list_filter = ['ativa', 'campo']
+    search_fields = ['equipamento__id_patrimonio', 'valor_cadastrado', 'valor_detectado']
+    raw_id_fields = ['equipamento']

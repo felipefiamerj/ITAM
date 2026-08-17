@@ -1,7 +1,8 @@
 import json
 import shutil
 import tempfile
-from datetime import timedelta
+from datetime import date, timedelta
+from decimal import Decimal
 from io import StringIO
 from unittest.mock import patch
 
@@ -13,13 +14,20 @@ from django.utils import timezone
 
 from accounts.models import Usuario
 
+from .forms import EquipamentoForm
+from .inventory import sync_inventory_divergences
+from .lifecycle import sync_lifecycle_for_equipment
 from .models import (
     AgenteMonitoramento,
+    AlertaCicloVida,
+    CampoDivergenciaInventario,
     CondicaoEquipamento,
+    DivergenciaInventario,
     Equipamento,
     MovimentacaoEquipamento,
     StatusEquipamento,
     TelemetriaEvento,
+    TipoAlertaCicloVida,
 )
 from .services import importar_equipamentos_csv
 from .telemetria import marcar_equipamentos_sem_sinal
@@ -65,7 +73,7 @@ class ImportacaoEquipamentosCSVTests(TestCase):
         self.assertEqual(outro.condicao, CondicaoEquipamento.BOM)
 
     @override_settings(ITAM_QR_BASE_URL='https://itam.example.com')
-    def test_qrcode_usa_texto_completo_do_equipamento(self):
+    def test_qrcode_usa_link_publico_do_equipamento(self):
         equipamento = Equipamento.objects.create(
             id_patrimonio='PAT-QR-001',
             tipo='monitor',
@@ -79,6 +87,8 @@ class ImportacaoEquipamentosCSVTests(TestCase):
             setor='CCR',
         )
 
+        self.assertEqual(equipamento.qr_code_payload, 'https://itam.example.com/q/PAT-QR-001/')
+        self.assertEqual(equipamento.qr_public_url, equipamento.qr_code_payload)
         self.assertIn('Patrimônio: PAT-QR-001', equipamento.qr_payload)
         self.assertIn('Marca: Cisco', equipamento.qr_payload)
         self.assertIn('Modelo: 9300', equipamento.qr_payload)
@@ -141,7 +151,7 @@ class ImportacaoEquipamentosCSVTests(TestCase):
         self.assertNotContains(response, '1 registros')
 
     @override_settings(ITAM_QR_BASE_URL='https://itam.example.com')
-    def test_regenerar_qrcodes_atualiza_payload_antigo(self):
+    def test_regenerar_qrcodes_atualiza_link_publico_antigo(self):
         equipamento = Equipamento.objects.create(
             id_patrimonio='PAT-QR-002',
             tipo='monitor',
@@ -150,16 +160,15 @@ class ImportacaoEquipamentosCSVTests(TestCase):
         )
         nome_original = equipamento.qr_code.name
 
-        Equipamento.objects.filter(pk=equipamento.pk).update(modelo='9500')
-
         saida = StringIO()
-        call_command('regenerar_qrcodes', patrimonio='PAT-QR-002', stdout=saida)
+        with override_settings(ITAM_QR_BASE_URL='https://itam-novo.example.com'):
+            call_command('regenerar_qrcodes', patrimonio='PAT-QR-002', stdout=saida)
 
-        equipamento.refresh_from_db()
-        self.assertIn('1 de 1 QR Code(s) regenerado(s).', saida.getvalue())
-        self.assertNotEqual(equipamento.qr_code.name, nome_original)
-        self.assertIn('Modelo: 9500', equipamento.qr_payload)
-        self.assertTrue(equipamento.qrcode_atualizado)
+            equipamento.refresh_from_db()
+            self.assertIn('1 de 1 QR Code(s) regenerado(s).', saida.getvalue())
+            self.assertNotEqual(equipamento.qr_code.name, nome_original)
+            self.assertEqual(equipamento.qr_code_payload, 'https://itam-novo.example.com/q/PAT-QR-002/')
+            self.assertTrue(equipamento.qrcode_atualizado)
 
     def test_criar_agente_monitoramento_command_imprime_token(self):
         saida = StringIO()
@@ -271,3 +280,122 @@ class ImportacaoEquipamentosCSVTests(TestCase):
 
         self.assertEqual(TelemetriaEvento.objects.filter(equipamento=equipamento, tipo='erro_driver').count(), 2)
         notificar.assert_called_once()
+
+
+class EquipmentLifecycleTests(TestCase):
+    def setUp(self):
+        self.user = Usuario.objects.create_superuser(
+            matricula='lifecycle-admin',
+            password='test12345',
+            first_name='Admin',
+            last_name='Lifecycle',
+        )
+
+    def test_calcula_substituicao_e_custo_acumulado(self):
+        equipment = Equipamento.objects.create(
+            id_patrimonio='LIFE-001',
+            tipo='notebook_padrao',
+            data_aquisicao=date(2024, 2, 29),
+            vida_util_estimada_meses=12,
+        )
+        MovimentacaoEquipamento.objects.create(
+            equipamento=equipment,
+            tipo='manutencao',
+            descricao='Troca de bateria',
+            custo_manutencao=Decimal('250.00'),
+        )
+        MovimentacaoEquipamento.objects.create(
+            equipamento=equipment,
+            tipo='retorno_manutencao',
+            descricao='Servico concluido',
+            custo_manutencao=Decimal('100.00'),
+        )
+
+        self.assertEqual(equipment.data_prevista_substituicao, date(2025, 2, 28))
+        self.assertEqual(equipment.custo_acumulado_manutencao, Decimal('350.00'))
+
+    def test_formulario_preserva_especificacoes_existentes(self):
+        equipment = Equipamento.objects.create(
+            id_patrimonio='SPEC-001',
+            tipo='notebook_padrao',
+            especificacoes={'processador': 'Intel Core i7', 'memoria_gb': 16, 'armazenamento_gb': 512},
+        )
+
+        form = EquipamentoForm(instance=equipment)
+
+        self.assertEqual(form['spec_processador'].value(), 'Intel Core i7')
+        self.assertEqual(form['spec_memoria_gb'].value(), 16)
+        self.assertEqual(form['spec_armazenamento_gb'].value(), 512)
+        self.assertEqual(len(form.specification_fields), 6)
+
+    def test_sincroniza_alertas_de_garantia_substituicao_e_condicao(self):
+        today = timezone.localdate()
+        equipment = Equipamento.objects.create(
+            id_patrimonio='LIFE-002',
+            tipo='notebook_padrao',
+            data_aquisicao=date(today.year - 4, today.month, min(today.day, 28)),
+            vida_util_estimada_meses=36,
+            garantia_ate=today + timedelta(days=30),
+            condicao=CondicaoEquipamento.RUIM,
+        )
+
+        activated, resolved = sync_lifecycle_for_equipment(equipment, notify=False)
+
+        self.assertEqual(activated, 3)
+        self.assertEqual(resolved, 0)
+        self.assertSetEqual(
+            set(AlertaCicloVida.objects.filter(equipamento=equipment, ativo=True).values_list('tipo', flat=True)),
+            {
+                TipoAlertaCicloVida.GARANTIA,
+                TipoAlertaCicloVida.SUBSTITUICAO,
+                TipoAlertaCicloVida.CONDICAO,
+            },
+        )
+
+    def test_compara_inventario_com_tolerancia_e_resolve_divergencias(self):
+        equipment = Equipamento.objects.create(
+            id_patrimonio='INV-001',
+            tipo='notebook_padrao',
+            numero_serie='SERIAL-CERTO',
+            usuario_windows_esperado='ffiame',
+            especificacoes={'memoria_gb': 16, 'armazenamento_gb': 256},
+        )
+        divergent_payload = {
+            'memory_total_mb': 8192,
+            'disks': [{'size_gb': 237.5}],
+            'serial': 'SERIAL-ERRADO',
+            'logged_user': 'CORP\\ffiame',
+        }
+
+        active_count = sync_inventory_divergences(equipment, divergent_payload, notify=False)
+
+        self.assertEqual(active_count, 2)
+        self.assertSetEqual(
+            set(DivergenciaInventario.objects.filter(equipamento=equipment, ativa=True).values_list('campo', flat=True)),
+            {CampoDivergenciaInventario.MEMORIA, CampoDivergenciaInventario.SERIAL},
+        )
+
+        matching_payload = {
+            **divergent_payload,
+            'memory_total_mb': 16384,
+            'serial': 'SERIAL-CERTO',
+        }
+        active_count = sync_inventory_divergences(equipment, matching_payload, notify=False)
+
+        self.assertEqual(active_count, 0)
+        self.assertFalse(DivergenciaInventario.objects.filter(equipamento=equipment, ativa=True).exists())
+
+    def test_dashboard_exibe_alerta_prioritario(self):
+        equipment = Equipamento.objects.create(
+            id_patrimonio='LIFE-003',
+            tipo='notebook_padrao',
+            condicao=CondicaoEquipamento.RUIM,
+        )
+        sync_lifecycle_for_equipment(equipment, notify=False)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('lifecycle_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'LIFE-003')
+        self.assertContains(response, 'Condição física crítica')
