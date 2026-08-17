@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import timedelta
 
 from auditlog.models import LogEntry
 from django.contrib import messages
@@ -28,8 +29,15 @@ from .backup_service import (
     run_backup_now,
     start_restore_point,
 )
-from .forms import BackupConfigurationForm
-from .models import BackupConfiguration
+from .forms import BackupConfigurationForm, RestoreValidationForm
+from .health_service import overall_health_status, perform_system_health_checks
+from .models import (
+    BackupConfiguration,
+    RestoreValidation,
+    SystemHealthComponent,
+    SystemHealthEvent,
+    SystemHealthStatus,
+)
 from .search import build_search_payload
 
 FLUXO_CHAMADO_DASHBOARD = [
@@ -468,6 +476,170 @@ def restore_status_view(request, operation_id):
     except BackupOperationError as exc:
         return JsonResponse({'detail': str(exc)}, status=404)
     return JsonResponse(payload)
+
+
+def _format_bytes(value):
+    size = float(value or 0)
+    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+        if size < 1024 or unit == 'TB':
+            return f'{size:.1f} {unit}' if unit != 'B' else f'{int(size)} B'
+        size /= 1024
+    return f'{size:.1f} TB'
+
+
+def _health_component_cards(components):
+    ui = {
+        'database': ('fa-database', 'Dados'),
+        'redis': ('fa-bolt', 'Tempo real'),
+        'celery': ('fa-gears', 'Automacoes'),
+        'telemetry': ('fa-satellite-dish', 'Inventario'),
+        'disk': ('fa-hard-drive', 'Servidor'),
+        'backup': ('fa-box-archive', 'Continuidade'),
+        'restore_validation': ('fa-clock-rotate-left', 'Recuperacao'),
+        'security': ('fa-shield-halved', 'Ambiente'),
+    }
+    cards = []
+    for component in components:
+        icon, category = ui.get(component.component_key, ('fa-circle-info', 'Sistema'))
+        detail_lines = []
+        details = component.details or {}
+        if component.component_key == 'disk':
+            detail_lines = [
+                f'{details.get("free_percent", 0)}% livre',
+                f'{_format_bytes(details.get("free_bytes"))} disponiveis',
+            ]
+        elif component.component_key == 'backup':
+            detail_lines = [
+                f'{details.get("restorable_count", 0)} ponto(s) restauravel(is)',
+                f'Tarefa: {details.get("task_state") or "indisponivel"}',
+            ]
+        elif component.component_key == 'database':
+            engine = str(details.get('engine', '')).rsplit('.', 1)[-1]
+            detail_lines = [engine.upper()] if engine else []
+        elif component.component_key == 'security':
+            detail_lines = [str(details.get('environment', '')).title()]
+        elif component.component_key == 'restore_validation' and details.get('backup_manifest'):
+            detail_lines = [details['backup_manifest']]
+        elif component.component_key == 'redis':
+            detail_lines = ['Cache e canais']
+        elif component.component_key == 'celery':
+            detail_lines = ['Worker e tarefas periodicas']
+        elif component.component_key == 'telemetry':
+            detail_lines = [
+                f'{details.get("online_count", 0)}/{details.get("monitored_count", 0)} online',
+                f'{details.get("active_agent_count", 0)} agente(s) ativo(s)',
+            ]
+            if details.get('divergence_count'):
+                detail_lines.append(f'{details["divergence_count"]} divergencia(s) de inventario')
+            if details.get('stale_assets'):
+                detail_lines.append('Sem sinal: ' + ', '.join(details['stale_assets'][:3]))
+
+        cards.append(
+            {
+                'key': component.component_key,
+                'name': component.name,
+                'category': category,
+                'icon': icon,
+                'status': component.status,
+                'status_label': component.get_status_display(),
+                'summary': component.summary,
+                'checked_at': component.checked_at,
+                'status_changed_at': component.status_changed_at,
+                'details': detail_lines,
+                'disk_percent': details.get('free_percent') if component.component_key == 'disk' else None,
+            }
+        )
+    return cards
+
+
+def _health_chart(events):
+    today = timezone.localdate()
+    dates = [today - timedelta(days=offset) for offset in range(13, -1, -1)]
+    daily = {date: {'issues': 0, 'recoveries': 0} for date in dates}
+    for event in events:
+        local_date = timezone.localtime(event.occurred_at).date()
+        if local_date not in daily:
+            continue
+        if event.status == SystemHealthStatus.HEALTHY and event.previous_status in {
+            SystemHealthStatus.WARNING,
+            SystemHealthStatus.CRITICAL,
+        }:
+            daily[local_date]['recoveries'] += 1
+        elif event.status in {SystemHealthStatus.WARNING, SystemHealthStatus.CRITICAL}:
+            daily[local_date]['issues'] += 1
+    return {
+        'labels': [date.strftime('%d/%m') for date in dates],
+        'issues': [daily[date]['issues'] for date in dates],
+        'recoveries': [daily[date]['recoveries'] for date in dates],
+    }
+
+
+@login_required
+def system_health_view(request):
+    if not request.user.is_admin:
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    backup_sets = [backup for backup in list_backup_sets(limit=30) if backup.restorable]
+    restore_form = RestoreValidationForm(
+        backup_sets=backup_sets,
+        initial={'tested_at': timezone.localtime().strftime('%Y-%m-%dT%H:%M')},
+    )
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'check_now':
+            perform_system_health_checks(source='manual')
+            messages.success(request, 'Diagnostico do sistema atualizado.')
+            return redirect('system_health')
+        if action == 'record_restore_test':
+            restore_form = RestoreValidationForm(request.POST, backup_sets=backup_sets)
+            if restore_form.is_valid():
+                validation = restore_form.save(commit=False)
+                validation.recorded_by = request.user
+                validation.save()
+                perform_system_health_checks(source='manual')
+                messages.success(request, 'Teste de restauracao registrado.')
+                return redirect('system_health')
+
+    components = list(SystemHealthComponent.objects.all())
+    newest_check = max((component.checked_at for component in components), default=None)
+    if newest_check is None or newest_check < timezone.now() - timedelta(minutes=10):
+        components = perform_system_health_checks(source='manual')
+    events = list(SystemHealthEvent.objects.order_by('-occurred_at')[:50])
+    overall_status = overall_health_status(components)
+    status_meta = {
+        SystemHealthStatus.HEALTHY: {
+            'label': 'Operação saudável',
+            'tone': 'success',
+            'icon': 'fa-circle-check',
+        },
+        SystemHealthStatus.WARNING: {
+            'label': 'Atenção necessária',
+            'tone': 'warning',
+            'icon': 'fa-triangle-exclamation',
+        },
+        SystemHealthStatus.CRITICAL: {
+            'label': 'Ação imediata',
+            'tone': 'danger',
+            'icon': 'fa-circle-exclamation',
+        },
+    }[overall_status]
+    last_checked_at = max((component.checked_at for component in components), default=None)
+    context = {
+        'component_cards': _health_component_cards(components),
+        'overall_status': overall_status,
+        'status_meta': status_meta,
+        'healthy_count': sum(component.status == SystemHealthStatus.HEALTHY for component in components),
+        'warning_count': sum(component.status == SystemHealthStatus.WARNING for component in components),
+        'critical_count': sum(component.status == SystemHealthStatus.CRITICAL for component in components),
+        'last_checked_at': last_checked_at,
+        'events': events[:20],
+        'health_chart': _health_chart(events),
+        'restore_validations': RestoreValidation.objects.select_related('recorded_by')[:10],
+        'restore_form': restore_form,
+        'has_restore_points': bool(backup_sets),
+    }
+    return render(request, 'dashboard/system_health.html', context)
 
 
 @login_required

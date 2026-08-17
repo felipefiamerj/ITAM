@@ -27,10 +27,8 @@ def calcular_score(equipamento):
     if equipamento.garantia_ate and equipamento.garantia_ate < timezone.localdate():
         score -= 10
 
-    if equipamento.vida_util_estimada_meses and equipamento.created_at:
-        meses_em_uso = max(0, (timezone.now().date() - equipamento.created_at.date()).days // 30)
-        if meses_em_uso > equipamento.vida_util_estimada_meses:
-            score -= 20
+    if equipamento.data_prevista_substituicao and equipamento.data_prevista_substituicao < timezone.localdate():
+        score -= 20
 
     if equipamento.monitoramento_ativo:
         limite = timezone.now() - timedelta(minutes=getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10))

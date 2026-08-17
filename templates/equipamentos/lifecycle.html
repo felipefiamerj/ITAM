@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Ciclo de vida | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface lifecycle-hero mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-arrows-rotate"></i> Gestão de ativos</div>
+      <h1 class="hero-title mb-2">Ciclo de vida dos equipamentos</h1>
+      <p class="hero-text mb-0">Aquisição, garantia, manutenção e substituição em uma única visão operacional.</p>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="refresh_alerts">
+      <button class="btn btn-light btn-lg" type="submit">
+        <i class="fa-solid fa-rotate me-1"></i>Atualizar alertas
+      </button>
+    </form>
+  </div>
+</section>
+
+<section class="lifecycle-stat-grid mb-4" aria-label="Resumo do ciclo de vida">
+  <div class="app-stat"><div class="label">Alertas ativos</div><div class="value">{{ active_alert_count }}</div></div>
+  <div class="app-stat"><div class="label">Críticos</div><div class="value text-danger">{{ critical_alert_count }}</div></div>
+  <div class="app-stat"><div class="label">Garantias</div><div class="value">{{ warranty_alert_count }}</div></div>
+  <div class="app-stat"><div class="label">Substituições</div><div class="value">{{ replacement_alert_count }}</div></div>
+  <div class="app-stat"><div class="label">Divergências</div><div class="value">{{ inventory_divergence_count }}</div></div>
+  <div class="app-stat"><div class="label">Cadastro incompleto</div><div class="value">{{ data_incomplete_count }}</div></div>
+</section>
+
+<section class="lifecycle-toolbar mb-3" aria-label="Filtros">
+  <form method="get" class="d-flex gap-2 flex-grow-1">
+    <div class="input-group">
+      <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Patrimônio, marca, modelo ou responsável" aria-label="Buscar ativos">
+      <button class="btn btn-primary" type="submit">Buscar</button>
+    </div>
+  </form>
+  <a class="btn btn-outline-secondary" href="{% url 'equipamentos' %}">
+    <i class="fa-solid fa-boxes-stacked me-1"></i>Equipamentos
+  </a>
+</section>
+
+<section class="lifecycle-panel mb-4" aria-labelledby="priority-assets-title">
+  <div class="lifecycle-panel-head">
+    <div>
+      <div class="section-kicker">Prioridade</div>
+      <h2 class="h5 mb-0" id="priority-assets-title">Equipamentos que exigem atenção</h2>
+    </div>
+    <span class="badge badge-soft">{{ page_obj.paginator.count }} ativo(s)</span>
+  </div>
+  <div class="table-responsive d-none d-md-block">
+    <table class="table align-middle lifecycle-table mb-0">
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Aquisição</th>
+          <th>Garantia</th>
+          <th>Substituição</th>
+          <th>Manutenção</th>
+          <th>Alertas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for equipamento in page_obj %}
+          <tr>
+            <td>
+              <a class="fw-semibold" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a>
+              <div class="small text-muted">{{ equipamento.marca|default:"-" }} {{ equipamento.modelo|default:"" }}</div>
+            </td>
+            <td>
+              {{ equipamento.data_aquisicao|date:"d/m/Y"|default:"-" }}
+              <div class="small text-muted">{{ equipamento.fornecedor|default:"Sem fornecedor" }}</div>
+            </td>
+            <td>{{ equipamento.garantia_ate|date:"d/m/Y"|default:"-" }}</td>
+            <td>{{ equipamento.data_prevista_substituicao|date:"d/m/Y"|default:"-" }}</td>
+            <td>
+              <strong>R$ {{ equipamento.lifecycle_maintenance_cost|floatformat:2 }}</strong>
+              <div class="small text-muted">{{ equipamento.lifecycle_maintenance_count }} nos últimos 180 dias</div>
+            </td>
+            <td>
+              <div class="lifecycle-alert-list">
+                {% for alert in equipamento.alertas_ciclo_vida_ativos %}
+                  <span class="health-status health-status-{{ alert.severidade }}" title="{{ alert.descricao }}"><span></span>{{ alert.titulo }}</span>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-muted py-4 text-center">Nenhum alerta ativo encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="lifecycle-mobile-list d-md-none">
+    {% for equipamento in page_obj %}
+      <article class="lifecycle-mobile-item">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <a class="fw-semibold" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">{{ equipamento.id_patrimonio }}</a>
+            <div class="small text-muted">{{ equipamento.marca|default:"-" }} {{ equipamento.modelo|default:"" }}</div>
+          </div>
+          <strong>R$ {{ equipamento.lifecycle_maintenance_cost|floatformat:2 }}</strong>
+        </div>
+        <dl class="lifecycle-mobile-data mb-2">
+          <dt>Aquisição</dt><dd>{{ equipamento.data_aquisicao|date:"d/m/Y"|default:"-" }}</dd>
+          <dt>Garantia</dt><dd>{{ equipamento.garantia_ate|date:"d/m/Y"|default:"-" }}</dd>
+          <dt>Substituição</dt><dd>{{ equipamento.data_prevista_substituicao|date:"d/m/Y"|default:"-" }}</dd>
+        </dl>
+        <div class="lifecycle-alert-list">
+          {% for alert in equipamento.alertas_ciclo_vida_ativos %}
+            <span class="health-status health-status-{{ alert.severidade }}" title="{{ alert.descricao }}"><span></span>{{ alert.titulo }}</span>
+          {% endfor %}
+        </div>
+      </article>
+    {% empty %}
+      <p class="text-muted p-3 mb-0">Nenhum alerta ativo encontrado.</p>
+    {% endfor %}
+  </div>
+  {% include "includes/pagination.html" with page_obj=page_obj %}
+</section>
+
+<section class="lifecycle-panel" aria-labelledby="maintenance-cost-title">
+  <div class="lifecycle-panel-head">
+    <div>
+      <div class="section-kicker">Custos</div>
+      <h2 class="h5 mb-0" id="maintenance-cost-title">Manutenções com valor registrado</h2>
+    </div>
+    <strong class="lifecycle-total-cost">R$ {{ total_maintenance_cost|floatformat:2 }}</strong>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Data</th><th>Patrimônio</th><th>Descrição</th><th>Fornecedor</th><th class="text-end">Custo</th></tr></thead>
+      <tbody>
+        {% for movement in recent_maintenance %}
+          <tr>
+            <td>{{ movement.created_at|date:"d/m/Y" }}</td>
+            <td><a href="{% url 'detalhe_equipamento' movement.equipamento.id_patrimonio %}">{{ movement.equipamento.id_patrimonio }}</a></td>
+            <td>{{ movement.descricao }}</td>
+            <td>{{ movement.fornecedor_manutencao|default:"-" }}</td>
+            <td class="text-end">R$ {{ movement.custo_manutencao|floatformat:2 }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-muted py-4 text-center">Nenhum custo de manutenção registrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

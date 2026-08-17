@@ -1,10 +1,13 @@
 import base64
 import hashlib
 import re
+import shutil
+import tempfile
 from html.parser import HTMLParser
+from pathlib import Path
 
 from django.conf import settings
-from django.test import SimpleTestCase
+from django.test import Client, SimpleTestCase, override_settings
 
 
 class _StaticIntegrityParser(HTMLParser):
@@ -52,3 +55,23 @@ class StaticAssetIntegrityTests(SimpleTestCase):
                 checked_assets += 1
 
         self.assertGreater(checked_assets, 0, "Nenhum asset com integridade foi encontrado nos templates.")
+
+
+class MediaServingTests(SimpleTestCase):
+    def setUp(self):
+        self.media_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.media_dir, ignore_errors=True)
+
+    def test_media_files_are_served_with_debug_disabled(self):
+        media_root = Path(self.media_dir)
+        qr_dir = media_root / "qrcodes"
+        qr_dir.mkdir(parents=True)
+        (qr_dir / "qr-test.png").write_bytes(b"fake-png")
+
+        with override_settings(DEBUG=False, MEDIA_ROOT=media_root):
+            response = Client().get("/media/qrcodes/qr-test.png")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), b"fake-png")

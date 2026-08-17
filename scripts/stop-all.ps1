@@ -15,6 +15,7 @@ $signatures = @{
   asgi = 'daphne itam.asgi:application'
   worker = 'celery -A itam worker'
   beat = 'celery -A itam beat'
+  agent = 'start-agent-loop.ps1'
 }
 
 Get-ChildItem -LiteralPath $pidDir -File -Filter '*.pid' | ForEach-Object {

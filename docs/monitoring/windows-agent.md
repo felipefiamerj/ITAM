@@ -66,6 +66,21 @@ Para trocar a periodicidade:
 .\install-scheduled-task.ps1 -BaseUrl https://itam.seu-dominio.com -AgentToken TOKEN -AssetId PATRIMONIO-001 -IntervalMinutes 10 -Force
 ```
 
+### Execucao junto com o runtime local
+
+Quando o agente monitora o mesmo Windows que executa o FIAME System, mantenha o arquivo
+`agents/windows/itam-agent.config.json` configurado com `http://127.0.0.1:8000`. O script
+`scripts/start-runtime.ps1` inicia um supervisor oculto que envia o heartbeat a cada 5 minutos,
+sem depender de uma segunda tarefa agendada.
+
+Os registros ficam em:
+
+```text
+logs/agent.out.log
+logs/agent.err.log
+logs/pids/agent.pid
+```
+
 ## 5. Dados coletados
 
 - Hostname e IP principal

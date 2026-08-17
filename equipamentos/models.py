@@ -1,6 +1,8 @@
 import io
 import secrets
+from calendar import monthrange
 from datetime import timedelta
+from decimal import Decimal
 from hashlib import sha256
 from urllib.parse import urljoin
 
@@ -9,6 +11,7 @@ from auditlog.registry import auditlog
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
+from django.db.models import Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -16,12 +19,14 @@ from django.utils.text import slugify
 
 class TipoEquipamento(models.TextChoices):
     ADAPTADOR = 'adaptador', 'Adaptador'
+    ACCESSPOINT = 'accesspoint', 'Access Point'
     CADEADO_TRAVA = 'cadeado_trava', 'Cadeado/Trava'
     CELULAR = 'celular', 'Celular'
     DESKTOP_AVANCADO = 'desktop_avancado', 'Desktop Avançado'
     DESKTOP_PADRAO = 'desktop_padrao', 'Desktop Padrão'
     DESKTOP_PLUS = 'desktop_plus', 'Desktop Plus'
     DOCKSTATION = 'dockstation', 'Dockstation'
+    FIBRA_OPTICA = 'fibra_optica', 'Fibra Óptica'
     FONE = 'fone', 'Fone'
     IPAD_TABLET = 'ipad_tablet', 'iPad/Tablet'
     MACBOOK = 'macbook', 'MacBook'
@@ -30,6 +35,9 @@ class TipoEquipamento(models.TextChoices):
     MOUSE = 'mouse', 'Mouse'
     NOTEBOOK_AVANCADO = 'notebook_avancado', 'Notebook Avançado'
     NOTEBOOK_PADRAO = 'notebook_padrao', 'Notebook Padrão'
+    QSF = 'qsfp', 'QSFP'
+    SFP = 'sfp', 'SFP'
+    SWITCH = 'switch', 'Switch'
     TECLADO = 'teclado', 'Teclado'
     ULTRABOOK = 'ultrabook', 'Ultrabook'
     OUTRO = 'outro', 'Outro'
@@ -101,6 +109,7 @@ class Equipamento(models.Model):
     service_tag = models.CharField('Service Tag', max_length=100, blank=True, db_index=True)
     imei = models.CharField('IMEI', max_length=20, blank=True)
     numero_serie = models.CharField('Número de série', max_length=100, blank=True)
+    usuario_windows_esperado = models.CharField('Usuário Windows esperado', max_length=150, blank=True)
     monitor_patrimonio = models.CharField('Monitor (patrimônio)', max_length=50, blank=True)
 
     status = models.CharField(
@@ -132,6 +141,12 @@ class Equipamento(models.Model):
     andar_sala = models.CharField('Andar/Sala', max_length=50, blank=True)
 
     descricao = models.TextField('Descrição/Observações', blank=True)
+    especificacoes = models.JSONField(
+        'Especificações',
+        default=dict,
+        blank=True,
+        help_text='Dados específicos do equipamento (CPU, RAM, GPU, etc.)',
+    )
     data_aquisicao = models.DateField('Data de aquisição', null=True, blank=True)
     valor_aquisicao = models.DecimalField(
         'Valor de aquisição (R$)',
@@ -140,6 +155,7 @@ class Equipamento(models.Model):
         null=True,
         blank=True,
     )
+    fornecedor = models.CharField('Fornecedor', max_length=150, blank=True)
     garantia_ate = models.DateField('Garantia até', null=True, blank=True)
     vida_util_estimada_meses = models.PositiveIntegerField('Vida útil estimada (meses)', default=36)
 
@@ -202,6 +218,37 @@ class Equipamento(models.Model):
         return self.movimentacoes.filter(tipo='manutencao').count()
 
     @property
+    def custo_acumulado_manutencao(self):
+        total = self.movimentacoes.aggregate(total=Sum('custo_manutencao'))['total']
+        return total or Decimal('0.00')
+
+    @property
+    def percentual_custo_manutencao(self):
+        if not self.valor_aquisicao:
+            return None
+        return (self.custo_acumulado_manutencao / self.valor_aquisicao) * Decimal('100')
+
+    @property
+    def idade_meses(self):
+        if not self.data_aquisicao:
+            return None
+        hoje = timezone.localdate()
+        meses = (hoje.year - self.data_aquisicao.year) * 12 + hoje.month - self.data_aquisicao.month
+        if hoje.day < self.data_aquisicao.day:
+            meses -= 1
+        return max(0, meses)
+
+    @property
+    def data_prevista_substituicao(self):
+        if not self.data_aquisicao or not self.vida_util_estimada_meses:
+            return None
+        total_months = self.data_aquisicao.month - 1 + self.vida_util_estimada_meses
+        year = self.data_aquisicao.year + total_months // 12
+        month = total_months % 12 + 1
+        day = min(self.data_aquisicao.day, monthrange(year, month)[1])
+        return self.data_aquisicao.replace(year=year, month=month, day=day)
+
+    @property
     def localizacao_resumida(self):
         partes = [parte.strip() for parte in [self.site, self.setor, self.andar_sala] if parte and str(parte).strip()]
         return ' · '.join(partes) if partes else 'Sem localização'
@@ -236,11 +283,15 @@ class Equipamento(models.Model):
 
     @property
     def qr_public_url(self):
-        path = reverse('qr_equipamento_publico', kwargs={'id_patrimonio': self.id_patrimonio})
+        path = reverse('qr_equipamento_publico_curto', kwargs={'id_patrimonio': self.id_patrimonio})
         base_url = (getattr(settings, 'ITAM_QR_BASE_URL', '') or getattr(settings, 'SITE_URL', '') or '').strip()
         if not base_url:
             return path
         return urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
+
+    @property
+    def qr_code_payload(self):
+        return self.qr_public_url
 
     @property
     def condicao_display_limpa(self):
@@ -271,13 +322,13 @@ class Equipamento(models.Model):
 
     @property
     def qrcode_file_name(self):
-        payload_hash = sha256(self.qr_payload.encode('utf-8')).hexdigest()[:12]
+        payload_hash = sha256(self.qr_code_payload.encode('utf-8')).hexdigest()[:12]
         patrimonio = slugify(self.id_patrimonio) or 'equipamento'
         return f'qr_{patrimonio}_{payload_hash}.png'
 
     def _gerar_qrcode(self):
         qr = qrcode.QRCode(box_size=10, border=4)
-        qr.add_data(self.qr_payload)
+        qr.add_data(self.qr_code_payload)
         qr.make(fit=True)
         image = qr.make_image(fill_color='black', back_color='white')
         buffer = io.BytesIO()
@@ -352,6 +403,14 @@ class MovimentacaoEquipamento(models.Model):
         verbose_name='Chamado vinculado',
     )
     observacoes = models.TextField('Observações', blank=True)
+    fornecedor_manutencao = models.CharField('Fornecedor da manutenção', max_length=150, blank=True)
+    custo_manutencao = models.DecimalField(
+        'Custo da manutenção (R$)',
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField('Data/Hora', auto_now_add=True)
 
     class Meta:
@@ -418,6 +477,73 @@ class TelemetriaEvento(models.Model):
 
     def __str__(self):
         return f'{self.get_tipo_display()} - {self.equipamento.id_patrimonio}'
+
+
+class TipoAlertaCicloVida(models.TextChoices):
+    GARANTIA = 'garantia', 'Garantia'
+    SUBSTITUICAO = 'substituicao', 'Substituição'
+    MANUTENCAO_RECORRENTE = 'manutencao_recorrente', 'Manutenção recorrente'
+    CUSTO_MANUTENCAO = 'custo_manutencao', 'Custo de manutenção'
+    CONDICAO = 'condicao', 'Condição'
+
+
+class AlertaCicloVida(models.Model):
+    SEVERIDADES = [
+        ('warning', 'Atenção'),
+        ('critical', 'Crítico'),
+    ]
+
+    equipamento = models.ForeignKey(Equipamento, on_delete=models.CASCADE, related_name='alertas_ciclo_vida')
+    tipo = models.CharField('Tipo', max_length=40, choices=TipoAlertaCicloVida.choices)
+    severidade = models.CharField('Severidade', max_length=20, choices=SEVERIDADES)
+    titulo = models.CharField('Título', max_length=160)
+    descricao = models.TextField('Descrição')
+    ativo = models.BooleanField('Ativo', default=True, db_index=True)
+    detectado_em = models.DateTimeField('Detectado em', auto_now_add=True)
+    atualizado_em = models.DateTimeField('Atualizado em', auto_now=True)
+    resolvido_em = models.DateTimeField('Resolvido em', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Alerta de ciclo de vida'
+        verbose_name_plural = 'Alertas de ciclo de vida'
+        ordering = ['-ativo', '-atualizado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['equipamento', 'tipo'], name='unique_lifecycle_alert_per_asset'),
+        ]
+        indexes = [models.Index(fields=['ativo', 'severidade'])]
+
+    def __str__(self):
+        return f'{self.equipamento.id_patrimonio} - {self.get_tipo_display()}'
+
+
+class CampoDivergenciaInventario(models.TextChoices):
+    MEMORIA = 'memoria', 'Memória'
+    ARMAZENAMENTO = 'armazenamento', 'Armazenamento'
+    SERIAL = 'serial', 'Serial'
+    USUARIO = 'usuario', 'Usuário atual'
+
+
+class DivergenciaInventario(models.Model):
+    equipamento = models.ForeignKey(Equipamento, on_delete=models.CASCADE, related_name='divergencias_inventario')
+    campo = models.CharField('Campo', max_length=30, choices=CampoDivergenciaInventario.choices)
+    valor_cadastrado = models.CharField('Valor cadastrado', max_length=255)
+    valor_detectado = models.CharField('Valor detectado', max_length=255)
+    ativa = models.BooleanField('Ativa', default=True, db_index=True)
+    detectada_em = models.DateTimeField('Detectada em', auto_now_add=True)
+    ultima_verificacao_em = models.DateTimeField('Última verificação', auto_now=True)
+    resolvida_em = models.DateTimeField('Resolvida em', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Divergência de inventário'
+        verbose_name_plural = 'Divergências de inventário'
+        ordering = ['-ativa', '-ultima_verificacao_em']
+        constraints = [
+            models.UniqueConstraint(fields=['equipamento', 'campo'], name='unique_inventory_divergence_per_field'),
+        ]
+        indexes = [models.Index(fields=['ativa', 'campo'])]
+
+    def __str__(self):
+        return f'{self.equipamento.id_patrimonio} - {self.get_campo_display()}'
 
 
 class EntradaLote(models.Model):

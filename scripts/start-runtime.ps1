@@ -82,7 +82,8 @@ if (-not $redisHealthy) {
 
 & (Join-Path $PSScriptRoot 'start-all.ps1') -ListenHost $ListenHost -Port $Port
 
-$healthUrl = "http://$ListenHost`:$Port/health/"
+$healthHost = if ($ListenHost -eq '0.0.0.0') { '127.0.0.1' } else { $ListenHost }
+$healthUrl = "http://$healthHost`:$Port/health/"
 $applicationReady = $false
 for ($attempt = 0; $attempt -lt 30; $attempt++) {
   Start-Sleep -Seconds 1
@@ -98,6 +99,52 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
 }
 if (-not $applicationReady) {
   throw "Aplicacao nao ficou saudavel em $healthUrl"
+}
+
+$agentConfig = Join-Path $repoRoot 'agents\windows\itam-agent.config.json'
+$agentLoop = Join-Path $PSScriptRoot 'start-agent-loop.ps1'
+if (Test-Path -LiteralPath $agentConfig -PathType Leaf) {
+  $logDir = Join-Path $repoRoot 'logs'
+  $pidDir = Join-Path $logDir 'pids'
+  New-Item -ItemType Directory -Force -Path $pidDir | Out-Null
+  $agentPidFile = Join-Path $pidDir 'agent.pid'
+  $agentRunning = $false
+
+  if (Test-Path -LiteralPath $agentPidFile -PathType Leaf) {
+    $rawPid = Get-Content -LiteralPath $agentPidFile -ErrorAction SilentlyContinue | Select-Object -First 1
+    $agentProcess = if ($rawPid -as [int]) {
+      Get-CimInstance Win32_Process -Filter "ProcessId = $rawPid" -ErrorAction SilentlyContinue
+    }
+    $agentRunning = $agentProcess -and $agentProcess.CommandLine -like '*start-agent-loop.ps1*'
+    if (-not $agentRunning) {
+      Remove-Item -LiteralPath $agentPidFile -Force
+    }
+  }
+
+  if (-not $agentRunning) {
+    $agentArgs = @(
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', "`"$agentLoop`"",
+      '-ConfigPath', "`"$agentConfig`"",
+      '-IntervalSeconds', '300'
+    )
+    $agentProcess = Start-Process `
+      -WindowStyle Hidden `
+      -FilePath 'powershell.exe' `
+      -ArgumentList $agentArgs `
+      -WorkingDirectory $repoRoot `
+      -RedirectStandardOutput (Join-Path $logDir 'agent.out.log') `
+      -RedirectStandardError (Join-Path $logDir 'agent.err.log') `
+      -PassThru
+    Set-Content -LiteralPath $agentPidFile -Value $agentProcess.Id
+    Write-Host "Agente de monitoramento iniciado com PID $($agentProcess.Id)."
+  } else {
+    Write-Host "Agente de monitoramento ja esta em execucao com PID $rawPid."
+  }
+} else {
+  Write-Warning "Configuracao do agente nao encontrada: $agentConfig"
 }
 
 Write-Host "Runtime ITAM pronto em http://$ListenHost`:$Port"

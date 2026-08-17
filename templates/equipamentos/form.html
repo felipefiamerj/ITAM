@@ -1,5 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ title }} | {{ app_name }}{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/formulario-equipamentos.css' %}">
+{% endblock %}
 {% block content %}
 <section class="hero-surface mb-4">
   <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
@@ -14,16 +18,217 @@
   </div>
 </section>
 
-<div class="card app-card">
-  <div class="card-body p-4">
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      {% include "includes/form.html" with form=form %}
-      <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-primary btn-lg" type="submit">Salvar</button>
-        <a class="btn btn-outline-secondary btn-lg" href="{% url 'equipamentos' %}">Cancelar</a>
+<div class="equipamento-form-container">
+  <form method="post" enctype="multipart/form-data" class="equipamento-form">
+    {% csrf_token %}
+
+    <!-- ABAS DE NAVEGAÇÃO -->
+    <ul class="nav nav-tabs nav-tabs-equipamento mb-4" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="dados-basicos-tab" data-bs-toggle="tab" data-bs-target="#dados-basicos" type="button" role="tab">
+          <i class="fa-solid fa-info-circle me-2"></i>Dados Básicos
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="especificacoes-tab" data-bs-toggle="tab" data-bs-target="#especificacoes" type="button" role="tab">
+          <i class="fa-solid fa-microchip me-2"></i>Especificações
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="localizacao-tab" data-bs-toggle="tab" data-bs-target="#localizacao" type="button" role="tab">
+          <i class="fa-solid fa-location-dot me-2"></i>Localização
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="financeiro-tab" data-bs-toggle="tab" data-bs-target="#financeiro" type="button" role="tab">
+          <i class="fa-solid fa-dollar-sign me-2"></i>Financeiro
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <!-- ABA 1: DADOS BÁSICOS -->
+      <div class="tab-pane fade show active" id="dados-basicos" role="tabpanel">
+        <div class="card card-section mb-4">
+          <div class="card-header bg-primary-subtle">
+            <h5 class="card-title mb-0">
+              <i class="fa-solid fa-file-contract me-2"></i>Informações do Equipamento
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              {% for field in form %}
+                {% if field.name in 'id_patrimonio,tipo,tipo_outro,marca,modelo' %}
+                  <div class="col-md-6 mb-3">
+                    {{ field.label_tag }}
+                    {% if field.widget.input_type == 'checkbox' %}
+                      <div class="form-check">
+                        {{ field }}
+                        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      </div>
+                    {% else %}
+                      {{ field }}
+                    {% endif %}
+                    {% if field.help_text %}
+                      <small class="form-text text-muted d-block mt-1">{{ field.help_text|safe }}</small>
+                    {% endif %}
+                    {% if field.errors %}
+                      <div class="alert alert-danger alert-sm mt-2">{{ field.errors }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-section">
+          <div class="card-header bg-info-subtle">
+            <h5 class="card-title mb-0">
+              <i class="fa-solid fa-barcode me-2"></i>Identificadores
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              {% for field in form %}
+                {% if field.name in 'service_tag,imei,numero_serie,usuario_windows_esperado,monitor_patrimonio' %}
+                  <div class="col-md-6 mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.errors %}
+                      <div class="alert alert-danger alert-sm mt-2">{{ field.errors }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
       </div>
-    </form>
-  </div>
+
+      <!-- ABA 2: ESPECIFICAÇÕES -->
+      <div class="tab-pane fade" id="especificacoes" role="tabpanel">
+        <div class="card card-section">
+          <div class="card-header bg-success-subtle">
+            <h5 class="card-title mb-0">
+              <i class="fa-solid fa-microchip me-2"></i>Status e Condição
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              {% for field in form %}
+                {% if field.name in 'status,condicao,responsavel,descricao' %}
+                  {% if field.widget.input_type != 'hidden' %}
+                    <div class="col-md-6 mb-3">
+                      {{ field.label_tag }}
+                      {{ field }}
+                      {% if field.errors %}
+                        <div class="alert alert-danger alert-sm mt-2">{{ field.errors }}</div>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Container para campos de especificações dinâmicos -->
+        <div id="especificacoes-container" class="mt-4" {% if form.specification_fields %}data-server-rendered="true"{% endif %}>
+          {% if form.specification_fields %}
+            <div class="card card-section">
+              <div class="card-header bg-success-subtle">
+                <h5 class="card-title mb-0"><i class="fa-solid fa-microchip me-2"></i>Especificações do equipamento</h5>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  {% for field in form.specification_fields %}
+                    <div class="col-md-6 mb-3">
+                      {% if field.field.widget.input_type == 'checkbox' %}
+                        <div class="form-check">
+                          {{ field }}
+                          <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        </div>
+                      {% else %}
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                      {% endif %}
+                      {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- ABA 3: LOCALIZAÇÃO -->
+      <div class="tab-pane fade" id="localizacao" role="tabpanel">
+        <div class="card card-section">
+          <div class="card-header bg-warning-subtle">
+            <h5 class="card-title mb-0">
+              <i class="fa-solid fa-location-dot me-2"></i>Localização do Equipamento
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              {% for field in form %}
+                {% if field.name in 'site,setor,andar_sala' %}
+                  <div class="col-md-6 mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.errors %}
+                      <div class="alert alert-danger alert-sm mt-2">{{ field.errors }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 4: FINANCEIRO -->
+      <div class="tab-pane fade" id="financeiro" role="tabpanel">
+        <div class="card card-section">
+          <div class="card-header bg-danger-subtle">
+            <h5 class="card-title mb-0">
+              <i class="fa-solid fa-dollar-sign me-2"></i>Informações Financeiras
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              {% for field in form %}
+                {% if field.name in 'data_aquisicao,valor_aquisicao,fornecedor,garantia_ate,vida_util_estimada_meses,score_saude' %}
+                  <div class="col-md-6 mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.errors %}
+                      <div class="alert alert-danger alert-sm mt-2">{{ field.errors }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTÕES DE AÇÃO -->
+    <div class="form-actions mt-4 pt-3 border-top">
+      <div class="d-flex gap-3 justify-content-end">
+        <a class="btn btn-outline-secondary btn-lg" href="{% url 'equipamentos' %}">
+          <i class="fa-solid fa-times me-2"></i>Cancelar
+        </a>
+        <button class="btn btn-primary btn-lg" type="submit">
+          <i class="fa-solid fa-save me-2"></i>Salvar Equipamento
+        </button>
+      </div>
+    </div>
+  </form>
 </div>
+
+<script src="{% static 'js/form-dinamico-equipamento.js' %}"></script>
 {% endblock %}

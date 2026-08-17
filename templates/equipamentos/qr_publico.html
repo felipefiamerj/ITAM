@@ -5,66 +5,72 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ equipamento.id_patrimonio }} | {{ app_name }}</title>
+  <link href="{% static 'vendor/google-fonts/inter-sora/inter-sora.css' %}" rel="stylesheet" integrity="sha384-KzJE24QwOCfl89vNdoZPDbMpji/V0PAR3sAiPVizJRcqTWzrH5rmJPy9Y6KBXtDq">
+  <link href="{% static 'vendor/fontawesome/6.5.2/css/all.min.css' %}" rel="stylesheet" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}?v={{ static_version }}">
 </head>
 <body class="qr-public-body">
   <main class="qr-public-shell">
-    <section class="qr-public-card" aria-label="Dados do equipamento">
-      <div class="qr-public-brand">
-        <img src="{% static 'img/fiame-mark.svg' %}" alt="" class="qr-public-brand-mark">
-        <div>
-          <div class="qr-public-brand-title">{{ app_name }}</div>
-          <div class="qr-public-brand-subtitle">Identificacao do ativo</div>
+    <section class="qr-public-card" aria-label="Ficha pública do equipamento">
+      <header class="qr-public-header">
+        <div class="qr-public-brand">
+          <img src="{% static 'img/fiame-mark.svg' %}" alt="" class="qr-public-brand-mark">
+          <div>
+            <div class="qr-public-brand-title">{{ app_name }}</div>
+            <div class="qr-public-brand-subtitle">Ficha pública de ativo</div>
+          </div>
         </div>
+        <span class="qr-public-secure"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Conferência</span>
+      </header>
+
+      <div class="qr-public-content">
+        <div class="qr-public-title-row">
+          <div>
+            <div class="qr-public-kicker">Patrimônio</div>
+            <h1 class="qr-public-title">{{ equipamento.id_patrimonio }}</h1>
+          </div>
+          <span class="qr-public-state">{{ equipamento.get_status_display }}</span>
+        </div>
+
+        <div class="qr-public-meta" aria-label="Resumo do ativo">
+          <span class="qr-public-chip"><i class="fa-solid fa-laptop" aria-hidden="true"></i>{{ equipamento.tipo_display }}</span>
+          <span class="qr-public-chip"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>{{ equipamento.condicao_display_limpa }}</span>
+          <span class="qr-public-chip"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i>Saúde {{ equipamento.score_saude_formatado }}</span>
+        </div>
+
+        <dl class="qr-public-data">
+          <div class="qr-public-data-row">
+            <dt>Marca / Modelo</dt>
+            <dd>{{ equipamento.marca|default:"-" }}{% if equipamento.modelo %} <span>{{ equipamento.modelo }}</span>{% endif %}</dd>
+          </div>
+          <div class="qr-public-data-row">
+            <dt>Service tag</dt>
+            <dd>{{ equipamento.service_tag|default:"-" }}</dd>
+          </div>
+          <div class="qr-public-data-row">
+            <dt>Responsável atual</dt>
+            <dd>{{ equipamento.responsavel.nome_completo|default:"-" }}</dd>
+          </div>
+          <div class="qr-public-data-row">
+            <dt>Localização</dt>
+            <dd>{{ equipamento.localizacao_resumida }}</dd>
+          </div>
+        </dl>
+
+        <footer class="qr-public-footer">
+          <span>Atualizado em {{ equipamento.updated_at|date:"d/m/Y H:i" }}</span>
+        </footer>
+
+        {% if request.user.is_authenticated and request.user.is_operacional %}
+          <div class="qr-public-actions">
+            <a class="qr-public-action" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">
+              <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+              Abrir no sistema
+            </a>
+          </div>
+        {% endif %}
       </div>
-
-      <dl class="qr-public-data">
-        <div>
-          <dt>Patrimonio</dt>
-          <dd>{{ equipamento.id_patrimonio }}</dd>
-        </div>
-        <div>
-          <dt>Marca</dt>
-          <dd>{{ equipamento.marca|default:"-" }}</dd>
-        </div>
-        <div>
-          <dt>Modelo</dt>
-          <dd>{{ equipamento.modelo|default:"-" }}</dd>
-        </div>
-        <div>
-          <dt>Responsavel</dt>
-          <dd>{{ equipamento.responsavel.nome_completo|default:"-" }}</dd>
-        </div>
-        <div>
-          <dt>Service tag</dt>
-          <dd>{{ equipamento.service_tag|default:"-" }}</dd>
-        </div>
-        <div>
-          <dt>Condicao</dt>
-          <dd>{{ equipamento.condicao_display_limpa }}</dd>
-        </div>
-        <div>
-          <dt>Saude</dt>
-          <dd>{{ equipamento.score_saude_formatado }}</dd>
-        </div>
-        <div>
-          <dt>Site</dt>
-          <dd>{{ equipamento.site|default:"-" }}</dd>
-        </div>
-        <div>
-          <dt>Setor</dt>
-          <dd>{{ equipamento.setor|default:"-" }}</dd>
-        </div>
-      </dl>
-
-      {% if request.user.is_authenticated and request.user.is_operacional %}
-        <div class="qr-public-actions">
-          <a class="qr-public-action" href="{% url 'detalhe_equipamento' equipamento.id_patrimonio %}">
-            Abrir ativo no sistema
-          </a>
-        </div>
-      {% endif %}
     </section>
   </main>
 </body>

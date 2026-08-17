@@ -2,8 +2,9 @@ import json
 from datetime import datetime
 
 from django import forms
+from django.utils import timezone
 
-from .models import BackupConfiguration
+from .models import BackupConfiguration, RestoreValidation
 
 
 class BackupConfigurationForm(forms.ModelForm):
@@ -74,3 +75,39 @@ class BackupConfigurationForm(forms.ModelForm):
         if commit:
             configuration.save()
         return configuration
+
+
+class RestoreValidationForm(forms.ModelForm):
+    class Meta:
+        model = RestoreValidation
+        fields = ['tested_at', 'result', 'backup_manifest', 'notes']
+        widgets = {
+            'tested_at': forms.DateTimeInput(
+                attrs={'class': 'form-control', 'type': 'datetime-local'},
+                format='%Y-%m-%dT%H:%M',
+            ),
+            'result': forms.Select(attrs={'class': 'form-select'}),
+            'backup_manifest': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, backup_sets=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['tested_at'].input_formats = ['%Y-%m-%dT%H:%M']
+        choices = [
+            (backup.manifest_file, backup.created_at.strftime('%d/%m/%Y %H:%M')) for backup in backup_sets
+        ]
+        self.fields['backup_manifest'].widget.choices = choices
+        self._allowed_manifests = {value for value, _label in choices}
+
+    def clean_backup_manifest(self):
+        manifest = self.cleaned_data['backup_manifest']
+        if manifest not in self._allowed_manifests:
+            raise forms.ValidationError('Selecione um ponto de restauracao disponivel.')
+        return manifest
+
+    def clean_tested_at(self):
+        tested_at = self.cleaned_data['tested_at']
+        if tested_at > timezone.now():
+            raise forms.ValidationError('A data do teste nao pode estar no futuro.')
+        return tested_at

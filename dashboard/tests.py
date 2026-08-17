@@ -16,7 +16,13 @@ from django.utils import timezone
 
 from accounts.models import NivelAcesso, Usuario
 from chamados.models import Chamado, StatusChamado
-from equipamentos.models import EntradaLote, Equipamento, StatusEquipamento
+from equipamentos.models import (
+    AgenteMonitoramento,
+    EntradaLote,
+    Equipamento,
+    StatusEquipamento,
+    StatusMonitoramento,
+)
 from itam.settings import _database_config_from_url, config
 
 from .backup_service import (
@@ -27,7 +33,22 @@ from .backup_service import (
     resolve_restore_point,
 )
 from .forms import BackupConfigurationForm
-from .models import BackupConfiguration
+from .health_service import (
+    HealthDiagnostic,
+    _backup_diagnostic,
+    _celery_diagnostic,
+    _disk_diagnostic,
+    _restore_validation_diagnostic,
+    _telemetry_diagnostic,
+    persist_health_diagnostics,
+)
+from .models import (
+    BackupConfiguration,
+    RestoreValidation,
+    SystemHealthComponent,
+    SystemHealthEvent,
+    SystemHealthStatus,
+)
 
 
 class SettingsParsingTests(SimpleTestCase):
@@ -320,6 +341,288 @@ class RestorePointIntegrityTests(SimpleTestCase):
 
         self.assertEqual(len(points), 1)
         self.assertFalse(points[0].restorable)
+
+
+class SystemHealthServiceTests(TestCase):
+    def test_telemetria_recente_e_classificada_como_saudavel(self):
+        agente = AgenteMonitoramento.objects.create(nome='Agente teste')
+        Equipamento.objects.create(
+            id_patrimonio='MON-001',
+            tipo='notebook_padrao',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.ONLINE,
+            last_seen_at=timezone.now(),
+            last_telemetria_agente=agente,
+        )
+
+        diagnostic = _telemetry_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.HEALTHY)
+        self.assertEqual(diagnostic.details['online_count'], 1)
+        self.assertEqual(diagnostic.details['stale_count'], 0)
+
+    def test_telemetria_atrasada_e_classificada_como_critica(self):
+        agente = AgenteMonitoramento.objects.create(nome='Agente teste')
+        Equipamento.objects.create(
+            id_patrimonio='MON-002',
+            tipo='notebook_padrao',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.OFFLINE,
+            last_seen_at=timezone.now() - timedelta(minutes=11),
+            last_telemetria_agente=agente,
+        )
+
+        diagnostic = _telemetry_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.CRITICAL)
+        self.assertEqual(diagnostic.details['stale_assets'], ['MON-002'])
+
+    @patch('dashboard.health_service.notificar_admins')
+    def test_notifica_falha_uma_vez_e_recuperacao_uma_vez(self, mock_notify):
+        failure = HealthDiagnostic(
+            key='database',
+            name='Banco de dados',
+            status=SystemHealthStatus.CRITICAL,
+            summary='Banco indisponivel.',
+        )
+        healthy = HealthDiagnostic(
+            key='database',
+            name='Banco de dados',
+            status=SystemHealthStatus.HEALTHY,
+            summary='Banco respondendo.',
+        )
+
+        persist_health_diagnostics([failure])
+        persist_health_diagnostics([failure])
+        persist_health_diagnostics([healthy])
+        persist_health_diagnostics([healthy])
+
+        self.assertEqual(mock_notify.call_count, 2)
+        self.assertIn('Alerta de saude', mock_notify.call_args_list[0].args[0])
+        self.assertIn('Servico recuperado', mock_notify.call_args_list[1].args[0])
+        self.assertEqual(SystemHealthEvent.objects.count(), 2)
+
+    @patch('dashboard.health_service.notificar_admins')
+    def test_aviso_nao_notificavel_e_persistido_sem_alerta(self, mock_notify):
+        diagnostic = HealthDiagnostic(
+            key='security',
+            name='Ambiente e seguranca',
+            status=SystemHealthStatus.WARNING,
+            summary='Homologacao com DEBUG ativo.',
+            notify=False,
+        )
+
+        persist_health_diagnostics([diagnostic])
+
+        self.assertEqual(SystemHealthComponent.objects.get().status, SystemHealthStatus.WARNING)
+        mock_notify.assert_not_called()
+
+    @patch('dashboard.health_service.shutil.disk_usage')
+    def test_classifica_armazenamento_com_menos_de_quinze_porcento_como_atencao(self, mock_usage):
+        mock_usage.return_value = shutil._ntuple_diskusage(total=1000, used=880, free=120)
+
+        diagnostic = _disk_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.WARNING)
+        self.assertEqual(diagnostic.details['free_percent'], 12.0)
+
+    @patch(
+        'dashboard.health_service.get_backup_task_status',
+        return_value=BackupTaskStatus(installed=True, state='Ready', last_result=0),
+    )
+    @patch('dashboard.health_service.list_backup_sets')
+    def test_classifica_backup_com_mais_de_quarenta_e_oito_horas_como_critico(
+        self, mock_backups, _mock_task
+    ):
+        mock_backups.return_value = [
+            BackupSet(
+                manifest_file='itam-backup-20260810-100001.manifest.txt',
+                created_at=timezone.now() - timedelta(hours=49),
+                database_file='itam-db.dump',
+                media_file='itam-media.zip',
+                total_bytes=2048,
+                status='complete',
+                retention_days=30,
+                restorable=True,
+            )
+        ]
+
+        diagnostic = _backup_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.CRITICAL)
+        self.assertIn('48 horas', diagnostic.summary)
+
+    def test_classifica_validacao_aprovada_com_mais_de_trinta_dias_como_atencao(self):
+        RestoreValidation.objects.create(
+            tested_at=timezone.now() - timedelta(days=31),
+            result='success',
+            backup_manifest='itam-backup-20260701-100001.manifest.txt',
+        )
+
+        diagnostic = _restore_validation_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.WARNING)
+        self.assertIn('30 dias', diagnostic.summary)
+
+    def test_verificacao_manual_do_worker_usa_heartbeat_e_nao_a_leitura_da_tela(self):
+        SystemHealthComponent.objects.create(
+            component_key='celery',
+            name='Automacoes',
+            status=SystemHealthStatus.HEALTHY,
+            summary='Anteriormente saudavel.',
+            details={'heartbeat_at': (timezone.now() - timedelta(minutes=20)).isoformat()},
+            checked_at=timezone.now(),
+            status_changed_at=timezone.now(),
+        )
+
+        diagnostic = _celery_diagnostic(source='manual')
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.WARNING)
+        self.assertIn('sem confirmacao', diagnostic.summary)
+        self.assertTrue(diagnostic.notify)
+
+
+class SystemHealthViewTests(TestCase):
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            matricula='health-admin',
+            password='test12345',
+            first_name='Admin',
+            last_name='Health',
+        )
+        self.viewer = Usuario.objects.create_user(
+            matricula='health-viewer',
+            password='test12345',
+            first_name='Viewer',
+            last_name='Health',
+        )
+        self.now = timezone.now()
+        self.components = [
+            SystemHealthComponent(
+                component_key='database',
+                name='Banco de dados',
+                status=SystemHealthStatus.HEALTHY,
+                summary='Conexao respondendo.',
+                checked_at=self.now,
+                status_changed_at=self.now,
+            )
+        ]
+
+    def test_solicitante_nao_acessa_central(self):
+        self.client.force_login(self.viewer)
+
+        response = self.client.get(reverse('system_health'))
+
+        self.assertRedirects(response, reverse('dashboard'))
+
+    @patch('dashboard.views.perform_system_health_checks')
+    @patch('dashboard.views.list_backup_sets', return_value=[])
+    def test_admin_acessa_central(self, _mock_backups, mock_checks):
+        mock_checks.return_value = self.components
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('system_health'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Saúde do sistema')
+        self.assertContains(response, 'Banco de dados')
+        self.assertContains(response, 'Registrar teste de restauração')
+
+    @patch('dashboard.views.perform_system_health_checks')
+    @patch('dashboard.views.list_backup_sets', return_value=[])
+    def test_verificacao_manual_atualiza_diagnostico(self, _mock_backups, mock_checks):
+        mock_checks.return_value = self.components
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('system_health'), {'action': 'check_now'})
+
+        self.assertRedirects(response, reverse('system_health'), fetch_redirect_response=False)
+        mock_checks.assert_called_once_with(source='manual')
+
+    @patch('dashboard.views.perform_system_health_checks')
+    @patch('dashboard.views.list_backup_sets')
+    def test_registra_validacao_de_restauracao(self, mock_backups, mock_checks):
+        backup = BackupSet(
+            manifest_file='itam-backup-20260812-100001.manifest.txt',
+            created_at=self.now,
+            database_file='itam-db-20260812-100001.dump',
+            media_file='itam-media-20260812-100001.zip',
+            total_bytes=2048,
+            status='complete',
+            retention_days=30,
+            restorable=True,
+        )
+        mock_backups.return_value = [backup]
+        mock_checks.return_value = self.components
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('system_health'),
+            {
+                'action': 'record_restore_test',
+                'tested_at': timezone.localtime(self.now).strftime('%Y-%m-%dT%H:%M'),
+                'result': 'success',
+                'backup_manifest': backup.manifest_file,
+                'notes': 'Login e dados conferidos.',
+            },
+        )
+
+        self.assertRedirects(response, reverse('system_health'))
+        validation = RestoreValidation.objects.get()
+        self.assertEqual(validation.recorded_by, self.admin)
+        self.assertEqual(validation.backup_manifest, backup.manifest_file)
+        self.assertEqual(validation.result, 'success')
+
+    @patch('dashboard.views.perform_system_health_checks')
+    @patch('dashboard.views.list_backup_sets', return_value=[])
+    def test_rejeita_manifesto_que_nao_esta_disponivel(self, _mock_backups, mock_checks):
+        mock_checks.return_value = self.components
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('system_health'),
+            {
+                'action': 'record_restore_test',
+                'tested_at': timezone.localtime(self.now).strftime('%Y-%m-%dT%H:%M'),
+                'result': 'success',
+                'backup_manifest': '../arquivo-invalido',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Selecione um ponto de restauracao disponivel.')
+        self.assertFalse(RestoreValidation.objects.exists())
+
+    @patch('dashboard.views.perform_system_health_checks')
+    @patch('dashboard.views.list_backup_sets')
+    def test_rejeita_data_futura_no_teste_de_restauracao(self, mock_backups, mock_checks):
+        backup = BackupSet(
+            manifest_file='itam-backup-20260812-100001.manifest.txt',
+            created_at=self.now,
+            database_file='itam-db-20260812-100001.dump',
+            media_file='itam-media-20260812-100001.zip',
+            total_bytes=2048,
+            status='complete',
+            retention_days=30,
+            restorable=True,
+        )
+        mock_backups.return_value = [backup]
+        mock_checks.return_value = self.components
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('system_health'),
+            {
+                'action': 'record_restore_test',
+                'tested_at': timezone.localtime(self.now + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M'),
+                'result': 'success',
+                'backup_manifest': backup.manifest_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A data do teste nao pode estar no futuro.')
+        self.assertFalse(RestoreValidation.objects.exists())
 
 
 class BuscaGlobalTests(TestCase):

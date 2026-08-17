@@ -1,5 +1,6 @@
 from celery import shared_task
 
+from equipamentos.lifecycle import sync_lifecycle_alerts
 from equipamentos.telemetria import marcar_equipamentos_sem_sinal
 from ia.monitoring import recalcular_scores
 
@@ -12,3 +13,8 @@ def recalcular_scores_task():
 @shared_task(name='equipamentos.verificar_monitoramento')
 def verificar_monitoramento_task():
     return marcar_equipamentos_sem_sinal()
+
+
+@shared_task(name='equipamentos.verificar_ciclo_vida')
+def verificar_ciclo_vida_task():
+    return sync_lifecycle_alerts()
