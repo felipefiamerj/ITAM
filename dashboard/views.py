@@ -15,6 +15,7 @@ from django.utils.dateparse import parse_datetime
 from accounts.models import Usuario
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
 from chamados.views import painel_tecnico as painel_tecnico_view
+from equipamentos.health import build_telemetry_health
 from equipamentos.models import DivergenciaInventario, Equipamento, StatusEquipamento, StatusMonitoramento
 from estoque.models import reservas_ativas_queryset
 from estoque.views import estoque_view as estoque_workspace_view
@@ -565,6 +566,12 @@ def _health_component_cards(components):
 def _health_telemetry_context():
     stale_minutes = getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10)
     cutoff = timezone.now() - timedelta(minutes=stale_minutes)
+    active_divergences = DivergenciaInventario.objects.filter(ativa=True)
+    divergence_count = active_divergences.count()
+    divergence_counts = {
+        item['equipamento_id']: item['total']
+        for item in active_divergences.values('equipamento_id').annotate(total=Count('id'))
+    }
     monitored = list(
         Equipamento.objects.filter(monitoramento_ativo=True)
         .select_related('last_telemetria_agente')
@@ -592,19 +599,30 @@ def _health_telemetry_context():
                 'equipment': equipment,
                 'heartbeat_status': heartbeat_status,
                 'heartbeat_label': heartbeat_label,
+                'health': build_telemetry_health(
+                    equipment,
+                    divergence_count=divergence_counts.get(equipment.pk, 0),
+                ),
             }
         )
 
     divergences = list(
-        DivergenciaInventario.objects.filter(ativa=True)
+        active_divergences
         .select_related('equipamento')
         .order_by('-ultima_verificacao_em')[:50]
     )
+    health_counts = defaultdict(int)
+    for asset in assets:
+        health_counts[asset['health']['status']] += 1
     return {
         'assets': assets,
         'monitored_count': Equipamento.objects.filter(monitoramento_ativo=True).count(),
         'divergences': divergences,
-        'divergence_count': DivergenciaInventario.objects.filter(ativa=True).count(),
+        'divergence_count': divergence_count,
+        'healthy_count': health_counts[SystemHealthStatus.HEALTHY],
+        'warning_count': health_counts[SystemHealthStatus.WARNING],
+        'critical_count': health_counts[SystemHealthStatus.CRITICAL],
+        'unknown_count': health_counts[SystemHealthStatus.UNKNOWN],
         'stale_minutes': stale_minutes,
     }
 

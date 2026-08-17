@@ -62,7 +62,7 @@
 </div>
 
 <div class="row g-4 mb-4">
-  <div class="col-xl-7">
+  <div class="col-12 order-2">
     <section class="card app-card h-100" aria-labelledby="lifecycle-title">
       <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
@@ -96,22 +96,56 @@
       </div>
     </section>
   </div>
-  <div class="col-xl-5">
+  <div class="col-12 order-1">
     <section class="card app-card h-100" aria-labelledby="inventory-title">
       <div class="card-body p-4">
-        <div class="section-kicker">Inventário automático</div>
-        <h2 class="h5 mb-3" id="inventory-title">Leitura do agente Windows</h2>
-        <dl class="row mb-3 equipment-lifecycle-data">
-          <dt class="col-5">Status</dt>
-          <dd class="col-7">{{ equipamento.get_monitoramento_status_display }}</dd>
-          <dt class="col-5">Último sinal</dt>
-          <dd class="col-7">{{ equipamento.last_seen_at|date:"d/m/Y H:i"|default:"Nunca" }}</dd>
-          <dt class="col-5">Serial</dt>
-          <dd class="col-7">{{ equipamento.last_telemetria_payload.serial|default:"-" }}</dd>
-          <dt class="col-5">Memória</dt>
-          <dd class="col-7">{% if equipamento.last_telemetria_payload.memory_total_mb %}{{ equipamento.last_telemetria_payload.memory_total_mb }} MB{% else %}-{% endif %}</dd>
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <div class="section-kicker">Inventário automático</div>
+            <h2 class="h5 mb-0" id="inventory-title">Diagnóstico do agente Windows</h2>
+          </div>
+          <span class="health-status health-status-{{ diagnostico_telemetria.status }}">
+            <span aria-hidden="true"></span>{{ diagnostico_telemetria.status_label }}
+          </span>
+        </div>
+
+        <div class="equipment-health-summary equipment-health-summary-{{ diagnostico_telemetria.status }}">
+          <strong>{{ diagnostico_telemetria.connection_label }}</strong>
+          <span>{{ diagnostico_telemetria.summary }}</span>
+          <small>Último heartbeat: {{ diagnostico_telemetria.last_seen_at|date:"d/m/Y H:i:s"|default:"Nunca" }}</small>
+        </div>
+
+        <div class="equipment-health-metrics">
+          {% for metric in diagnostico_telemetria.metrics %}
+            <div class="equipment-health-metric equipment-health-metric-{{ metric.status }}">
+              <div class="equipment-health-metric-head">
+                <span><i class="fa-solid {{ metric.icon }}" aria-hidden="true"></i>{{ metric.label }}</span>
+                <span class="health-status health-status-{{ metric.status }}"><span aria-hidden="true"></span>{{ metric.status_label }}</span>
+              </div>
+              <strong>{{ metric.value }}</strong>
+              <small>{{ metric.caption }}</small>
+              {% if metric.percent != None %}
+                <div class="progress" role="progressbar" aria-label="{{ metric.label }}" aria-valuenow="{{ metric.percent|stringformat:'d' }}" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar" style="width: {{ metric.percent|stringformat:'d' }}%"></div>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <dl class="row mb-3 equipment-lifecycle-data equipment-agent-data">
+          <dt class="col-5">Agente</dt>
+          <dd class="col-7">{{ diagnostico_telemetria.agent_name|default:"-" }}</dd>
+          <dt class="col-5">Host</dt>
+          <dd class="col-7 text-break">{{ diagnostico_telemetria.host_name|default:"-" }}</dd>
+          <dt class="col-5">Sistema</dt>
+          <dd class="col-7">{{ diagnostico_telemetria.os_caption|default:"-" }}</dd>
           <dt class="col-5">Usuário atual</dt>
-          <dd class="col-7 text-break">{{ equipamento.last_telemetria_payload.logged_user|default:"-" }}</dd>
+          <dd class="col-7 text-break">{{ diagnostico_telemetria.logged_user|default:"-" }}</dd>
+          <dt class="col-5">Última inicialização</dt>
+          <dd class="col-7">{{ diagnostico_telemetria.last_boot_at|date:"d/m/Y H:i"|default:"-" }}</dd>
+          <dt class="col-5">Serial detectado</dt>
+          <dd class="col-7">{{ equipamento.last_telemetria_payload.serial|default:"-" }}</dd>
         </dl>
         {% if divergencias_inventario %}
           <div class="equipment-divergence-list">
@@ -130,6 +164,36 @@
     </section>
   </div>
 </div>
+
+<section class="card app-card mb-4" aria-labelledby="telemetry-history-title">
+  <div class="card-body px-4 pt-4 pb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <div class="section-kicker">Monitoramento</div>
+        <h2 class="h5 mb-0" id="telemetry-history-title">Últimos eventos do agente</h2>
+      </div>
+      <span class="badge badge-soft">{{ telemetria_eventos|length }} evento(s)</span>
+    </div>
+  </div>
+  <div class="table-responsive app-scroll-area app-scroll-area-lg">
+    <table class="table mb-0 align-middle">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Estado</th><th>Mensagem</th><th>Agente</th></tr></thead>
+      <tbody>
+        {% for item in telemetria_eventos %}
+          <tr>
+            <td class="text-nowrap">{{ item.event.created_at|date:"d/m/Y H:i:s" }}</td>
+            <td>{{ item.event.get_tipo_display }}</td>
+            <td><span class="health-status health-status-{{ item.status }}"><span aria-hidden="true"></span>{{ item.status_label }}</span></td>
+            <td>{{ item.event.mensagem|default:"-" }}</td>
+            <td>{{ item.event.agente.nome|default:"-" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-center py-4 text-muted">Nenhum evento de telemetria registrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 
 {% if alertas_ciclo_vida %}
   <section class="equipment-alert-band mb-4" aria-labelledby="asset-alerts-title">

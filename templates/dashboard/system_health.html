@@ -76,6 +76,9 @@
     </div>
     <div class="health-telemetry-counts">
       <span><strong>{{ telemetry.monitored_count }}</strong> monitorado(s)</span>
+      <span class="text-success-emphasis"><strong>{{ telemetry.healthy_count }}</strong> saudável(is)</span>
+      {% if telemetry.warning_count %}<span class="text-warning-emphasis"><strong>{{ telemetry.warning_count }}</strong> em atenção</span>{% endif %}
+      {% if telemetry.critical_count %}<span class="text-danger-emphasis"><strong>{{ telemetry.critical_count }}</strong> crítico(s)</span>{% endif %}
       <span class="{% if telemetry.divergence_count %}text-warning-emphasis{% endif %}"><strong>{{ telemetry.divergence_count }}</strong> divergência(s)</span>
     </div>
   </div>
@@ -90,22 +93,38 @@
       <div class="table-responsive">
         <table class="table mb-0 align-middle">
           <thead>
-            <tr><th>Patrimônio</th><th>Agente</th><th>Estado</th><th>Último heartbeat</th></tr>
+            <tr><th>Patrimônio</th><th>Agente</th><th>Conexão</th><th>Saúde</th><th>Último heartbeat</th><th></th></tr>
           </thead>
           <tbody>
             {% for asset in telemetry.assets %}
               <tr>
-                <td data-label="Patrimônio"><a class="fw-semibold" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}">{{ asset.equipment.id_patrimonio }}</a></td>
+                <td data-label="Patrimônio">
+                  <a class="fw-semibold" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}">{{ asset.equipment.id_patrimonio }}</a>
+                  <a class="btn btn-sm btn-outline-primary health-mobile-diagnosis d-md-none" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}#inventory-title">
+                    <i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Diagnóstico
+                  </a>
+                </td>
                 <td data-label="Agente">{{ asset.equipment.last_telemetria_agente.nome|default:"-" }}</td>
-                <td data-label="Estado">
+                <td data-label="Conexão">
                   <span class="health-status health-status-{{ asset.heartbeat_status }}">
                     <span aria-hidden="true"></span>{{ asset.heartbeat_label }}
                   </span>
                 </td>
+                <td data-label="Saúde" class="health-asset-diagnosis">
+                  <span class="health-status health-status-{{ asset.health.status }}">
+                    <span aria-hidden="true"></span>{{ asset.health.status_label }}
+                  </span>
+                  <small>{{ asset.health.summary }}</small>
+                </td>
                 <td data-label="Último heartbeat" class="text-nowrap">{{ asset.equipment.last_seen_at|date:"d/m/Y H:i:s"|default:"Nunca" }}</td>
+                <td data-label="Ação" class="health-diagnosis-action d-none d-md-table-cell">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}#inventory-title">
+                    <i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Diagnóstico
+                  </a>
+                </td>
               </tr>
             {% empty %}
-              <tr><td colspan="4" class="text-center py-4 text-muted">Nenhum equipamento monitorado.</td></tr>
+              <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum equipamento monitorado.</td></tr>
             {% endfor %}
           </tbody>
         </table>

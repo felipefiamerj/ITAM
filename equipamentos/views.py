@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from accounts.permissions import pode_acessar_operacao
 
 from .forms import ESPECIFICACOES_POR_TIPO, EquipamentoForm, ImportacaoEquipamentosCSVForm, MovimentacaoEquipamentoForm
+from .health import build_telemetry_health
 from .lifecycle import lifecycle_assets_queryset, sync_lifecycle_alerts, sync_lifecycle_for_equipment
 from .models import (
     AlertaCicloVida,
@@ -127,7 +128,7 @@ def detalhe_equipamento(request, id_patrimonio):
         return redirecionamento
 
     equipamento = get_object_or_404(
-        Equipamento.objects.select_related('responsavel', 'criado_por'),
+        Equipamento.objects.select_related('responsavel', 'criado_por', 'last_telemetria_agente'),
         id_patrimonio=id_patrimonio,
     )
     if not equipamento.qrcode_atualizado:
@@ -139,6 +140,23 @@ def detalhe_equipamento(request, id_patrimonio):
         'realizado_por',
         'chamado',
     ).order_by('-created_at')
+    divergencias_inventario = list(equipamento.divergencias_inventario.filter(ativa=True))
+    telemetria_eventos = [
+        {
+            'event': event,
+            'status': {
+                'info': 'healthy',
+                'warning': 'warning',
+                'critical': 'critical',
+            }.get(event.severidade, 'unknown'),
+            'status_label': {
+                'info': 'Normal',
+                'warning': 'Atenção',
+                'critical': 'Crítico',
+            }.get(event.severidade, 'Sem dados'),
+        }
+        for event in equipamento.telemetria_eventos.select_related('agente').order_by('-created_at')[:10]
+    ]
 
     return render(
         request,
@@ -147,7 +165,12 @@ def detalhe_equipamento(request, id_patrimonio):
             'equipamento': equipamento,
             'movimentacoes': movimentacoes,
             'alertas_ciclo_vida': equipamento.alertas_ciclo_vida.filter(ativo=True),
-            'divergencias_inventario': equipamento.divergencias_inventario.filter(ativa=True),
+            'divergencias_inventario': divergencias_inventario,
+            'diagnostico_telemetria': build_telemetry_health(
+                equipamento,
+                divergence_count=len(divergencias_inventario),
+            ),
+            'telemetria_eventos': telemetria_eventos,
             'movimentacao_form': MovimentacaoEquipamentoForm(),
             'pode_gerenciar': pode_acessar_operacao(request.user),
         },

@@ -15,6 +15,7 @@ from django.utils import timezone
 from accounts.models import Usuario
 
 from .forms import EquipamentoForm
+from .health import build_telemetry_health
 from .inventory import sync_inventory_divergences
 from .lifecycle import sync_lifecycle_for_equipment
 from .models import (
@@ -26,6 +27,7 @@ from .models import (
     Equipamento,
     MovimentacaoEquipamento,
     StatusEquipamento,
+    StatusMonitoramento,
     TelemetriaEvento,
     TipoAlertaCicloVida,
 )
@@ -280,6 +282,106 @@ class ImportacaoEquipamentosCSVTests(TestCase):
 
         self.assertEqual(TelemetriaEvento.objects.filter(equipamento=equipamento, tipo='erro_driver').count(), 2)
         notificar.assert_called_once()
+
+
+class EquipmentTelemetryHealthTests(TestCase):
+    def setUp(self):
+        self.user = Usuario.objects.create_superuser(
+            matricula='telemetry-admin',
+            password='test12345',
+            first_name='Admin',
+            last_name='Telemetry',
+        )
+        self.agent = AgenteMonitoramento.objects.create(
+            nome='Agente Windows teste',
+            host_name='NOTE-HEALTH-01',
+            metadata={'manufacturer': 'Dell', 'model': 'Latitude'},
+        )
+
+    def _equipment(self, **overrides):
+        values = {
+            'id_patrimonio': 'HEALTH-001',
+            'tipo': 'notebook_padrao',
+            'monitoramento_ativo': True,
+            'monitoramento_status': StatusMonitoramento.ONLINE,
+            'last_seen_at': timezone.now(),
+            'last_telemetria_agente': self.agent,
+            'last_telemetria_payload': {
+                'cpu_load_percent': 24,
+                'memory_total_mb': 16384,
+                'memory_free_mb': 8192,
+                'disk_free_percent': 42,
+                'disks': [{'name': 'C:', 'free_gb': 107.5, 'size_gb': 256, 'free_percent': 42}],
+                'battery_level': 88,
+                'os_caption': 'Windows 11 Enterprise',
+                'logged_user': 'CORP\\usuario',
+                'last_boot_at': '2026-08-17T08:00:00-03:00',
+                'severity': 'info',
+            },
+        }
+        values.update(overrides)
+        return Equipamento.objects.create(**values)
+
+    def test_diagnostico_saudavel_quando_indicadores_estao_dentro_dos_limites(self):
+        equipment = self._equipment()
+
+        diagnostic = build_telemetry_health(equipment)
+
+        self.assertEqual(diagnostic['status'], 'healthy')
+        self.assertEqual(diagnostic['connection_label'], 'Online')
+        self.assertTrue(all(metric['status'] == 'healthy' for metric in diagnostic['metrics']))
+
+    def test_diagnostico_aponta_memoria_livre_baixa(self):
+        equipment = self._equipment(
+            id_patrimonio='HEALTH-002',
+            last_telemetria_payload={
+                'cpu_load_percent': 20,
+                'memory_total_mb': 16384,
+                'memory_free_mb': 1024,
+                'disk_free_percent': 40,
+                'battery_level': 80,
+            },
+        )
+
+        diagnostic = build_telemetry_health(equipment)
+        memory = next(metric for metric in diagnostic['metrics'] if metric['key'] == 'memory')
+
+        self.assertEqual(diagnostic['status'], 'warning')
+        self.assertEqual(memory['status'], 'warning')
+        self.assertIn('6% livre', memory['value'])
+
+    @override_settings(ITAM_HEARTBEAT_STALE_MINUTES=10)
+    def test_diagnostico_critico_quando_heartbeat_esta_atrasado(self):
+        equipment = self._equipment(
+            id_patrimonio='HEALTH-003',
+            last_seen_at=timezone.now() - timedelta(minutes=11),
+        )
+
+        diagnostic = build_telemetry_health(equipment)
+
+        self.assertEqual(diagnostic['status'], 'critical')
+        self.assertEqual(diagnostic['connection_label'], 'Sem sinal')
+
+    def test_detalhe_exibe_metricas_e_historico_do_agente(self):
+        equipment = self._equipment(id_patrimonio='HEALTH-004')
+        TelemetriaEvento.objects.create(
+            equipamento=equipment,
+            agente=self.agent,
+            tipo='heartbeat',
+            severidade='info',
+            mensagem='Heartbeat de validacao.',
+            payload=equipment.last_telemetria_payload,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('detalhe_equipamento', args=[equipment.id_patrimonio]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Diagnóstico do agente Windows')
+        self.assertContains(response, '24%')
+        self.assertContains(response, '8.0 GB livres de 16.0 GB')
+        self.assertContains(response, 'Windows 11 Enterprise')
+        self.assertContains(response, 'Heartbeat de validacao.')
 
 
 class EquipmentLifecycleTests(TestCase):

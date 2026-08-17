@@ -3059,7 +3059,7 @@ h6,
 
 .health-telemetry-layout {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(19rem, 2fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .health-telemetry-assets,
@@ -3068,7 +3068,7 @@ h6,
 }
 
 .health-divergence-panel {
-  border-left: 1px solid rgba(16, 32, 51, 0.09);
+  border-top: 1px solid rgba(16, 32, 51, 0.09);
 }
 
 .health-subsection-head {
@@ -3089,12 +3089,15 @@ h6,
 }
 
 .health-divergence-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   max-height: 19rem;
   overflow-y: auto;
 }
 
 .health-divergence-item {
   padding: 0.9rem 1.1rem;
+  border-right: 1px solid rgba(16, 32, 51, 0.08);
   border-bottom: 1px solid rgba(16, 32, 51, 0.08);
 }
 
@@ -3166,6 +3169,30 @@ h6,
   text-align: center;
 }
 
+.health-asset-diagnosis {
+  min-width: 13rem;
+}
+
+.health-asset-diagnosis small {
+  display: block;
+  max-width: 18rem;
+  margin-top: 0.3rem;
+  color: var(--app-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.health-diagnosis-action {
+  text-align: right;
+}
+
+.health-diagnosis-action .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
 .health-chart-wrap {
   height: 285px;
   min-height: 285px;
@@ -3202,7 +3229,6 @@ h6,
   }
 
   .health-divergence-panel {
-    border-top: 1px solid rgba(16, 32, 51, 0.09);
     border-left: 0;
   }
 }
@@ -3235,7 +3261,13 @@ h6,
   .health-telemetry-assets tr,
   .health-telemetry-assets td {
     display: block;
+    min-width: 0;
+    max-width: 100%;
     width: 100%;
+  }
+
+  .health-telemetry-assets table {
+    table-layout: fixed;
   }
 
   .health-telemetry-assets thead {
@@ -3270,6 +3302,27 @@ h6,
     font-size: 0.65rem;
     font-weight: 800;
     text-transform: uppercase;
+  }
+
+  .health-telemetry-assets tbody td[data-label="Saúde"],
+  .health-telemetry-assets tbody td[data-label="Ação"] {
+    grid-column: 1 / -1;
+  }
+
+  .health-telemetry-assets tbody td[data-label="Ação"] {
+    text-align: left;
+  }
+
+  .health-telemetry-assets tbody td[data-label="Ação"] .btn {
+    width: 100%;
+  }
+
+  .health-mobile-diagnosis {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 0.65rem;
   }
 }
 
@@ -7589,6 +7642,119 @@ body.restore-in-progress {
   font-size: 0.82rem;
 }
 
+.equipment-health-summary {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 1.1rem;
+  padding: 0.8rem 0.95rem;
+  border-left: 4px solid #64748b;
+  background: #f6f8fa;
+}
+
+.equipment-health-summary-healthy {
+  border-left-color: #16856f;
+  background: #eff9f6;
+}
+
+.equipment-health-summary-warning {
+  border-left-color: #d99a00;
+  background: #fff8e8;
+}
+
+.equipment-health-summary-critical {
+  border-left-color: #d94841;
+  background: #fff1f0;
+}
+
+.equipment-health-summary span,
+.equipment-health-summary small {
+  color: var(--app-muted);
+}
+
+.equipment-health-summary span {
+  font-size: 0.86rem;
+}
+
+.equipment-health-summary small {
+  font-size: 0.72rem;
+}
+
+.equipment-health-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1.1rem;
+  border-block: 1px solid #e8edf2;
+}
+
+.equipment-health-metric {
+  min-width: 0;
+  padding: 0.9rem;
+  border-left: 1px solid #e8edf2;
+}
+
+.equipment-health-metric:first-child {
+  border-left: 0;
+}
+
+.equipment-health-metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.equipment-health-metric-head > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.equipment-health-metric > strong,
+.equipment-health-metric > small {
+  display: block;
+}
+
+.equipment-health-metric > strong {
+  font-size: 1.35rem;
+}
+
+.equipment-health-metric > small {
+  min-height: 2.2rem;
+  margin-top: 0.2rem;
+  color: var(--app-muted);
+  font-size: 0.7rem;
+}
+
+.equipment-health-metric .progress {
+  height: 0.35rem;
+  margin-top: 0.55rem;
+  background: #e5eaee;
+}
+
+.equipment-health-metric .progress-bar {
+  background: #16856f;
+}
+
+.equipment-health-metric-warning .progress-bar {
+  background: #d99a00;
+}
+
+.equipment-health-metric-critical .progress-bar {
+  background: #d94841;
+}
+
+.equipment-health-metric-unknown .progress-bar {
+  background: #64748b;
+}
+
+.equipment-agent-data {
+  margin-top: 0.25rem;
+}
+
 .equipment-alert-band {
   padding: 1rem 1.2rem;
   background: #fff;
@@ -7599,6 +7765,20 @@ body.restore-in-progress {
 @media (max-width: 1199.98px) {
   .lifecycle-stat-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 991.98px) {
+  .equipment-health-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .equipment-health-metric:nth-child(3) {
+    border-left: 0;
+  }
+
+  .equipment-health-metric:nth-child(n + 3) {
+    border-top: 1px solid #e8edf2;
   }
 }
 
@@ -7623,6 +7803,30 @@ body.restore-in-progress {
 
   .equipment-alert-band-list {
     align-items: flex-start;
+  }
+
+  .health-asset-diagnosis {
+    min-width: 0;
+  }
+
+  .health-asset-diagnosis small {
+    max-width: none;
+  }
+}
+
+@media (max-width: 479.98px) {
+  .equipment-health-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .equipment-health-metric,
+  .equipment-health-metric:nth-child(3) {
+    border-top: 1px solid #e8edf2;
+    border-left: 0;
+  }
+
+  .equipment-health-metric:first-child {
+    border-top: 0;
   }
 }
 

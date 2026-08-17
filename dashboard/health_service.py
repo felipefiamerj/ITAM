@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connections, transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.urls import reverse
 from django.utils import timezone
 
+from equipamentos.health import build_telemetry_health
 from equipamentos.models import AgenteMonitoramento, DivergenciaInventario, Equipamento, StatusMonitoramento
 from notifications.services import notificar_admins
 
@@ -141,6 +142,10 @@ def _telemetry_diagnostic():
     ).count()
     active_divergences = DivergenciaInventario.objects.filter(ativa=True).select_related('equipamento')
     divergence_count = active_divergences.count()
+    divergence_counts = {
+        item['equipamento_id']: item['total']
+        for item in active_divergences.values('equipamento_id').annotate(total=Count('id'))
+    }
     divergence_items = [
         {
             'asset_id': divergence.equipamento.id_patrimonio,
@@ -160,6 +165,24 @@ def _telemetry_diagnostic():
     )
     last_heartbeat_at = latest_asset.last_seen_at if latest_asset else None
     stale_assets = list(stale.order_by('last_seen_at').values_list('id_patrimonio', flat=True)[:10])
+    asset_health_issues = []
+    health_warning_count = 0
+    health_critical_count = 0
+    for asset in monitored.select_related('last_telemetria_agente'):
+        health = build_telemetry_health(asset, divergence_count=divergence_counts.get(asset.pk, 0), now=now)
+        if health['status'] == SystemHealthStatus.WARNING:
+            health_warning_count += 1
+        elif health['status'] == SystemHealthStatus.CRITICAL:
+            health_critical_count += 1
+        if health['status'] in {SystemHealthStatus.WARNING, SystemHealthStatus.CRITICAL} and len(asset_health_issues) < 10:
+            asset_health_issues.append(
+                {
+                    'asset_id': asset.id_patrimonio,
+                    'status': health['status'],
+                    'status_label': health['status_label'],
+                    'summary': health['summary'],
+                }
+            )
     details = {
         'monitored_count': monitored_count,
         'online_count': online_count,
@@ -168,6 +191,9 @@ def _telemetry_diagnostic():
         'active_agent_count': active_agent_count,
         'divergence_count': divergence_count,
         'divergences': divergence_items,
+        'health_warning_count': health_warning_count,
+        'health_critical_count': health_critical_count,
+        'health_assets': asset_health_issues,
         'last_heartbeat_at': last_heartbeat_at.isoformat() if last_heartbeat_at else '',
         'last_heartbeat_asset': latest_asset.id_patrimonio if latest_asset else '',
         'last_heartbeat_agent': (
@@ -202,6 +228,22 @@ def _telemetry_diagnostic():
             'Agentes e telemetria',
             SystemHealthStatus.CRITICAL,
             f'{stale_count} equipamento(s) sem heartbeat recente.',
+            details,
+        )
+    if health_critical_count:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.CRITICAL,
+            f'{health_critical_count} equipamento(s) com saúde crítica na última leitura.',
+            details,
+        )
+    if health_warning_count:
+        return HealthDiagnostic(
+            'telemetry',
+            'Agentes e telemetria',
+            SystemHealthStatus.WARNING,
+            f'{health_warning_count} equipamento(s) requer atenção na última leitura.',
             details,
         )
     if divergence_count:
