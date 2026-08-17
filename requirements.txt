@@ -4,6 +4,7 @@ cryptography==47.0.0
 # mysqlclient==2.2.4  # Optional if you want to use MySQL instead of PyMySQL
 django-environ==0.11.2
 Pillow==12.3.0
+pyotp==2.10.0
 celery==5.6.3
 redis==5.3.1
 django-redis==7.0.0

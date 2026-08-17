@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from accounts.forms import SensitiveActionConfirmationForm
 from accounts.models import Usuario
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
 from chamados.views import painel_tecnico as painel_tecnico_view
@@ -386,11 +387,19 @@ def backup_configuration_view(request):
         if action == 'restore':
             if request.POST.get('confirmation') != 'RESTAURAR':
                 return JsonResponse({'started': False, 'error': 'Confirmacao invalida.'}, status=400)
+            security_form = SensitiveActionConfirmationForm(request.POST, user=request.user)
+            if not security_form.is_valid():
+                errors = security_form.non_field_errors()
+                if not errors:
+                    errors = [message for field_errors in security_form.errors.values() for message in field_errors]
+                error = str(errors[0]) if errors else 'Confirmacao de seguranca invalida.'
+                return JsonResponse({'started': False, 'error': error}, status=403)
             try:
                 operation_id = start_restore_point(
                     request.POST.get('manifest', ''),
                     retention_days=configuration.retention_days,
                     schedule_times=configuration.schedule_times,
+                    initiated_by=request.user.matricula,
                 )
             except BackupOperationError as exc:
                 return JsonResponse({'started': False, 'error': str(exc)}, status=400)
@@ -472,7 +481,10 @@ def backup_status_view(request):
     )
 
 
+@login_required
 def restore_status_view(request, operation_id):
+    if not request.user.is_admin:
+        return JsonResponse({'detail': 'Acesso negado.'}, status=403)
     try:
         payload = get_restore_status(operation_id)
     except BackupOperationError as exc:
@@ -520,6 +532,8 @@ def _health_component_cards(components):
             detail_lines = [engine.upper()] if engine else []
         elif component.component_key == 'security':
             detail_lines = [str(details.get('environment', '')).title()]
+            if details.get('admin_without_two_factor'):
+                detail_lines.append(f'{details["admin_without_two_factor"]} administrador(es) sem 2FA')
         elif component.component_key == 'restore_validation' and details.get('backup_manifest'):
             detail_lines = [details['backup_manifest']]
         elif component.component_key == 'redis':

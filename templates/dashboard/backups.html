@@ -200,6 +200,8 @@
   </div>
 </section>
 
+{% endblock %}
+{% block body_overlays %}
 <div class="modal fade" id="restorePointModal" tabindex="-1" aria-labelledby="restorePointModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content app-card">
@@ -232,6 +234,35 @@
             data-restore-confirmation
             required
           >
+          <div class="row g-3 mt-1">
+            <div class="col-md-6">
+              <label class="form-label" for="restore-current-password">Senha atual</label>
+              <input
+                class="form-control"
+                id="restore-current-password"
+                name="current_password"
+                type="password"
+                autocomplete="current-password"
+                data-restore-password
+                required
+              >
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="restore-two-factor-code">Código de segurança</label>
+              <input
+                class="form-control"
+                id="restore-two-factor-code"
+                name="two_factor_code"
+                type="text"
+                inputmode="text"
+                autocomplete="one-time-code"
+                placeholder="000000"
+                data-restore-two-factor
+                required
+              >
+            </div>
+          </div>
+          <div class="alert alert-danger d-none mt-3 mb-0" role="alert" data-restore-error></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

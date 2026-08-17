@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Configurar 2FA | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-shield-halved"></i> Segurança da conta</div>
+      <h1 class="hero-title mb-2">Configurar autenticação em dois fatores</h1>
+      <p class="hero-text mb-0">Vincule um aplicativo autenticador e confirme o primeiro código.</p>
+    </div>
+    {% if required %}<span class="status-pill status-pill-dark">Obrigatória para administradores</span>{% endif %}
+  </div>
+</section>
+
+<div class="two-factor-setup-layout">
+  <section class="card app-card two-factor-qr-card" aria-labelledby="two-factor-qr-title">
+    <div class="card-body">
+      <div class="section-kicker">Aplicativo autenticador</div>
+      <h2 class="h5 mb-3" id="two-factor-qr-title">Escaneie o QR Code</h2>
+      <div class="two-factor-qr-wrap">
+        <img src="{{ qr_code_data_url }}" alt="QR Code para configurar o autenticador" width="240" height="240">
+      </div>
+      <div class="two-factor-secret mt-3">
+        <span>Chave manual</span>
+        <code>{{ manual_secret }}</code>
+      </div>
+    </div>
+  </section>
+
+  <section class="card app-card" aria-labelledby="two-factor-confirm-title">
+    <div class="card-body">
+      <div class="section-kicker">Confirmação</div>
+      <h2 class="h5 mb-3" id="two-factor-confirm-title">Digite o código gerado</h2>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "includes/form.html" with form=form %}
+        <button class="btn btn-primary w-100" type="submit">
+          <i class="fa-solid fa-circle-check me-1"></i>Ativar proteção
+        </button>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -17,4 +17,8 @@ urlpatterns = [
     path('usuarios/<int:pk>/perfil/', views.perfil_usuario, name='perfil_usuario'),
     path('perfil/', views.perfil_usuario, name='meu_perfil'),
     path('trocar-senha-inicial/', views.trocar_senha_inicial, name='trocar_senha_inicial'),
+    path('2fa/desafio/', views.two_factor_challenge, name='two_factor_challenge'),
+    path('2fa/configurar/', views.two_factor_setup, name='two_factor_setup'),
+    path('2fa/recuperacao/', views.two_factor_recovery_codes, name='two_factor_recovery_codes'),
+    path('2fa/seguranca/', views.two_factor_settings, name='two_factor_settings'),
 ]

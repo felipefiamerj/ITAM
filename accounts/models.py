@@ -81,6 +81,11 @@ class Usuario(AbstractUser):
     ativo = models.BooleanField('Ativo', default=True)
     solicitacao_pendente = models.BooleanField('Solicitação pendente', default=False)
     exigir_troca_senha = models.BooleanField('Exigir troca de senha', default=False)
+    two_factor_enabled = models.BooleanField('Autenticação em dois fatores ativa', default=False)
+    two_factor_secret_encrypted = models.TextField('Segredo 2FA criptografado', blank=True, editable=False)
+    two_factor_recovery_hashes = models.JSONField('Códigos de recuperação 2FA', default=list, blank=True, editable=False)
+    two_factor_last_counter = models.BigIntegerField('Contador TOTP utilizado', null=True, blank=True, editable=False)
+    two_factor_confirmed_at = models.DateTimeField('2FA confirmado em', null=True, blank=True, editable=False)
     aprovado_em = models.DateTimeField('Aprovado em', null=True, blank=True)
     aprovado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -168,4 +173,12 @@ class Usuario(AbstractUser):
         super().save(*args, **kwargs)
 
 
-auditlog.register(Usuario, exclude_fields=['password'])
+auditlog.register(
+    Usuario,
+    exclude_fields=[
+        'password',
+        'two_factor_secret_encrypted',
+        'two_factor_recovery_hashes',
+        'two_factor_last_counter',
+    ],
+)

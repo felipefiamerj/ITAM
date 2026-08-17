@@ -8,6 +8,66 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import NivelAcesso, Usuario
+from .two_factor import verify_two_factor_credential
+
+
+class TwoFactorCodeForm(forms.Form):
+    code = forms.CharField(
+        label='Código de segurança',
+        max_length=20,
+        widget=forms.TextInput(
+            attrs={
+                'autocomplete': 'one-time-code',
+                'class': 'form-control',
+                'inputmode': 'text',
+                'placeholder': '000000 ou código de recuperação',
+                'autofocus': True,
+            }
+        ),
+    )
+
+    def clean_code(self):
+        return self.cleaned_data['code'].strip()
+
+
+class SensitiveActionConfirmationForm(forms.Form):
+    current_password = forms.CharField(
+        label='Senha atual',
+        strip=False,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'current-password', 'class': 'form-control'}),
+    )
+    two_factor_code = forms.CharField(
+        label='Código de segurança',
+        max_length=20,
+        widget=forms.TextInput(
+            attrs={
+                'autocomplete': 'one-time-code',
+                'class': 'form-control',
+                'inputmode': 'text',
+                'placeholder': '000000 ou código de recuperação',
+            }
+        ),
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        self.credential_type = None
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not self.user.two_factor_enabled:
+            raise forms.ValidationError('Ative a autenticação em dois fatores antes de executar esta operação.')
+        password = cleaned_data.get('current_password')
+        code = cleaned_data.get('two_factor_code')
+        if not password or not code:
+            return cleaned_data
+        if not self.user.check_password(password):
+            raise forms.ValidationError('Senha ou código de segurança inválido.')
+        self.credential_type = verify_two_factor_credential(self.user, code, consume=True)
+        if not self.credential_type:
+            raise forms.ValidationError('Senha ou código de segurança inválido.')
+        return cleaned_data
 
 
 def _apply_bootstrap(form):

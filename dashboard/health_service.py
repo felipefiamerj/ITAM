@@ -10,6 +10,7 @@ from django.db.models import Count, Q
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.models import NivelAcesso, Usuario
 from equipamentos.health import build_telemetry_health
 from equipamentos.models import AgenteMonitoramento, DivergenciaInventario, Equipamento, StatusMonitoramento
 from notifications.services import notificar_admins
@@ -407,6 +408,14 @@ def _restore_validation_diagnostic():
 def _security_diagnostic():
     is_production = settings.DJANGO_ENV == 'production'
     issues = []
+    admin_without_two_factor = 0
+    if getattr(settings, 'ITAM_ADMIN_2FA_REQUIRED', True):
+        admin_without_two_factor = Usuario.objects.filter(
+            Q(is_superuser=True) | Q(nivel_acesso=NivelAcesso.ADMIN),
+            ativo=True,
+            solicitacao_pendente=False,
+            two_factor_enabled=False,
+        ).count()
     if is_production:
         if settings.DEBUG:
             issues.append('DEBUG ativo')
@@ -414,13 +423,20 @@ def _security_diagnostic():
             issues.append('HTTPS nao obrigatorio')
         if not settings.ALLOWED_HOSTS or settings.ALLOWED_HOSTS == ['*']:
             issues.append('hosts sem restricao')
+        if not getattr(settings, 'ITAM_ADMIN_2FA_REQUIRED', False):
+            issues.append('2FA administrativo nao obrigatorio')
+        if admin_without_two_factor:
+            issues.append(f'{admin_without_two_factor} administrador(es) sem 2FA')
     elif settings.DEBUG:
         return HealthDiagnostic(
             'security',
             'Ambiente e seguranca',
             SystemHealthStatus.WARNING,
             'Ambiente de homologacao com DEBUG ativo.',
-            {'environment': settings.DJANGO_ENV},
+            {
+                'environment': settings.DJANGO_ENV,
+                'admin_without_two_factor': admin_without_two_factor,
+            },
             notify=False,
         )
     if issues:
@@ -429,14 +445,21 @@ def _security_diagnostic():
             'Ambiente e seguranca',
             SystemHealthStatus.CRITICAL,
             'Configuracao de producao requer correcao.',
-            {'environment': settings.DJANGO_ENV, 'issues': issues},
+            {
+                'environment': settings.DJANGO_ENV,
+                'issues': issues,
+                'admin_without_two_factor': admin_without_two_factor,
+            },
         )
     return HealthDiagnostic(
         'security',
         'Ambiente e seguranca',
         SystemHealthStatus.HEALTHY,
         'Configuracao coerente com o ambiente.',
-        {'environment': settings.DJANGO_ENV},
+        {
+            'environment': settings.DJANGO_ENV,
+            'admin_without_two_factor': admin_without_two_factor,
+        },
     )
 
 

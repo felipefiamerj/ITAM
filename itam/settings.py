@@ -1,6 +1,7 @@
 """FIAME System - IT Asset Management."""
 
 import os
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -120,7 +121,7 @@ def _database_config_from_url(database_url):
 DJANGO_ENV = config('DJANGO_ENV', default='development').strip().lower()
 APP_NAME = config('APP_NAME', default='FIAME System')
 APP_SHORT_NAME = config('APP_SHORT_NAME', default='FIAME')
-APP_STATIC_VERSION = config('APP_STATIC_VERSION', default='20260812-health')
+APP_STATIC_VERSION = config('APP_STATIC_VERSION', default='20260817-2fa')
 
 SECRET_KEY = config('SECRET_KEY', default='')
 if not SECRET_KEY:
@@ -184,6 +185,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'itam.middleware.RateLimitResponseMiddleware',
     'accounts.middleware.ForcePasswordChangeMiddleware',
+    'accounts.middleware.ForceAdminTwoFactorSetupMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'auditlog.middleware.AuditlogMiddleware',
@@ -502,6 +504,10 @@ ITAM_ESTOQUE_ALERTA_MINIMO = config('ITAM_ESTOQUE_ALERTA_MINIMO', default=5, cas
 ITAM_RESERVA_INTELIGENTE_SCORE_MINIMO = config('ITAM_RESERVA_INTELIGENTE_SCORE_MINIMO', default=70, cast=int)
 ITAM_PREVISAO_DIAS = config('ITAM_PREVISAO_DIAS', default=30, cast=int)
 ITAM_HEARTBEAT_STALE_MINUTES = config('ITAM_HEARTBEAT_STALE_MINUTES', default=10, cast=int)
+ITAM_ADMIN_2FA_REQUIRED = config('ITAM_ADMIN_2FA_REQUIRED', default='test' not in sys.argv, cast=bool)
+ITAM_TWO_FACTOR_ENCRYPTION_KEY = config('ITAM_TWO_FACTOR_ENCRYPTION_KEY', default='')
+ITAM_TWO_FACTOR_ISSUER = config('ITAM_TWO_FACTOR_ISSUER', default=APP_NAME)
+ITAM_TWO_FACTOR_VALID_WINDOW = config('ITAM_TWO_FACTOR_VALID_WINDOW', default=1, cast=int)
 ITAM_MONITORING_ALERT_COOLDOWN_MINUTES = config('ITAM_MONITORING_ALERT_COOLDOWN_MINUTES', default=30, cast=int)
 ITAM_SLA_ETAPA_MINUTOS = config(
     'ITAM_SLA_ETAPA_MINUTOS',

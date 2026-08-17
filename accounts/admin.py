@@ -13,12 +13,22 @@ class UsuarioAdmin(UserAdmin):
     list_filter = ['nivel_acesso', 'site', 'ativo', 'solicitacao_pendente', 'exigir_troca_senha', 'is_superuser']
     search_fields = ['matricula', 'first_name', 'last_name', 'email']
     ordering = ['first_name', 'last_name', 'matricula']
-    readonly_fields = ['last_login', 'date_joined', 'aprovado_em', 'aprovado_por', 'created_at', 'updated_at']
+    readonly_fields = [
+        'last_login',
+        'date_joined',
+        'aprovado_em',
+        'aprovado_por',
+        'two_factor_enabled',
+        'two_factor_confirmed_at',
+        'created_at',
+        'updated_at',
+    ]
     fieldsets = (
         (None, {'fields': ('matricula', 'first_name', 'last_name', 'email', 'foto')}),
         ('Permissões', {'fields': ('nivel_acesso', 'ativo', 'solicitacao_pendente', 'exigir_troca_senha')}),
         ('Organização', {'fields': ('site', 'setor', 'andar_sala', 'gestor', 'contato')}),
         ('Aprovação', {'fields': ('aprovado_em', 'aprovado_por', 'motivo_recusa')}),
+        ('Segurança', {'fields': ('two_factor_enabled', 'two_factor_confirmed_at')}),
         ('Datas', {'fields': ('last_login', 'date_joined', 'created_at', 'updated_at')}),
     )
     add_fieldsets = (

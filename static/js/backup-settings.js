@@ -232,9 +232,13 @@
       return;
     }
 
+    document.body.appendChild(modalElement);
     const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     const manifestInput = form.querySelector('[data-restore-manifest-input]');
     const confirmationInput = form.querySelector('[data-restore-confirmation]');
+    const passwordInput = form.querySelector('[data-restore-password]');
+    const twoFactorInput = form.querySelector('[data-restore-two-factor]');
+    const errorOutput = form.querySelector('[data-restore-error]');
     const submitButton = form.querySelector('[data-restore-submit]');
     const dateOutput = form.querySelector('[data-restore-date]');
     const progressTitle = overlay.querySelector('[data-restore-progress-title]');
@@ -256,11 +260,23 @@
       manifestInput.value = trigger?.dataset.restoreManifest || '';
       dateOutput.textContent = trigger?.dataset.restoreDate || '';
       confirmationInput.value = '';
+      passwordInput.value = '';
+      twoFactorInput.value = '';
+      errorOutput.classList.add('d-none');
+      errorOutput.textContent = '';
       submitButton.disabled = true;
     });
 
-    confirmationInput.addEventListener('input', () => {
-      submitButton.disabled = confirmationInput.value.trim() !== 'RESTAURAR';
+    function updateRestoreButton() {
+      submitButton.disabled = !(
+        confirmationInput.value.trim() === 'RESTAURAR'
+        && passwordInput.value
+        && twoFactorInput.value.trim()
+      );
+    }
+
+    [confirmationInput, passwordInput, twoFactorInput].forEach((input) => {
+      input.addEventListener('input', updateRestoreButton);
     });
 
     async function pollRestore(statusUrl) {
@@ -305,6 +321,8 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      errorOutput.classList.add('d-none');
+      errorOutput.textContent = '';
       submitButton.disabled = true;
       submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Preparando';
 
@@ -329,19 +347,24 @@
         pollAttempts = 0;
         pollRestore(payload.status_url);
       } catch (error) {
-        submitButton.disabled = false;
+        updateRestoreButton();
         submitButton.innerHTML = '<i class="fa-solid fa-clock-rotate-left me-1"></i>Iniciar restauração';
-        confirmationInput.setCustomValidity(error.message);
-        confirmationInput.reportValidity();
-        confirmationInput.setCustomValidity('');
+        errorOutput.textContent = error.message;
+        errorOutput.classList.remove('d-none');
       }
     });
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function initializeBackupSettings() {
     initScheduleForm();
     initHistoryChart();
     initRunNow();
     initRestorePoints();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeBackupSettings, { once: true });
+  } else {
+    initializeBackupSettings();
+  }
 })();

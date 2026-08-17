@@ -66,6 +66,10 @@ class Command(BaseCommand):
                 erro('SESSION_COOKIE_SECURE precisa ficar True em producao.')
             if not getattr(settings, 'CSRF_COOKIE_SECURE', False):
                 erro('CSRF_COOKIE_SECURE precisa ficar True em producao.')
+            if not getattr(settings, 'ITAM_ADMIN_2FA_REQUIRED', False):
+                erro('ITAM_ADMIN_2FA_REQUIRED precisa ficar True em producao.')
+            if not getattr(settings, 'ITAM_TWO_FACTOR_ENCRYPTION_KEY', ''):
+                aviso('ITAM_TWO_FACTOR_ENCRYPTION_KEY nao foi definida; os segredos 2FA usarao a SECRET_KEY.')
         else:
             if not getattr(settings, 'REDIS_URL', ''):
                 aviso('REDIS_URL nao configurado. Celery/Channels vao usar fallback de desenvolvimento.')

@@ -95,6 +95,12 @@
                       Perfil
                     </a>
                   </li>
+                  <li>
+                    <a class="dropdown-item" href="{% url 'two_factor_settings' %}">
+                      <i class="fa-solid fa-shield-halved"></i>
+                      Segurança da conta
+                    </a>
+                  </li>
                   {% if request.user.is_admin %}
                     <li>
                       <a class="dropdown-item" href="{% url 'usuarios_pendentes' %}">
@@ -165,6 +171,8 @@
       <span>Experiência refinada, rastreabilidade e operação centralizada.</span>
     </div>
   </footer>
+
+  {% block body_overlays %}{% endblock %}
 
   <div class="notification-toast-stack" aria-live="polite" aria-atomic="true" data-notification-toast-stack></div>
 

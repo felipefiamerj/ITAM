@@ -2,21 +2,193 @@ import re
 import shutil
 import tempfile
 
+import pyotp
 from django.core import mail
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from accounts.models import NivelAcesso, Usuario
 from accounts.tokens import account_activation_token, password_recovery_token
+from accounts.two_factor import (
+    activate_two_factor,
+    decrypt_secret,
+    encrypt_secret,
+    generate_recovery_codes,
+    matching_totp_counter,
+    recovery_code_hashes,
+)
 
 GIF_1X1 = (
     b'GIF89a\x01\x00\x01\x00\x80\x01\x00\x00\x00\x00\xff\xff\xff!\xf9\x04'
     b'\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
 )
+
+
+@override_settings(ITAM_ADMIN_2FA_REQUIRED=True, ITAM_TWO_FACTOR_ENCRYPTION_KEY='test-two-factor-key')
+class AdminTwoFactorTests(TestCase):
+    password = 'SenhaAdminForte123!'
+
+    def setUp(self):
+        cache.clear()
+        self.admin = Usuario.objects.create_superuser(
+            matricula='2fa-admin',
+            password=self.password,
+            first_name='Admin',
+            last_name='Seguro',
+            email='admin@example.com',
+        )
+        self.viewer = Usuario.objects.create_user(
+            matricula='2fa-viewer',
+            password=self.password,
+            first_name='Pessoa',
+            last_name='Comum',
+        )
+
+    def _login_data(self, user):
+        return {
+            'form_type': 'login',
+            'login-username': user.matricula,
+            'login-password': self.password,
+        }
+
+    def _enable_admin_two_factor(self):
+        secret = pyotp.random_base32()
+        recovery_codes = generate_recovery_codes()
+        self.admin.two_factor_enabled = True
+        self.admin.two_factor_secret_encrypted = encrypt_secret(secret)
+        self.admin.two_factor_recovery_hashes = recovery_code_hashes(recovery_codes)
+        self.admin.two_factor_confirmed_at = timezone.now()
+        self.admin.save(
+            update_fields=[
+                'two_factor_enabled',
+                'two_factor_secret_encrypted',
+                'two_factor_recovery_hashes',
+                'two_factor_confirmed_at',
+                'updated_at',
+            ]
+        )
+        return secret, recovery_codes
+
+    def test_primeiro_login_admin_exige_configuracao(self):
+        response = self.client.post(reverse('login'), self._login_data(self.admin))
+
+        self.assertRedirects(response, reverse('two_factor_setup'), fetch_redirect_response=False)
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
+        self.assertTrue(self.client.session['two_factor_setup_required'])
+
+        blocked_response = self.client.get(reverse('dashboard'))
+        self.assertRedirects(blocked_response, reverse('two_factor_setup'), fetch_redirect_response=False)
+
+    def test_sessao_admin_anterior_a_atualizacao_tambem_exige_configuracao(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertRedirects(response, reverse('two_factor_setup'), fetch_redirect_response=False)
+
+    def test_sessao_admin_com_2fa_sem_desafio_e_encerrada(self):
+        self._enable_admin_two_factor()
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertRedirects(
+            response,
+            f'{reverse("login")}?next={reverse("dashboard")}',
+            fetch_redirect_response=False,
+        )
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_configuracao_criptografa_segredo_e_gera_recuperacao(self):
+        self.client.force_login(self.admin)
+        session = self.client.session
+        session['itam_interactive_login'] = True
+        session['two_factor_setup_required'] = True
+        session.save()
+        setup_response = self.client.get(reverse('two_factor_setup'))
+        secret = self.client.session['two_factor_setup_secret']
+        code = pyotp.TOTP(secret).now()
+
+        response = self.client.post(reverse('two_factor_setup'), {'code': code})
+
+        self.assertEqual(setup_response.status_code, 200)
+        self.assertContains(setup_response, 'data:image/png;base64,')
+        self.assertRedirects(response, reverse('two_factor_recovery_codes'), fetch_redirect_response=False)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.two_factor_enabled)
+        self.assertNotEqual(self.admin.two_factor_secret_encrypted, secret)
+        self.assertEqual(decrypt_secret(self.admin.two_factor_secret_encrypted), secret)
+        self.assertEqual(len(self.admin.two_factor_recovery_hashes), 8)
+        self.assertEqual(len(self.client.session['two_factor_new_recovery_codes']), 8)
+
+    def test_admin_com_2fa_so_recebe_sessao_depois_do_codigo(self):
+        secret, _recovery_codes = self._enable_admin_two_factor()
+
+        login_response = self.client.post(reverse('login'), self._login_data(self.admin))
+
+        self.assertRedirects(login_response, reverse('two_factor_challenge'), fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+        challenge_response = self.client.post(
+            reverse('two_factor_challenge'),
+            {'code': pyotp.TOTP(secret).now()},
+        )
+
+        self.assertRedirects(challenge_response, reverse('dashboard'), fetch_redirect_response=False)
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
+        self.assertEqual(self.client.session['two_factor_verified_user_id'], self.admin.pk)
+
+    def test_codigo_totp_nao_pode_ser_reutilizado(self):
+        secret, _recovery_codes = self._enable_admin_two_factor()
+        code = pyotp.TOTP(secret).now()
+        self.client.post(reverse('login'), self._login_data(self.admin))
+        first_response = self.client.post(reverse('two_factor_challenge'), {'code': code})
+        self.client.logout()
+        self.client.post(reverse('login'), self._login_data(self.admin))
+
+        replay_response = self.client.post(reverse('two_factor_challenge'), {'code': code})
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(replay_response.status_code, 200)
+        self.assertContains(replay_response, 'já utilizado')
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_codigo_de_recuperacao_funciona_uma_vez(self):
+        _secret, recovery_codes = self._enable_admin_two_factor()
+        recovery_code = recovery_codes[0]
+        self.client.post(reverse('login'), self._login_data(self.admin))
+
+        response = self.client.post(reverse('two_factor_challenge'), {'code': recovery_code})
+
+        self.assertRedirects(response, reverse('dashboard'), fetch_redirect_response=False)
+        self.admin.refresh_from_db()
+        self.assertEqual(len(self.admin.two_factor_recovery_hashes), 7)
+
+        self.client.logout()
+        self.client.post(reverse('login'), self._login_data(self.admin))
+        reused_response = self.client.post(reverse('two_factor_challenge'), {'code': recovery_code})
+        self.assertEqual(reused_response.status_code, 200)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_usuario_comum_continua_com_login_direto(self):
+        response = self.client.post(reverse('login'), self._login_data(self.viewer))
+
+        self.assertRedirects(response, reverse('dashboard'), fetch_redirect_response=False)
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.viewer.pk)
+
+    def test_ativacao_registra_contador_do_primeiro_codigo(self):
+        secret = pyotp.random_base32()
+        counter = matching_totp_counter(secret, pyotp.TOTP(secret).now())
+
+        activate_two_factor(self.admin, secret, counter)
+
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.two_factor_last_counter, counter)
 
 
 @override_settings(

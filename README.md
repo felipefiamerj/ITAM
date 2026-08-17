@@ -7,6 +7,7 @@ FIAME System é uma plataforma de gestão de ativos de TI e operações de supor
 O projeto oferece:
 
 - Autenticação via matrícula e senha.
+- Autenticação TOTP em dois fatores obrigatória para administradores, com códigos de recuperação.
 - Solicitações de acesso de novos usuários.
 - Aprovação de cadastros de usuários pelo administrador com link de primeiro acesso por e-mail.
 - Gestão de usuários com níveis de acesso (solicitante, técnico, analista, administrador).
@@ -102,6 +103,8 @@ python -m ruff check .
    - `CELERY_BROKER_URL=redis://127.0.0.1:6379/2`
    - `ITAM_API_SHARED_KEY_SHA256=...` para autenticar integracoes sem armazenar a chave em texto puro
      - Gere o hash com `python manage.py hash_api_key sua-chave-com-32-caracteres-ou-mais`
+   - `ITAM_ADMIN_2FA_REQUIRED=True` para exigir TOTP de administradores
+   - `ITAM_TWO_FACTOR_ENCRYPTION_KEY=...` para usar uma chave dedicada na criptografia dos segredos TOTP
 
 4. Inicie o Redis local com Docker Desktop:
 
@@ -180,7 +183,7 @@ Com chave de API configurada, valide tambem o contrato OpenAPI:
 .\scripts\rotate-logs.ps1
 ```
 
-O backup local inclui banco e arquivos persistentes de `media`, valida os arquivos gerados e remove copias com mais de 30 dias. QR Codes nao entram por padrao porque podem ser recriados com `python manage.py regenerar_qrcodes --force`. No Windows, o instalador cria uma tarefa diaria e executa o backup assim que possivel quando o computador estiver desligado no horario programado.
+O backup local inclui banco e arquivos persistentes de `media`, valida os arquivos gerados e remove copias com mais de 30 dias. QR Codes nao entram por padrao porque podem ser recriados com `python manage.py regenerar_qrcodes --force`. No Windows, o instalador cria uma tarefa diaria e executa o backup assim que possivel quando o computador estiver desligado no horario programado. Pela interface, a restauracao exige a palavra de confirmacao, a senha atual e um codigo 2FA valido.
 
 - Para subir ASGI e as automacoes no Windows, inicie o Redis e depois use os scripts em `scripts/`:
 

@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode, urlsafe_base64_encode
+from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 
 from chamados.models import Chamado
@@ -23,15 +24,29 @@ from notifications.services import notificar_admins, notificar_usuario
 
 from .forms import (
     LoginForm,
+    SensitiveActionConfirmationForm,
     SolicitacaoAcessoForm,
     SolicitacaoRecuperacaoSenhaForm,
     TrocaSenhaInicialForm,
+    TwoFactorCodeForm,
     UsuarioApprovalForm,
     UsuarioCreateForm,
     UsuarioUpdateForm,
 )
 from .models import NivelAcesso, Usuario
 from .tokens import account_activation_token, password_recovery_token
+from .two_factor import (
+    activate_two_factor,
+    generate_secret,
+    matching_totp_counter,
+    provisioning_uri,
+    qr_code_data_url,
+    regenerate_recovery_codes,
+    two_factor_required_for,
+    verify_two_factor_credential,
+)
+
+TWO_FACTOR_PENDING_MAX_AGE_SECONDS = 10 * 60
 
 
 def _safe_next_url(request, next_url):
@@ -201,6 +216,47 @@ def _redirect_after_login(request, usuario):
     return redirect(_home_url_name(usuario))
 
 
+def _mark_interactive_login(request, usuario, *, two_factor_verified=False):
+    request.session['itam_interactive_login'] = True
+    if two_factor_verified:
+        request.session['two_factor_verified_user_id'] = usuario.pk
+        request.session['two_factor_verified_at'] = timezone.now().isoformat()
+    else:
+        request.session.pop('two_factor_verified_user_id', None)
+        request.session.pop('two_factor_verified_at', None)
+
+
+def _pending_login_next(request):
+    return _safe_next_url(request, request.GET.get('next'))
+
+
+def _begin_two_factor_login(request, usuario):
+    request.session['two_factor_pending_login'] = {
+        'user_id': usuario.pk,
+        'backend': 'accounts.backends.MatriculaBackend',
+        'next_url': _pending_login_next(request) or '',
+        'created_at': timezone.now().timestamp(),
+    }
+    request.session.cycle_key()
+
+
+def _pending_two_factor_login(request):
+    pending = request.session.get('two_factor_pending_login') or {}
+    try:
+        created_at = float(pending['created_at'])
+        user_id = int(pending['user_id'])
+    except (KeyError, TypeError, ValueError):
+        return None, None
+    if timezone.now().timestamp() - created_at > TWO_FACTOR_PENDING_MAX_AGE_SECONDS:
+        request.session.pop('two_factor_pending_login', None)
+        return None, None
+    usuario = Usuario.objects.filter(pk=user_id, ativo=True, solicitacao_pendente=False).first()
+    if not usuario or not usuario.two_factor_enabled:
+        request.session.pop('two_factor_pending_login', None)
+        return None, None
+    return usuario, pending
+
+
 def _aplicar_filtros_usuarios(qs, q=None, status=None):
     if q:
         qs = qs.filter(
@@ -263,7 +319,27 @@ def login_view(request):
                 return redirect('login')
         elif login_form.is_valid():
             usuario = login_form.get_user()
+            if usuario.exigir_troca_senha:
+                login(request, usuario, backend='accounts.backends.MatriculaBackend')
+                _mark_interactive_login(request, usuario)
+                if two_factor_required_for(usuario) and not usuario.two_factor_enabled:
+                    request.session['two_factor_setup_required'] = True
+                messages.success(request, f'Bem-vindo, {usuario.first_name or usuario.matricula}!')
+                return _redirect_after_login(request, usuario)
+
+            if usuario.two_factor_enabled:
+                _begin_two_factor_login(request, usuario)
+                return redirect('two_factor_challenge')
+
             login(request, usuario, backend='accounts.backends.MatriculaBackend')
+            _mark_interactive_login(request, usuario)
+            if two_factor_required_for(usuario):
+                request.session['two_factor_setup_required'] = True
+                next_url = _pending_login_next(request)
+                if next_url:
+                    request.session['post_two_factor_next'] = next_url
+                messages.info(request, 'Configure a autenticação em dois fatores para liberar o acesso administrativo.')
+                return redirect('two_factor_setup')
             messages.success(request, f'Bem-vindo, {usuario.first_name or usuario.matricula}!')
             return _redirect_after_login(request, usuario)
         else:
@@ -595,6 +671,17 @@ def trocar_senha_inicial(request):
         usuario.save(update_fields=['exigir_troca_senha', 'updated_at'])
         update_session_auth_hash(request, usuario)
         next_url = _safe_next_url(request, request.session.pop('post_password_change_next', None))
+        if usuario.two_factor_enabled:
+            logout(request)
+            messages.success(request, 'Senha alterada. Entre novamente e confirme o código de segurança.')
+            login_url = reverse('login')
+            return redirect(f'{login_url}?next={next_url}' if next_url else login_url)
+        if two_factor_required_for(usuario):
+            request.session['two_factor_setup_required'] = True
+            if next_url:
+                request.session['post_two_factor_next'] = next_url
+            messages.success(request, 'Senha alterada. Agora configure a autenticação em dois fatores.')
+            return redirect('two_factor_setup')
         messages.success(request, 'Senha alterada com sucesso. Seu acesso está liberado.')
         return redirect(next_url or _home_url_name(usuario))
 
@@ -717,5 +804,126 @@ def perfil_usuario(request, pk=None):
             'usuario': usuario,
             'equipamentos': equipamentos,
             'historico': historico,
+            'two_factor_required': two_factor_required_for(usuario),
+        },
+    )
+
+
+@never_cache
+@_bypassable_ratelimit(key=_rate_limit_key, rate='8/m', method='POST', block=True)
+def two_factor_challenge(request):
+    if request.user.is_authenticated:
+        return redirect(_home_url_name(request.user))
+
+    usuario, pending = _pending_two_factor_login(request)
+    if not usuario:
+        messages.error(request, 'A confirmação de acesso expirou. Entre novamente.')
+        return redirect('login')
+
+    form = TwoFactorCodeForm(request.POST or None)
+    if form.is_valid():
+        credential_type = verify_two_factor_credential(usuario, form.cleaned_data['code'], consume=True)
+        if credential_type:
+            request.session.pop('two_factor_pending_login', None)
+            login(request, usuario, backend=pending.get('backend') or 'accounts.backends.MatriculaBackend')
+            _mark_interactive_login(request, usuario, two_factor_verified=True)
+            if credential_type == 'recovery':
+                messages.warning(
+                    request,
+                    f'Código de recuperação utilizado. Restam {len(usuario.two_factor_recovery_hashes)} código(s).',
+                )
+            else:
+                messages.success(request, f'Bem-vindo, {usuario.first_name or usuario.matricula}!')
+            next_url = _safe_next_url(request, pending.get('next_url'))
+            return redirect(next_url or _home_url_name(usuario))
+        form.add_error('code', 'Código inválido ou já utilizado.')
+
+    return render(request, 'accounts/two_factor_challenge.html', {'form': form, 'usuario': usuario})
+
+
+@never_cache
+@login_required
+def two_factor_setup(request):
+    if request.user.two_factor_enabled:
+        request.session.pop('two_factor_setup_required', None)
+        return redirect('two_factor_settings')
+
+    secret = request.session.get('two_factor_setup_secret')
+    if not secret:
+        secret = generate_secret()
+        request.session['two_factor_setup_secret'] = secret
+
+    form = TwoFactorCodeForm(request.POST or None)
+    if form.is_valid():
+        counter = matching_totp_counter(secret, form.cleaned_data['code'])
+        if counter is None:
+            form.add_error('code', 'O código não confere. Verifique o horário do celular e tente novamente.')
+        else:
+            recovery_codes = activate_two_factor(request.user, secret, counter)
+            request.session.pop('two_factor_setup_secret', None)
+            request.session.pop('two_factor_setup_required', None)
+            request.session['two_factor_new_recovery_codes'] = recovery_codes
+            _mark_interactive_login(request, request.user, two_factor_verified=True)
+            notificar_usuario(
+                request.user,
+                'Autenticação em dois fatores ativada',
+                'Sua conta passou a exigir um código adicional nos próximos acessos.',
+                link=reverse('two_factor_settings'),
+            )
+            messages.success(request, 'Autenticação em dois fatores ativada.')
+            return redirect('two_factor_recovery_codes')
+
+    uri = provisioning_uri(secret, request.user)
+    return render(
+        request,
+        'accounts/two_factor_setup.html',
+        {
+            'form': form,
+            'qr_code_data_url': qr_code_data_url(uri),
+            'manual_secret': secret,
+            'required': two_factor_required_for(request.user),
+        },
+    )
+
+
+@never_cache
+@login_required
+def two_factor_recovery_codes(request):
+    codes = request.session.get('two_factor_new_recovery_codes') or []
+    if not codes:
+        return redirect('two_factor_settings')
+    if request.method == 'POST':
+        request.session.pop('two_factor_new_recovery_codes', None)
+        next_url = _safe_next_url(request, request.session.pop('post_two_factor_next', None))
+        return redirect(next_url or 'two_factor_settings')
+    return render(request, 'accounts/two_factor_recovery_codes.html', {'recovery_codes': codes})
+
+
+@never_cache
+@login_required
+def two_factor_settings(request):
+    if not request.user.two_factor_enabled:
+        return redirect('two_factor_setup')
+
+    form = SensitiveActionConfirmationForm(request.POST or None, user=request.user)
+    if request.method == 'POST' and request.POST.get('action') == 'regenerate' and form.is_valid():
+        recovery_codes = regenerate_recovery_codes(request.user)
+        request.session['two_factor_new_recovery_codes'] = recovery_codes
+        notificar_usuario(
+            request.user,
+            'Códigos de recuperação substituídos',
+            'Os códigos anteriores foram invalidados.',
+            link=reverse('two_factor_settings'),
+        )
+        messages.success(request, 'Novos códigos de recuperação gerados. Os anteriores foram invalidados.')
+        return redirect('two_factor_recovery_codes')
+
+    return render(
+        request,
+        'accounts/two_factor_settings.html',
+        {
+            'form': form,
+            'recovery_codes_remaining': len(request.user.two_factor_recovery_hashes or []),
+            'required': two_factor_required_for(request.user),
         },
     )

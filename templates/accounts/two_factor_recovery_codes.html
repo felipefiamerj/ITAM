@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Códigos de recuperação | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface mb-4">
+  <div>
+    <div class="hero-kicker"><i class="fa-solid fa-key"></i> Recuperação de acesso</div>
+    <h1 class="hero-title mb-2">Códigos de recuperação</h1>
+    <p class="hero-text mb-0">Cada código funciona uma única vez quando o aplicativo autenticador não estiver disponível.</p>
+  </div>
+</section>
+
+<section class="card app-card two-factor-recovery-card">
+  <div class="card-body">
+    <div class="alert alert-warning app-alert">
+      <i class="fa-solid fa-triangle-exclamation me-2"></i>Esta é a única exibição dos códigos atuais.
+    </div>
+    <div class="two-factor-code-grid" aria-label="Códigos de recuperação">
+      {% for code in recovery_codes %}<code>{{ code }}</code>{% endfor %}
+    </div>
+    <form method="post" class="mt-4">
+      {% csrf_token %}
+      <button class="btn btn-primary" type="submit">
+        <i class="fa-solid fa-check me-1"></i>Concluir
+      </button>
+    </form>
+  </div>
+</section>
+{% endblock %}

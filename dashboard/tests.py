@@ -8,6 +8,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pyotp
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import CommandError, call_command
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -15,6 +16,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import NivelAcesso, Usuario
+from accounts.two_factor import encrypt_secret
 from chamados.models import Chamado, StatusChamado
 from equipamentos.models import (
     AgenteMonitoramento,
@@ -140,6 +142,21 @@ class BackupConfigurationViewTests(TestCase):
             last_name='Backup',
         )
 
+    def _enable_admin_two_factor(self):
+        secret = pyotp.random_base32()
+        self.admin.two_factor_enabled = True
+        self.admin.two_factor_secret_encrypted = encrypt_secret(secret)
+        self.admin.two_factor_confirmed_at = timezone.now()
+        self.admin.save(
+            update_fields=[
+                'two_factor_enabled',
+                'two_factor_secret_encrypted',
+                'two_factor_confirmed_at',
+                'updated_at',
+            ]
+        )
+        return secret
+
     @patch('dashboard.views.get_backup_task_status', return_value=BackupTaskStatus(installed=True))
     @patch('dashboard.views.list_backup_sets', return_value=[])
     def test_admin_acessa_painel(self, _mock_sets, _mock_status):
@@ -252,6 +269,7 @@ class BackupConfigurationViewTests(TestCase):
     @patch('dashboard.views.start_restore_point', return_value=uuid.UUID('11111111-1111-1111-1111-111111111111'))
     def test_administrador_inicia_ponto_de_restauracao(self, mock_start):
         configuration = BackupConfiguration.load()
+        secret = self._enable_admin_two_factor()
         self.client.force_login(self.admin)
 
         response = self.client.post(
@@ -260,6 +278,8 @@ class BackupConfigurationViewTests(TestCase):
                 'action': 'restore',
                 'manifest': 'itam-backup-20260812-120000.manifest.txt',
                 'confirmation': 'RESTAURAR',
+                'current_password': 'test12345',
+                'two_factor_code': pyotp.TOTP(secret).now(),
             },
         )
 
@@ -270,7 +290,66 @@ class BackupConfigurationViewTests(TestCase):
             'itam-backup-20260812-120000.manifest.txt',
             retention_days=configuration.retention_days,
             schedule_times=configuration.schedule_times,
+            initiated_by=self.admin.matricula,
         )
+
+    @patch('dashboard.views.start_restore_point')
+    def test_restauracao_bloqueia_admin_sem_2fa(self, mock_start):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('backup_configuration'),
+            {
+                'action': 'restore',
+                'manifest': 'itam-backup-20260812-120000.manifest.txt',
+                'confirmation': 'RESTAURAR',
+                'current_password': 'test12345',
+                'two_factor_code': '123456',
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('Ative', response.json()['error'])
+        mock_start.assert_not_called()
+
+    @patch('dashboard.views.start_restore_point')
+    def test_restauracao_rejeita_senha_incorreta(self, mock_start):
+        secret = self._enable_admin_two_factor()
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('backup_configuration'),
+            {
+                'action': 'restore',
+                'manifest': 'itam-backup-20260812-120000.manifest.txt',
+                'confirmation': 'RESTAURAR',
+                'current_password': 'senha-incorreta',
+                'two_factor_code': pyotp.TOTP(secret).now(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('inválido', response.json()['error'])
+        mock_start.assert_not_called()
+
+    def test_status_restauracao_exige_autenticacao(self):
+        operation_id = uuid.UUID('11111111-1111-1111-1111-111111111111')
+
+        response = self.client.get(reverse('restore_status', args=[operation_id]))
+
+        self.assertRedirects(
+            response,
+            f'{reverse("login")}?next={reverse("restore_status", args=[operation_id])}',
+            fetch_redirect_response=False,
+        )
+
+    def test_status_restauracao_bloqueia_solicitante(self):
+        operation_id = uuid.UUID('11111111-1111-1111-1111-111111111111')
+        self.client.force_login(self.viewer)
+
+        response = self.client.get(reverse('restore_status', args=[operation_id]))
+
+        self.assertEqual(response.status_code, 403)
 
 
 class RestorePointIntegrityTests(SimpleTestCase):

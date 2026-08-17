@@ -47,6 +47,28 @@
         </ul>
       </div>
     </div>
+    {% if request.user.pk == usuario.pk %}
+      <div class="card app-card mt-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="section-kicker">Segurança</div>
+              <h2 class="h5 mb-0">Autenticação em dois fatores</h2>
+            </div>
+            {% if usuario.two_factor_enabled %}
+              <span class="badge text-bg-success-subtle text-success-emphasis">Ativa</span>
+            {% elif two_factor_required %}
+              <span class="badge text-bg-warning-subtle text-warning-emphasis">Obrigatória</span>
+            {% else %}
+              <span class="badge badge-soft">Inativa</span>
+            {% endif %}
+          </div>
+          <a class="btn btn-outline-primary w-100" href="{% url 'two_factor_settings' %}">
+            <i class="fa-solid fa-shield-halved me-1"></i>Gerenciar segurança
+          </a>
+        </div>
+      </div>
+    {% endif %}
   </div>
 
   <div class="col-lg-8">

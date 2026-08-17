@@ -7,7 +7,8 @@ param(
   [ValidateRange(1, 30)]
   [int]$RetentionDays = 30,
   [Parameter(Mandatory = $true)]
-  [string]$Times
+  [string]$Times,
+  [string]$InitiatedBy = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,6 +29,7 @@ function Write-RestoreStatus {
     status = $Status
     stage = $Stage
     message = $Message
+    initiated_by = $InitiatedBy
     updated_at = (Get-Date).ToString('o')
   } | ConvertTo-Json -Compress | Set-Content -LiteralPath $temporaryFile -Encoding UTF8
   Move-Item -LiteralPath $temporaryFile -Destination $StatusFile -Force

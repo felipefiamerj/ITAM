@@ -336,7 +336,7 @@ def _has_active_restore():
     return False
 
 
-def start_restore_point(manifest_name, retention_days, schedule_times):
+def start_restore_point(manifest_name, retention_days, schedule_times, initiated_by=''):
     if _has_active_restore():
         raise BackupOperationError('Ja existe uma restauracao em andamento.')
     task_status = get_backup_task_status()
@@ -354,6 +354,7 @@ def start_restore_point(manifest_name, retention_days, schedule_times):
                 'status': 'queued',
                 'stage': 'queued',
                 'message': 'Restauracao preparada.',
+                'initiated_by': str(initiated_by or ''),
                 'updated_at': timezone.now().isoformat(),
             }
         ),
@@ -376,6 +377,8 @@ def start_restore_point(manifest_name, retention_days, schedule_times):
         str(retention_days),
         '-Times',
         ','.join(schedule_times),
+        '-InitiatedBy',
+        str(initiated_by or ''),
     ]
     if files.get('media'):
         command.extend(['-MediaBackup', str(files['media'])])
