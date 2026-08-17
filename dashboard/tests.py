@@ -18,6 +18,7 @@ from accounts.models import NivelAcesso, Usuario
 from chamados.models import Chamado, StatusChamado
 from equipamentos.models import (
     AgenteMonitoramento,
+    DivergenciaInventario,
     EntradaLote,
     Equipamento,
     StatusEquipamento,
@@ -377,6 +378,36 @@ class SystemHealthServiceTests(TestCase):
         self.assertEqual(diagnostic.status, SystemHealthStatus.CRITICAL)
         self.assertEqual(diagnostic.details['stale_assets'], ['MON-002'])
 
+    def test_telemetria_inclui_detalhes_da_divergencia_e_do_ultimo_heartbeat(self):
+        agente = AgenteMonitoramento.objects.create(nome='Agente inventario')
+        equipamento = Equipamento.objects.create(
+            id_patrimonio='MON-003',
+            tipo='notebook_padrao',
+            numero_serie='SERIE-CADASTRO',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.ONLINE,
+            last_seen_at=timezone.now(),
+            last_telemetria_agente=agente,
+        )
+        DivergenciaInventario.objects.create(
+            equipamento=equipamento,
+            campo='serial',
+            valor_cadastrado='SERIE-CADASTRO',
+            valor_detectado='SERIE-AGENTE',
+        )
+
+        diagnostic = _telemetry_diagnostic()
+
+        self.assertEqual(diagnostic.status, SystemHealthStatus.WARNING)
+        self.assertEqual(diagnostic.details['last_heartbeat_asset'], 'MON-003')
+        self.assertEqual(diagnostic.details['last_heartbeat_agent'], 'Agente inventario')
+        divergence = diagnostic.details['divergences'][0]
+        self.assertEqual(divergence['asset_id'], 'MON-003')
+        self.assertEqual(divergence['field_label'], 'Serial')
+        self.assertEqual(divergence['registered_value'], 'SERIE-CADASTRO')
+        self.assertEqual(divergence['detected_value'], 'SERIE-AGENTE')
+        self.assertTrue(divergence['checked_at'])
+
     @patch('dashboard.health_service.notificar_admins')
     def test_notifica_falha_uma_vez_e_recuperacao_uma_vez(self, mock_notify):
         failure = HealthDiagnostic(
@@ -527,6 +558,38 @@ class SystemHealthViewTests(TestCase):
         self.assertContains(response, 'Saúde do sistema')
         self.assertContains(response, 'Banco de dados')
         self.assertContains(response, 'Registrar teste de restauração')
+
+    @patch('dashboard.views.perform_system_health_checks')
+    @patch('dashboard.views.list_backup_sets', return_value=[])
+    def test_central_mostra_heartbeat_e_divergencia_completa(self, _mock_backups, mock_checks):
+        mock_checks.return_value = self.components
+        agente = AgenteMonitoramento.objects.create(nome='Agente Windows')
+        equipamento = Equipamento.objects.create(
+            id_patrimonio='MON-004',
+            tipo='notebook_padrao',
+            numero_serie='SERIE-CADASTRO',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.ONLINE,
+            last_seen_at=self.now,
+            last_telemetria_agente=agente,
+        )
+        DivergenciaInventario.objects.create(
+            equipamento=equipamento,
+            campo='serial',
+            valor_cadastrado='SERIE-CADASTRO',
+            valor_detectado='SERIE-AGENTE',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('system_health'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Agentes e heartbeats')
+        self.assertContains(response, 'MON-004')
+        self.assertContains(response, 'Agente Windows')
+        self.assertContains(response, timezone.localtime(self.now).strftime('%d/%m/%Y %H:%M:%S'))
+        self.assertContains(response, 'SERIE-CADASTRO')
+        self.assertContains(response, 'SERIE-AGENTE')
 
     @patch('dashboard.views.perform_system_health_checks')
     @patch('dashboard.views.list_backup_sets', return_value=[])

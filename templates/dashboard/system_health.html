@@ -68,6 +68,80 @@
   {% endfor %}
 </div>
 
+<section class="health-telemetry mb-4" aria-labelledby="health-telemetry-title">
+  <div class="health-telemetry-header">
+    <div>
+      <div class="section-kicker mb-2">Inventário automático</div>
+      <h2 class="h5 mb-0" id="health-telemetry-title">Agentes e heartbeats</h2>
+    </div>
+    <div class="health-telemetry-counts">
+      <span><strong>{{ telemetry.monitored_count }}</strong> monitorado(s)</span>
+      <span class="{% if telemetry.divergence_count %}text-warning-emphasis{% endif %}"><strong>{{ telemetry.divergence_count }}</strong> divergência(s)</span>
+    </div>
+  </div>
+  <div class="health-telemetry-layout">
+    <div class="health-telemetry-assets">
+      <div class="health-subsection-head">
+        <div>
+          <strong>Último sinal por equipamento</strong>
+          <span>Janela esperada: {{ telemetry.stale_minutes }} minutos</span>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+          <thead>
+            <tr><th>Patrimônio</th><th>Agente</th><th>Estado</th><th>Último heartbeat</th></tr>
+          </thead>
+          <tbody>
+            {% for asset in telemetry.assets %}
+              <tr>
+                <td data-label="Patrimônio"><a class="fw-semibold" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}">{{ asset.equipment.id_patrimonio }}</a></td>
+                <td data-label="Agente">{{ asset.equipment.last_telemetria_agente.nome|default:"-" }}</td>
+                <td data-label="Estado">
+                  <span class="health-status health-status-{{ asset.heartbeat_status }}">
+                    <span aria-hidden="true"></span>{{ asset.heartbeat_label }}
+                  </span>
+                </td>
+                <td data-label="Último heartbeat" class="text-nowrap">{{ asset.equipment.last_seen_at|date:"d/m/Y H:i:s"|default:"Nunca" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center py-4 text-muted">Nenhum equipamento monitorado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="health-divergence-panel">
+      <div class="health-subsection-head">
+        <div>
+          <strong>Divergências ativas</strong>
+          <span>Cadastro comparado com a leitura do agente</span>
+        </div>
+      </div>
+      <div class="health-divergence-list">
+        {% for divergence in telemetry.divergences %}
+          <article class="health-divergence-item">
+            <div class="health-divergence-title">
+              <a href="{% url 'detalhe_equipamento' divergence.equipamento.id_patrimonio %}">{{ divergence.equipamento.id_patrimonio }}</a>
+              <span>{{ divergence.get_campo_display }}</span>
+            </div>
+            <dl>
+              <div><dt>Cadastro</dt><dd>{{ divergence.valor_cadastrado|default:"-" }}</dd></div>
+              <div><dt>Agente</dt><dd>{{ divergence.valor_detectado|default:"-" }}</dd></div>
+            </dl>
+            <div class="health-divergence-time">Conferido em {{ divergence.ultima_verificacao_em|date:"d/m/Y H:i:s" }}</div>
+          </article>
+        {% empty %}
+          <div class="health-empty-state">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span>Cadastro e agente estão de acordo.</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
 <div class="row g-4 mb-4">
   <div class="col-xl-8">
     <section class="card app-card h-100" aria-labelledby="health-chart-title">

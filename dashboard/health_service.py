@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connections, transaction
-from django.db.models import Max, Q
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -139,8 +139,26 @@ def _telemetry_diagnostic():
         monitoramento_status=StatusMonitoramento.ALERTA,
         last_seen_at__gte=cutoff,
     ).count()
-    divergence_count = DivergenciaInventario.objects.filter(ativa=True).count()
-    last_heartbeat_at = monitored.aggregate(value=Max('last_seen_at'))['value']
+    active_divergences = DivergenciaInventario.objects.filter(ativa=True).select_related('equipamento')
+    divergence_count = active_divergences.count()
+    divergence_items = [
+        {
+            'asset_id': divergence.equipamento.id_patrimonio,
+            'field': divergence.campo,
+            'field_label': divergence.get_campo_display(),
+            'registered_value': divergence.valor_cadastrado,
+            'detected_value': divergence.valor_detectado,
+            'checked_at': divergence.ultima_verificacao_em.isoformat(),
+        }
+        for divergence in active_divergences.order_by('-ultima_verificacao_em')[:10]
+    ]
+    latest_asset = (
+        monitored.exclude(last_seen_at__isnull=True)
+        .select_related('last_telemetria_agente')
+        .order_by('-last_seen_at')
+        .first()
+    )
+    last_heartbeat_at = latest_asset.last_seen_at if latest_asset else None
     stale_assets = list(stale.order_by('last_seen_at').values_list('id_patrimonio', flat=True)[:10])
     details = {
         'monitored_count': monitored_count,
@@ -149,7 +167,14 @@ def _telemetry_diagnostic():
         'stale_count': stale_count,
         'active_agent_count': active_agent_count,
         'divergence_count': divergence_count,
+        'divergences': divergence_items,
         'last_heartbeat_at': last_heartbeat_at.isoformat() if last_heartbeat_at else '',
+        'last_heartbeat_asset': latest_asset.id_patrimonio if latest_asset else '',
+        'last_heartbeat_agent': (
+            latest_asset.last_telemetria_agente.nome
+            if latest_asset and latest_asset.last_telemetria_agente
+            else ''
+        ),
         'stale_minutes': stale_minutes,
         'stale_assets': stale_assets,
     }

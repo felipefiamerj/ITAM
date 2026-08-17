@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import timedelta
 
 from auditlog.models import LogEntry
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
@@ -14,7 +15,7 @@ from django.utils.dateparse import parse_datetime
 from accounts.models import Usuario
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
 from chamados.views import painel_tecnico as painel_tecnico_view
-from equipamentos.models import Equipamento, StatusEquipamento
+from equipamentos.models import DivergenciaInventario, Equipamento, StatusEquipamento, StatusMonitoramento
 from estoque.models import reservas_ativas_queryset
 from estoque.views import estoque_view as estoque_workspace_view
 from itam.charting import build_choice_chart
@@ -529,6 +530,15 @@ def _health_component_cards(components):
                 f'{details.get("online_count", 0)}/{details.get("monitored_count", 0)} online',
                 f'{details.get("active_agent_count", 0)} agente(s) ativo(s)',
             ]
+            last_heartbeat_at = parse_datetime(details.get('last_heartbeat_at', ''))
+            if last_heartbeat_at:
+                if timezone.is_naive(last_heartbeat_at):
+                    last_heartbeat_at = timezone.make_aware(last_heartbeat_at, timezone.get_current_timezone())
+                heartbeat_label = timezone.localtime(last_heartbeat_at).strftime('%d/%m/%Y %H:%M:%S')
+                heartbeat_asset = details.get('last_heartbeat_asset')
+                if heartbeat_asset:
+                    heartbeat_label += f' - {heartbeat_asset}'
+                detail_lines.append(f'Último heartbeat: {heartbeat_label}')
             if details.get('divergence_count'):
                 detail_lines.append(f'{details["divergence_count"]} divergencia(s) de inventario')
             if details.get('stale_assets'):
@@ -550,6 +560,53 @@ def _health_component_cards(components):
             }
         )
     return cards
+
+
+def _health_telemetry_context():
+    stale_minutes = getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10)
+    cutoff = timezone.now() - timedelta(minutes=stale_minutes)
+    monitored = list(
+        Equipamento.objects.filter(monitoramento_ativo=True)
+        .select_related('last_telemetria_agente')
+        .order_by('-last_seen_at', 'id_patrimonio')[:50]
+    )
+    assets = []
+    for equipment in monitored:
+        if equipment.last_seen_at is None:
+            heartbeat_status = SystemHealthStatus.CRITICAL
+            heartbeat_label = 'Nunca recebido'
+        elif equipment.last_seen_at < cutoff or equipment.monitoramento_status == StatusMonitoramento.OFFLINE:
+            heartbeat_status = SystemHealthStatus.CRITICAL
+            heartbeat_label = 'Sem sinal'
+        elif equipment.monitoramento_status == StatusMonitoramento.ALERTA:
+            heartbeat_status = SystemHealthStatus.WARNING
+            heartbeat_label = 'Alerta'
+        elif equipment.monitoramento_status == StatusMonitoramento.ONLINE:
+            heartbeat_status = SystemHealthStatus.HEALTHY
+            heartbeat_label = 'Online'
+        else:
+            heartbeat_status = SystemHealthStatus.UNKNOWN
+            heartbeat_label = 'Sem status'
+        assets.append(
+            {
+                'equipment': equipment,
+                'heartbeat_status': heartbeat_status,
+                'heartbeat_label': heartbeat_label,
+            }
+        )
+
+    divergences = list(
+        DivergenciaInventario.objects.filter(ativa=True)
+        .select_related('equipamento')
+        .order_by('-ultima_verificacao_em')[:50]
+    )
+    return {
+        'assets': assets,
+        'monitored_count': Equipamento.objects.filter(monitoramento_ativo=True).count(),
+        'divergences': divergences,
+        'divergence_count': DivergenciaInventario.objects.filter(ativa=True).count(),
+        'stale_minutes': stale_minutes,
+    }
 
 
 def _health_chart(events):
@@ -635,6 +692,7 @@ def system_health_view(request):
         'last_checked_at': last_checked_at,
         'events': events[:20],
         'health_chart': _health_chart(events),
+        'telemetry': _health_telemetry_context(),
         'restore_validations': RestoreValidation.objects.select_related('recorded_by')[:10],
         'restore_form': restore_form,
         'has_restore_points': bool(backup_sets),
