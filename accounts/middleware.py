@@ -3,6 +3,8 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
 
+from .two_factor import is_trusted_device
+
 
 class ForcePasswordChangeMiddleware:
     def __init__(self, get_response):
@@ -69,6 +71,9 @@ class ForceAdminTwoFactorSetupMiddleware:
         if not user.two_factor_enabled:
             return redirect('two_factor_setup')
         if request.session.get('two_factor_verified_user_id') != user.pk:
+            if is_trusted_device(request, user):
+                request.session['two_factor_verified_user_id'] = user.pk
+                return None
             logout(request)
             return redirect(f'{reverse("login")}?next={path}')
         return None

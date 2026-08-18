@@ -8,16 +8,75 @@ import pyotp
 import qrcode
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
+from django.core import signing
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare, salted_hmac
 
 RECOVERY_CODE_COUNT = 8
 RECOVERY_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
+TRUSTED_DEVICE_COOKIE = 'itam_2fa_trusted'
+TRUSTED_DEVICE_SALT = 'accounts.two_factor.trusted_device'
 
 
 def two_factor_required_for(user):
     return bool(getattr(settings, 'ITAM_ADMIN_2FA_REQUIRED', True) and getattr(user, 'is_admin', False))
+
+
+def trusted_device_max_age():
+    days = max(1, min(365, int(getattr(settings, 'ITAM_TWO_FACTOR_TRUST_DAYS', 30))))
+    return days * 24 * 60 * 60
+
+
+def _trusted_device_payload(user):
+    confirmed_at = user.two_factor_confirmed_at.isoformat() if user.two_factor_confirmed_at else ''
+    return {
+        'user_id': user.pk,
+        'password': user.password,
+        'confirmed_at': confirmed_at,
+    }
+
+
+def trusted_device_cookie_value(user):
+    return signing.dumps(_trusted_device_payload(user), salt=TRUSTED_DEVICE_SALT, compress=True)
+
+
+def is_trusted_device(request, user):
+    if not user.two_factor_enabled:
+        return False
+    cookie_value = request.COOKIES.get(TRUSTED_DEVICE_COOKIE)
+    if not cookie_value:
+        return False
+    try:
+        payload = signing.loads(cookie_value, salt=TRUSTED_DEVICE_SALT, max_age=trusted_device_max_age())
+    except signing.BadSignature:
+        return False
+    expected = _trusted_device_payload(user)
+    return (
+        payload.get('user_id') == expected['user_id']
+        and constant_time_compare(str(payload.get('password', '')), expected['password'])
+        and constant_time_compare(str(payload.get('confirmed_at', '')), expected['confirmed_at'])
+    )
+
+
+def trust_device_response(response, user):
+    response.set_cookie(
+        TRUSTED_DEVICE_COOKIE,
+        trusted_device_cookie_value(user),
+        max_age=trusted_device_max_age(),
+        httponly=True,
+        secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+        samesite=getattr(settings, 'SESSION_COOKIE_SAMESITE', 'Lax') or 'Lax',
+    )
+    return response
+
+
+def forget_trusted_device_response(response):
+    response.delete_cookie(
+        TRUSTED_DEVICE_COOKIE,
+        samesite=getattr(settings, 'SESSION_COOKIE_SAMESITE', 'Lax') or 'Lax',
+    )
+    return response
 
 
 def generate_secret():

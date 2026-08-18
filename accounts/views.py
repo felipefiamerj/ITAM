@@ -38,10 +38,12 @@ from .tokens import account_activation_token, password_recovery_token
 from .two_factor import (
     activate_two_factor,
     generate_secret,
+    is_trusted_device,
     matching_totp_counter,
     provisioning_uri,
     qr_code_data_url,
     regenerate_recovery_codes,
+    trust_device_response,
     two_factor_required_for,
     verify_two_factor_credential,
 )
@@ -327,13 +329,13 @@ def login_view(request):
                 messages.success(request, f'Bem-vindo, {usuario.first_name or usuario.matricula}!')
                 return _redirect_after_login(request, usuario)
 
-            if usuario.two_factor_enabled:
+            if usuario.two_factor_enabled and not is_trusted_device(request, usuario):
                 _begin_two_factor_login(request, usuario)
                 return redirect('two_factor_challenge')
 
             login(request, usuario, backend='accounts.backends.MatriculaBackend')
-            _mark_interactive_login(request, usuario)
-            if two_factor_required_for(usuario):
+            _mark_interactive_login(request, usuario, two_factor_verified=usuario.two_factor_enabled)
+            if two_factor_required_for(usuario) and not usuario.two_factor_enabled:
                 request.session['two_factor_setup_required'] = True
                 next_url = _pending_login_next(request)
                 if next_url:
@@ -835,7 +837,8 @@ def two_factor_challenge(request):
             else:
                 messages.success(request, f'Bem-vindo, {usuario.first_name or usuario.matricula}!')
             next_url = _safe_next_url(request, pending.get('next_url'))
-            return redirect(next_url or _home_url_name(usuario))
+            response = redirect(next_url or _home_url_name(usuario))
+            return trust_device_response(response, usuario)
         form.add_error('code', 'Código inválido ou já utilizado.')
 
     return render(request, 'accounts/two_factor_challenge.html', {'form': form, 'usuario': usuario})
@@ -871,7 +874,8 @@ def two_factor_setup(request):
                 link=reverse('two_factor_settings'),
             )
             messages.success(request, 'Autenticação em dois fatores ativada.')
-            return redirect('two_factor_recovery_codes')
+            response = redirect('two_factor_recovery_codes')
+            return trust_device_response(response, request.user)
 
     uri = provisioning_uri(secret, request.user)
     return render(
@@ -916,7 +920,8 @@ def two_factor_settings(request):
             link=reverse('two_factor_settings'),
         )
         messages.success(request, 'Novos códigos de recuperação gerados. Os anteriores foram invalidados.')
-        return redirect('two_factor_recovery_codes')
+        response = redirect('two_factor_recovery_codes')
+        return trust_device_response(response, request.user)
 
     return render(
         request,

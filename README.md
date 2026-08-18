@@ -105,6 +105,7 @@ python -m ruff check .
      - Gere o hash com `python manage.py hash_api_key sua-chave-com-32-caracteres-ou-mais`
    - `ITAM_ADMIN_2FA_REQUIRED=True` para exigir TOTP de administradores
    - `ITAM_TWO_FACTOR_ENCRYPTION_KEY=...` para usar uma chave dedicada na criptografia dos segredos TOTP
+   - `ITAM_TWO_FACTOR_TRUST_DAYS=30` para lembrar o navegador apos confirmar o Authenticator
 
 4. Inicie o Redis local com Docker Desktop:
 

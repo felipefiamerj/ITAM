@@ -116,7 +116,7 @@ Para executar em varios horarios no mesmo dia:
 
 Administradores tambem podem ajustar a retencao, adicionar horarios, executar um backup imediato e consultar o historico em **Conta > Backups**. Backups completos, integres e com ate 30 dias aparecem como pontos de restauracao; a operacao exige a palavra de confirmacao, a senha atual e um codigo 2FA valido, e cria antes uma copia de seguranca do estado atual.
 
-Em producao, mantenha `ITAM_ADMIN_2FA_REQUIRED=True` e defina `ITAM_TWO_FACTOR_ENCRYPTION_KEY` com um segredo longo e estavel. A troca dessa chave invalida os autenticadores ja vinculados.
+Em producao, mantenha `ITAM_ADMIN_2FA_REQUIRED=True` e defina `ITAM_TWO_FACTOR_ENCRYPTION_KEY` com um segredo longo e estavel. `ITAM_TWO_FACTOR_TRUST_DAYS=30` lembra o navegador por 30 dias depois da confirmacao do Authenticator. A troca da chave de criptografia invalida os autenticadores ja vinculados.
 
 A tarefa roda com o usuario atual, inclusive na bateria, e usa `StartWhenAvailable` caso o computador esteja desligado no horario. Guarde tambem uma copia fora da maquina da aplicacao.
 

@@ -3,6 +3,7 @@ import shutil
 import tempfile
 
 import pyotp
+from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -15,6 +16,7 @@ from django.utils.http import urlsafe_base64_encode
 from accounts.models import NivelAcesso, Usuario
 from accounts.tokens import account_activation_token, password_recovery_token
 from accounts.two_factor import (
+    TRUSTED_DEVICE_COOKIE,
     activate_two_factor,
     decrypt_secret,
     encrypt_secret,
@@ -142,6 +144,39 @@ class AdminTwoFactorTests(TestCase):
         self.assertRedirects(challenge_response, reverse('dashboard'), fetch_redirect_response=False)
         self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
         self.assertEqual(self.client.session['two_factor_verified_user_id'], self.admin.pk)
+
+    def test_dispositivo_confiavel_pula_desafio_por_trinta_dias(self):
+        secret, _recovery_codes = self._enable_admin_two_factor()
+        self.client.post(reverse('login'), self._login_data(self.admin))
+        response = self.client.post(reverse('two_factor_challenge'), {'code': pyotp.TOTP(secret).now()})
+        self.assertIn(TRUSTED_DEVICE_COOKIE, response.cookies)
+
+        self.client.post(reverse('logout'))
+        login_response = self.client.post(reverse('login'), self._login_data(self.admin))
+
+        self.assertRedirects(login_response, reverse('dashboard'), fetch_redirect_response=False)
+        self.assertNotIn('two_factor_pending_login', self.client.session)
+        self.assertEqual(self.client.session['two_factor_verified_user_id'], self.admin.pk)
+
+    def test_dispositivo_confiavel_expira_quando_senha_muda(self):
+        secret, _recovery_codes = self._enable_admin_two_factor()
+        self.client.post(reverse('login'), self._login_data(self.admin))
+        self.client.post(reverse('two_factor_challenge'), {'code': pyotp.TOTP(secret).now()})
+        self.client.cookies.pop(settings.SESSION_COOKIE_NAME, None)
+        self.admin.set_password('NovaSenhaAdminForte123!')
+        self.admin.save(update_fields=['password', 'updated_at'])
+
+        response = self.client.post(
+            reverse('login'),
+            {
+                'form_type': 'login',
+                'login-username': self.admin.matricula,
+                'login-password': 'NovaSenhaAdminForte123!',
+            },
+        )
+
+        self.assertRedirects(response, reverse('two_factor_challenge'), fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', self.client.session)
 
     def test_codigo_totp_nao_pode_ser_reutilizado(self):
         secret, _recovery_codes = self._enable_admin_two_factor()
