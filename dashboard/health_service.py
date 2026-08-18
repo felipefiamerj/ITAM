@@ -468,11 +468,8 @@ def collect_health_diagnostics(source='manual'):
         _database_diagnostic(),
         _redis_diagnostic(),
         _celery_diagnostic(source),
-        _telemetry_diagnostic(),
         _disk_diagnostic(),
         _backup_diagnostic(),
-        _restore_validation_diagnostic(),
-        _security_diagnostic(),
     ]
 
 

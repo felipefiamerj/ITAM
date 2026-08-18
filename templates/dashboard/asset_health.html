@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Saúde dos ativos | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero-surface health-hero health-hero-info mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-4 flex-wrap">
+    <div>
+      <div class="hero-kicker"><i class="fa-solid fa-laptop"></i> Operação de ativos</div>
+      <h1 class="hero-title mb-2">Saúde dos ativos</h1>
+      <p class="hero-text mb-0">Notebooks e desktops com heartbeat, recursos, divergências e versão do agente.</p>
+    </div>
+    <a class="btn btn-light btn-lg" href="{% url 'system_health' %}">
+      <i class="fa-solid fa-server me-1"></i>Saúde do sistema
+    </a>
+  </div>
+</section>
+
+<section class="health-overview mb-4" aria-label="Resumo da saúde dos ativos">
+  <div class="health-overview-main">
+    <div class="health-overview-icon health-tone-info">
+      <i class="fa-solid fa-desktop" aria-hidden="true"></i>
+    </div>
+    <div>
+      <div class="section-kicker mb-2">Parque monitorável</div>
+      <h2 class="h4 mb-1">{{ telemetry.total_count }} notebook(s)/desktop(s)</h2>
+      <p class="text-muted mb-0">Janela de heartbeat esperada: {{ stale_minutes }} minutos.</p>
+    </div>
+  </div>
+  <div class="health-overview-counts" aria-label="Resumo dos ativos">
+    <div><strong>{{ telemetry.online_count }}</strong><span>Online</span></div>
+    <div><strong>{{ telemetry.offline_count }}</strong><span>Offline</span></div>
+    <div><strong>{{ telemetry.divergence_count }}</strong><span>Divergências</span></div>
+  </div>
+</section>
+
+<section class="health-telemetry asset-health-console mb-4" aria-labelledby="asset-health-title">
+  <div class="health-telemetry-header">
+    <div>
+      <div class="section-kicker mb-2">Telemetria operacional</div>
+      <h2 class="h5 mb-0" id="asset-health-title">Notebooks e desktops</h2>
+    </div>
+    <div class="health-telemetry-counts">
+      <span><strong>{{ telemetry.monitored_count }}</strong> monitorado(s)</span>
+      <span class="text-success-emphasis"><strong>{{ telemetry.healthy_count }}</strong> saudável(is)</span>
+      {% if telemetry.warning_count %}<span class="text-warning-emphasis"><strong>{{ telemetry.warning_count }}</strong> em atenção</span>{% endif %}
+      {% if telemetry.critical_count %}<span class="text-danger-emphasis"><strong>{{ telemetry.critical_count }}</strong> crítico(s)</span>{% endif %}
+      {% if telemetry.unknown_count %}<span><strong>{{ telemetry.unknown_count }}</strong> sem dados</span>{% endif %}
+    </div>
+  </div>
+  <div class="health-telemetry-layout">
+    <div class="health-telemetry-assets">
+      <div class="table-responsive">
+        <table class="table mb-0 align-middle asset-health-table">
+          <thead>
+            <tr>
+              <th>Patrimônio</th>
+              <th>Conexão</th>
+              <th>CPU</th>
+              <th>Memória</th>
+              <th>Disco</th>
+              <th>Bateria</th>
+              <th>Agente</th>
+              <th>Último sinal</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in telemetry.assets %}
+              <tr>
+                <td data-label="Patrimônio">
+                  <a class="fw-semibold" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}">{{ asset.equipment.id_patrimonio }}</a>
+                  <small class="d-block text-muted">{{ asset.equipment.tipo_display }}</small>
+                  <a class="btn btn-sm btn-outline-primary health-mobile-diagnosis d-md-none" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}#inventory-title">
+                    <i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Diagnóstico
+                  </a>
+                </td>
+                <td data-label="Conexão">
+                  <span class="health-status health-status-{{ asset.heartbeat_status }}">
+                    <span aria-hidden="true"></span>{{ asset.heartbeat_label }}
+                  </span>
+                </td>
+                <td data-label="CPU">{% include "dashboard/includes/asset_metric.html" with metric=asset.cpu %}</td>
+                <td data-label="Memória">{% include "dashboard/includes/asset_metric.html" with metric=asset.memory %}</td>
+                <td data-label="Disco">{% include "dashboard/includes/asset_metric.html" with metric=asset.disk %}</td>
+                <td data-label="Bateria">{% include "dashboard/includes/asset_metric.html" with metric=asset.battery %}</td>
+                <td data-label="Agente">
+                  <strong>{{ asset.equipment.last_telemetria_agente.nome|default:"-" }}</strong>
+                  <small class="d-block text-muted">{% if asset.agent_version %}v{{ asset.agent_version }}{% else %}-{% endif %}</small>
+                </td>
+                <td data-label="Último sinal" class="text-nowrap">{{ asset.equipment.last_seen_at|date:"d/m/Y H:i:s"|default:"Nunca" }}</td>
+                <td data-label="Ação" class="health-diagnosis-action d-none d-md-table-cell">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'detalhe_equipamento' asset.equipment.id_patrimonio %}#inventory-title">
+                    <i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Diagnóstico
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="9" class="text-center py-5 text-muted">Nenhum notebook ou desktop monitorado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="health-divergence-panel">
+      <div class="health-subsection-head">
+        <div>
+          <strong>Divergências ativas</strong>
+          <span>Memória, armazenamento, serial e usuário atual</span>
+        </div>
+      </div>
+      <div class="health-divergence-list">
+        {% for divergence in telemetry.divergences %}
+          <article class="health-divergence-item">
+            <div class="health-divergence-title">
+              <a href="{% url 'detalhe_equipamento' divergence.equipamento.id_patrimonio %}">{{ divergence.equipamento.id_patrimonio }}</a>
+              <span>{{ divergence.get_campo_display }}</span>
+            </div>
+            <dl>
+              <div><dt>Cadastro</dt><dd>{{ divergence.valor_cadastrado|default:"-" }}</dd></div>
+              <div><dt>Agente</dt><dd>{{ divergence.valor_detectado|default:"-" }}</dd></div>
+            </dl>
+            <div class="health-divergence-time">Conferido em {{ divergence.ultima_verificacao_em|date:"d/m/Y H:i:s" }}</div>
+          </article>
+        {% empty %}
+          <div class="health-empty-state">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span>Sem divergências para notebooks e desktops.</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% if metric %}
+  <span class="asset-metric asset-metric-{{ metric.status }}">
+    <strong>{{ metric.value }}</strong>
+    <small>{{ metric.caption }}</small>
+  </span>
+{% else %}
+  <span class="asset-metric asset-metric-unknown">
+    <strong>-</strong>
+    <small>Sem leitura</small>
+  </span>
+{% endif %}

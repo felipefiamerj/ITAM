@@ -17,7 +17,13 @@ from accounts.models import Usuario
 from chamados.models import Chamado, EtapaFluxoChamado, PrioridadeChamado, SLANivel, StatusChamado
 from chamados.views import painel_tecnico as painel_tecnico_view
 from equipamentos.health import build_telemetry_health
-from equipamentos.models import DivergenciaInventario, Equipamento, StatusEquipamento, StatusMonitoramento
+from equipamentos.models import (
+    DivergenciaInventario,
+    Equipamento,
+    StatusEquipamento,
+    StatusMonitoramento,
+    TipoEquipamento,
+)
 from estoque.models import reservas_ativas_queryset
 from estoque.views import estoque_view as estoque_workspace_view
 from itam.charting import build_choice_chart
@@ -506,7 +512,6 @@ def _health_component_cards(components):
         'database': ('fa-database', 'Dados'),
         'redis': ('fa-bolt', 'Tempo real'),
         'celery': ('fa-gears', 'Automacoes'),
-        'telemetry': ('fa-satellite-dish', 'Inventario'),
         'disk': ('fa-hard-drive', 'Servidor'),
         'backup': ('fa-box-archive', 'Continuidade'),
         'restore_validation': ('fa-clock-rotate-left', 'Recuperacao'),
@@ -540,24 +545,6 @@ def _health_component_cards(components):
             detail_lines = ['Cache e canais']
         elif component.component_key == 'celery':
             detail_lines = ['Worker e tarefas periodicas']
-        elif component.component_key == 'telemetry':
-            detail_lines = [
-                f'{details.get("online_count", 0)}/{details.get("monitored_count", 0)} online',
-                f'{details.get("active_agent_count", 0)} agente(s) ativo(s)',
-            ]
-            last_heartbeat_at = parse_datetime(details.get('last_heartbeat_at', ''))
-            if last_heartbeat_at:
-                if timezone.is_naive(last_heartbeat_at):
-                    last_heartbeat_at = timezone.make_aware(last_heartbeat_at, timezone.get_current_timezone())
-                heartbeat_label = timezone.localtime(last_heartbeat_at).strftime('%d/%m/%Y %H:%M:%S')
-                heartbeat_asset = details.get('last_heartbeat_asset')
-                if heartbeat_asset:
-                    heartbeat_label += f' - {heartbeat_asset}'
-                detail_lines.append(f'Último heartbeat: {heartbeat_label}')
-            if details.get('divergence_count'):
-                detail_lines.append(f'{details["divergence_count"]} divergencia(s) de inventario')
-            if details.get('stale_assets'):
-                detail_lines.append('Sem sinal: ' + ', '.join(details['stale_assets'][:3]))
 
         cards.append(
             {
@@ -577,17 +564,51 @@ def _health_component_cards(components):
     return cards
 
 
-def _health_telemetry_context():
+ASSET_HEALTH_TYPES = [
+    TipoEquipamento.DESKTOP_AVANCADO,
+    TipoEquipamento.DESKTOP_PADRAO,
+    TipoEquipamento.DESKTOP_PLUS,
+    TipoEquipamento.MACBOOK,
+    TipoEquipamento.NOTEBOOK_AVANCADO,
+    TipoEquipamento.NOTEBOOK_PADRAO,
+    TipoEquipamento.ULTRABOOK,
+]
+
+SYSTEM_HEALTH_COMPONENT_KEYS = ['database', 'redis', 'celery', 'disk', 'backup']
+
+
+def _agent_version(equipment):
+    payload = equipment.last_telemetria_payload if isinstance(equipment.last_telemetria_payload, dict) else {}
+    metadata = {}
+    if equipment.last_telemetria_agente and isinstance(equipment.last_telemetria_agente.metadata, dict):
+        metadata = equipment.last_telemetria_agente.metadata
+    for key in ('agent_version', 'agentVersion', 'version', 'versao_agente'):
+        value = payload.get(key) or metadata.get(key)
+        if value:
+            return str(value)
+    return ''
+
+
+def _metric_by_key(health, key):
+    for metric in health['metrics']:
+        if metric['key'] == key:
+            return metric
+    return None
+
+
+def _asset_health_context():
     stale_minutes = getattr(settings, 'ITAM_HEARTBEAT_STALE_MINUTES', 10)
     cutoff = timezone.now() - timedelta(minutes=stale_minutes)
-    active_divergences = DivergenciaInventario.objects.filter(ativa=True)
+    active_divergences = DivergenciaInventario.objects.filter(ativa=True, equipamento__tipo__in=ASSET_HEALTH_TYPES)
     divergence_count = active_divergences.count()
     divergence_counts = {
         item['equipamento_id']: item['total']
         for item in active_divergences.values('equipamento_id').annotate(total=Count('id'))
     }
+    assets_qs = Equipamento.objects.filter(tipo__in=ASSET_HEALTH_TYPES)
+    monitored_qs = assets_qs.filter(monitoramento_ativo=True)
     monitored = list(
-        Equipamento.objects.filter(monitoramento_ativo=True)
+        monitored_qs
         .select_related('last_telemetria_agente')
         .order_by('-last_seen_at', 'id_patrimonio')[:50]
     )
@@ -608,15 +629,21 @@ def _health_telemetry_context():
         else:
             heartbeat_status = SystemHealthStatus.UNKNOWN
             heartbeat_label = 'Sem status'
+        health = build_telemetry_health(
+            equipment,
+            divergence_count=divergence_counts.get(equipment.pk, 0),
+        )
         assets.append(
             {
                 'equipment': equipment,
                 'heartbeat_status': heartbeat_status,
                 'heartbeat_label': heartbeat_label,
-                'health': build_telemetry_health(
-                    equipment,
-                    divergence_count=divergence_counts.get(equipment.pk, 0),
-                ),
+                'health': health,
+                'cpu': _metric_by_key(health, 'cpu'),
+                'memory': _metric_by_key(health, 'memory'),
+                'disk': _metric_by_key(health, 'disk'),
+                'battery': _metric_by_key(health, 'battery'),
+                'agent_version': _agent_version(equipment),
             }
         )
 
@@ -630,7 +657,10 @@ def _health_telemetry_context():
         health_counts[asset['health']['status']] += 1
     return {
         'assets': assets,
-        'monitored_count': Equipamento.objects.filter(monitoramento_ativo=True).count(),
+        'total_count': assets_qs.count(),
+        'monitored_count': monitored_qs.count(),
+        'online_count': sum(asset['heartbeat_status'] == SystemHealthStatus.HEALTHY for asset in assets),
+        'offline_count': sum(asset['heartbeat_status'] == SystemHealthStatus.CRITICAL for asset in assets),
         'divergences': divergences,
         'divergence_count': divergence_count,
         'healthy_count': health_counts[SystemHealthStatus.HEALTHY],
@@ -690,11 +720,19 @@ def system_health_view(request):
                 messages.success(request, 'Teste de restauracao registrado.')
                 return redirect('system_health')
 
-    components = list(SystemHealthComponent.objects.all())
+    components = list(SystemHealthComponent.objects.filter(component_key__in=SYSTEM_HEALTH_COMPONENT_KEYS))
     newest_check = max((component.checked_at for component in components), default=None)
     if newest_check is None or newest_check < timezone.now() - timedelta(minutes=10):
-        components = perform_system_health_checks(source='manual')
-    events = list(SystemHealthEvent.objects.order_by('-occurred_at')[:50])
+        components = [
+            component
+            for component in perform_system_health_checks(source='manual')
+            if component.component_key in SYSTEM_HEALTH_COMPONENT_KEYS
+        ]
+    events = list(
+        SystemHealthEvent.objects
+        .filter(component_key__in=SYSTEM_HEALTH_COMPONENT_KEYS)
+        .order_by('-occurred_at')[:50]
+    )
     overall_status = overall_health_status(components)
     status_meta = {
         SystemHealthStatus.HEALTHY: {
@@ -724,12 +762,25 @@ def system_health_view(request):
         'last_checked_at': last_checked_at,
         'events': events[:20],
         'health_chart': _health_chart(events),
-        'telemetry': _health_telemetry_context(),
         'restore_validations': RestoreValidation.objects.select_related('recorded_by')[:10],
         'restore_form': restore_form,
         'has_restore_points': bool(backup_sets),
     }
     return render(request, 'dashboard/system_health.html', context)
+
+
+@login_required
+def asset_health_view(request):
+    if not request.user.is_operacional:
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    telemetry = _asset_health_context()
+    context = {
+        'telemetry': telemetry,
+        'stale_minutes': telemetry['stale_minutes'],
+    }
+    return render(request, 'dashboard/asset_health.html', context)
 
 
 @login_required

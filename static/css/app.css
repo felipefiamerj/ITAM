@@ -2811,6 +2811,10 @@ h6,
   background: linear-gradient(112deg, #123f73 0%, #65475a 58%, #9f3a38 100%);
 }
 
+.health-hero-info {
+  background: linear-gradient(112deg, #123f73 0%, #176f71 58%, #0f8b8d 100%);
+}
+
 .health-overview {
   display: flex;
   align-items: center;
@@ -2856,6 +2860,11 @@ h6,
 .health-tone-danger {
   color: #a92f2b;
   background: rgba(217, 72, 65, 0.13);
+}
+
+.health-tone-info {
+  color: #0f6670;
+  background: rgba(15, 139, 141, 0.13);
 }
 
 .health-overview-counts {
@@ -3193,6 +3202,46 @@ h6,
   max-width: 100%;
 }
 
+.asset-health-table th,
+.asset-health-table td {
+  vertical-align: middle;
+}
+
+.asset-metric {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 7rem;
+}
+
+.asset-metric strong,
+.asset-metric small {
+  display: block;
+}
+
+.asset-metric strong {
+  color: #102033;
+  font-size: 0.92rem;
+}
+
+.asset-metric small {
+  max-width: 10rem;
+  color: var(--app-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.asset-metric-warning strong {
+  color: #8a5b00;
+}
+
+.asset-metric-critical strong {
+  color: #a92f2b;
+}
+
+.asset-metric-unknown strong {
+  color: #667085;
+}
+
 .health-chart-wrap {
   height: 285px;
   min-height: 285px;
@@ -3305,6 +3354,10 @@ h6,
   }
 
   .health-telemetry-assets tbody td[data-label="Saúde"],
+  .health-telemetry-assets tbody td[data-label="CPU"],
+  .health-telemetry-assets tbody td[data-label="Memória"],
+  .health-telemetry-assets tbody td[data-label="Disco"],
+  .health-telemetry-assets tbody td[data-label="Bateria"],
   .health-telemetry-assets tbody td[data-label="Ação"] {
     grid-column: 1 / -1;
   }

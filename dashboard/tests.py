@@ -43,6 +43,7 @@ from .health_service import (
     _disk_diagnostic,
     _restore_validation_diagnostic,
     _telemetry_diagnostic,
+    collect_health_diagnostics,
     persist_health_diagnostics,
 )
 from .models import (
@@ -591,6 +592,14 @@ class SystemHealthServiceTests(TestCase):
         self.assertIn('sem confirmacao', diagnostic.summary)
         self.assertTrue(diagnostic.notify)
 
+    def test_diagnostico_do_sistema_fica_restrito_a_infraestrutura(self):
+        diagnostics = collect_health_diagnostics(source='manual')
+
+        self.assertEqual(
+            {diagnostic.key for diagnostic in diagnostics},
+            {'database', 'redis', 'celery', 'disk', 'backup'},
+        )
+
 
 class SystemHealthViewTests(TestCase):
     def setUp(self):
@@ -640,7 +649,7 @@ class SystemHealthViewTests(TestCase):
 
     @patch('dashboard.views.perform_system_health_checks')
     @patch('dashboard.views.list_backup_sets', return_value=[])
-    def test_central_mostra_heartbeat_e_divergencia_completa(self, _mock_backups, mock_checks):
+    def test_central_do_sistema_nao_mostra_telemetria_de_ativos(self, _mock_backups, mock_checks):
         mock_checks.return_value = self.components
         agente = AgenteMonitoramento.objects.create(nome='Agente Windows')
         equipamento = Equipamento.objects.create(
@@ -663,15 +672,68 @@ class SystemHealthViewTests(TestCase):
         response = self.client.get(reverse('system_health'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Agentes e heartbeats')
+        self.assertNotContains(response, 'Agentes e heartbeats')
+        self.assertNotContains(response, 'MON-004')
+        self.assertNotIn('telemetry', response.context)
+
+    def test_solicitante_nao_acessa_saude_dos_ativos(self):
+        self.client.force_login(self.viewer)
+
+        response = self.client.get(reverse('asset_health'))
+
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_saude_dos_ativos_mostra_metricas_e_divergencias(self):
+        agente = AgenteMonitoramento.objects.create(
+            nome='Agente Windows',
+            metadata={'agent_version': '1.4.2'},
+        )
+        equipamento = Equipamento.objects.create(
+            id_patrimonio='MON-004',
+            tipo='notebook_padrao',
+            numero_serie='SERIE-CADASTRO',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.ONLINE,
+            last_seen_at=self.now,
+            last_telemetria_agente=agente,
+            last_telemetria_payload={
+                'cpu_load_percent': 12,
+                'memory_total_mb': 16384,
+                'memory_free_mb': 8192,
+                'disk_free_percent': 45,
+                'battery_level': 88,
+            },
+        )
+        Equipamento.objects.create(
+            id_patrimonio='MOUSE-001',
+            tipo='mouse',
+            monitoramento_ativo=True,
+            monitoramento_status=StatusMonitoramento.ONLINE,
+            last_seen_at=self.now,
+        )
+        DivergenciaInventario.objects.create(
+            equipamento=equipamento,
+            campo='serial',
+            valor_cadastrado='SERIE-CADASTRO',
+            valor_detectado='SERIE-AGENTE',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('asset_health'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Saúde dos ativos')
         self.assertContains(response, 'MON-004')
+        self.assertNotContains(response, 'MOUSE-001')
         self.assertContains(response, 'Agente Windows')
-        self.assertContains(response, 'Diagnóstico')
-        self.assertEqual(response.context['telemetry']['warning_count'], 1)
-        self.assertContains(response, 'em atenção')
-        self.assertContains(response, timezone.localtime(self.now).strftime('%d/%m/%Y %H:%M:%S'))
+        self.assertContains(response, 'v1.4.2')
+        self.assertContains(response, '12%')
+        self.assertContains(response, '50% livre')
+        self.assertContains(response, '45% livre')
+        self.assertContains(response, '88%')
         self.assertContains(response, 'SERIE-CADASTRO')
         self.assertContains(response, 'SERIE-AGENTE')
+        self.assertEqual(response.context['telemetry']['warning_count'], 1)
 
     @patch('dashboard.views.perform_system_health_checks')
     @patch('dashboard.views.list_backup_sets', return_value=[])
